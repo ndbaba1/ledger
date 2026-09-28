@@ -378,27 +378,32 @@ export const posts: PublicPost[] = [
     tags: ['postgres', 'security', 'ai-agents'],
     summary:
       'Nobody granted DELETE on purpose — it came through ordinary role membership. Checking direct grants would never have shown it.',
-    context: 'PostgreSQL · a login provisioned for an AI agent · meant to be read-only',
+    context: 'PostgreSQL 15 · a login provisioned for an AI agent · meant to be read-only',
     sections: [
       {
         heading: 'Problem',
-        body: 'I provisioned a Postgres login for an AI agent that was supposed to be read-only. While investigating stale test data, the agent attempted a `DELETE`.',
+        body: 'I gave an AI agent a Postgres login, `agent_ro`, that was supposed to be read-only. While cleaning up stale test data it ran `DELETE FROM test_runs WHERE created_at < now() - interval \'30 days\'` — and the statement succeeded.',
       },
       {
-        heading: 'Why it was allowed',
-        body: 'The write access came through ordinary role membership: the login inherited privileges from a role that could write. Nobody had explicitly intended that, and looking at the login’s own grants didn’t reveal it.',
+        heading: 'Investigation',
+        kind: 'dead_ends',
+        body: [
+          '- Checked the table’s grants with `\\dp test_runs` — `agent_ro` only had `SELECT` listed.',
+          '- Suspected the agent’s tool had picked up a different connection string. Server logs showed the `DELETE` ran as `agent_ro`.',
+          '- Looked for a permissive row-level security policy. RLS wasn’t enabled on the table at all.',
+        ].join('\n'),
       },
       {
-        heading: 'What agent-db-scan resolves',
-        kind: 'list',
-        body: '- ownership\n- inherited roles\n- `PUBLIC` grants\n- default privileges on future objects',
+        heading: 'Root cause',
+        body: '`agent_ro` had been granted membership in `analytics`, which was itself a member of `app_writer`. Roles inherit by default, so the login picked up `DELETE` two hops away. A recursive query over `pg_auth_members` showed the full chain — something no single grant listing reveals.',
       },
       {
-        heading: 'How it stays safe',
-        body: '`agent-db-scan` resolves those effective privileges without writing to the database or reading table contents.',
+        heading: 'Solution',
+        body: 'Revoked the stray membership, set `NOINHERIT` on the login, and granted `SELECT` directly on the tables the agent needs. Then I wrote `agent-db-scan` to resolve a credential’s effective privileges — ownership, inherited roles, `PUBLIC` grants and default privileges on future objects — and run it in CI before any agent gets a login.',
       },
     ],
-    lesson: 'Audit what a credential can actually do, not what it was granted directly.',
+    result: { label: 'Tables agent_ro could write to', before: '14', after: '0' },
+    lesson: 'Audit what a credential can actually do, not what it was granted directly. Role inheritance makes those two different.',
     badges: [
       {
         label: 'Maintainer',

@@ -2252,7 +2252,6 @@ a.ref:hover {
   font-size: 16px;
   line-height: 1.7;
   color: var(--text);
-  max-width: 72ch;
 }
 .post-list {
   font-size: 16px;
@@ -2359,6 +2358,9 @@ a.ref:hover {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
   padding: 28px 48px 64px;
   min-width: 0;
 }
@@ -2394,7 +2396,6 @@ a.ref:hover {
   line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.02em;
-  max-width: 24ch;
   text-wrap: balance;
 }
 .post-head__meta {

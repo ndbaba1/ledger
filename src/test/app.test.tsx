@@ -96,7 +96,10 @@ describe('Ledger app', () => {
   it('renders a public post with its structure, evidence and more from the author', async () => {
     renderAt('#/u/engineernamzy/read-only-postgres-login-delete')
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('read-only')
-    expect(screen.getByText('Investigation')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Investigation' })).toBeInTheDocument()
+    expect(screen.getAllByText('Dead end —')).toHaveLength(3)
+    expect(screen.getByRole('heading', { name: 'Root cause' })).toBeInTheDocument()
+    expect(screen.getByText('Tables agent_ro could write to')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Lesson' })).toBeInTheDocument()
     const evidence = screen.getByRole('complementary', { name: 'Evidence and more write-ups' })
     expect(within(evidence).getByRole('link', { name: /Maintainer/ })).toHaveAttribute(
