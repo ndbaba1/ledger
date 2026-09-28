@@ -69,8 +69,8 @@ describe('Ledger app', () => {
 
   it('searches records from the search screen', async () => {
     const user = renderAt('#/search')
-    await user.type(await screen.findByLabelText('Search records', { selector: '#search-q' }), 'redis')
-    expect(await screen.findByText('1 record matching “redis”')).toBeInTheDocument()
+    await user.type(await screen.findByLabelText('Search records', { selector: '#search-q' }), 'eviction')
+    expect(await screen.findByText('1 record matching “eviction”')).toBeInTheDocument()
     expect(screen.getByText('Redis eviction dropped rate-limit keys during a traffic spike')).toBeInTheDocument()
   })
 
@@ -113,6 +113,15 @@ describe('Ledger app', () => {
     const steps = await screen.findAllByText('Dead end —')
     expect(steps).toHaveLength(2)
     expect(screen.getByText('Checkout p99')).toBeInTheDocument()
+  })
+
+  it('shows a design record with its architecture flow and alternatives', async () => {
+    renderAt('#/records/LR-220')
+    expect(await screen.findByText('System design')).toBeInTheDocument()
+    const flow = screen.getByRole('list', { name: 'Architecture: 4 steps' })
+    expect(within(flow).getAllByRole('listitem')).toHaveLength(4)
+    expect(screen.getAllByText('Rejected —')).toHaveLength(3)
+    expect(screen.getByRole('heading', { name: 'Constraints' })).toBeInTheDocument()
   })
 
   it('shows a not-found state for unknown records', async () => {

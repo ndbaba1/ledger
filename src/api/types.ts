@@ -24,7 +24,7 @@ export interface Workspace {
   connections: { provider: 'gitlab' | 'github' | 'slack'; label: string }[]
 }
 
-export type RecordType = 'incident' | 'investigation' | 'decision'
+export type RecordType = 'incident' | 'investigation' | 'decision' | 'design'
 
 export type SourceKind =
   | 'slack'
@@ -145,6 +145,10 @@ export interface TeamRecord {
   /** Environment line: versions, scale, the job involved. */
   context?: string
   result?: ResultMetric
+  /** Designs: the limits the design had to work within. */
+  constraints?: string[]
+  /** Designs: the main path through the system, one component per step. */
+  flow?: string[]
   /** Answers folded in from Q&A threads. */
   notes: string[]
   sources: Source[]
@@ -175,7 +179,7 @@ export interface Badge {
  * How a section renders: running text, a plain list, or a numbered list of
  * dead ends / rejected options. List bodies hold one "- " item per line.
  */
-export type PostSectionKind = 'text' | 'list' | 'dead_ends' | 'rejected'
+export type PostSectionKind = 'text' | 'list' | 'dead_ends' | 'rejected' | 'flow'
 
 export interface PostSection {
   heading: string

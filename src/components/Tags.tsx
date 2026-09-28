@@ -6,6 +6,7 @@ const TYPE_LABEL: Record<RecordType, string> = {
   incident: 'Incident',
   investigation: 'Investigation',
   decision: 'Decision',
+  design: 'Design',
 }
 
 export function TypeTag({ type }: { type: RecordType }) {

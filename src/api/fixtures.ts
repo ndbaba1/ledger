@@ -200,6 +200,63 @@ export const cases: OpenCase[] = [
 
 export const records: TeamRecord[] = [
   {
+    id: 'LR-220',
+    type: 'design',
+    title: 'Webhook delivery service with retries and a dead-letter queue',
+    tags: ['webhooks', 'redis', 'outbox'],
+    authorIds: [ME_ID, 'u_jordan'],
+    publishedAt: '2026-09-27T15:00:00Z',
+    symptom:
+      'Deliver customer webhooks reliably: at least once, in order per endpoint, and without an API request ever waiting on a customer’s server. The old path sent webhooks inline from api-server, so one slow endpoint slowed our whole API [S1].',
+    constraints: [
+      'About 2,000 events per second at peak, with bursts during month-end billing',
+      'No lost events across a deploy or a worker crash',
+      'Reuse Postgres and Redis — no new infrastructure this quarter',
+      'Customers must be able to see failed deliveries and replay them',
+    ],
+    rootCause:
+      'Write each event to an `outbox` table in the same transaction as the change that caused it. A relay tails the outbox and pushes events onto a Redis stream per partition. Delivery workers read the stream, sign each payload, and retry with exponential backoff for 24 hours before moving it to a dead-letter queue that customers can replay from the dashboard [S2] [S3].',
+    flow: [
+      'API writes the change and an `outbox` row in one transaction',
+      'Relay tails `outbox` onto a Redis stream',
+      'Workers sign and POST, retrying with backoff',
+      'Dead-letter queue with replay in the dashboard',
+    ],
+    ruledOut: [
+      'Kafka — the right tool at larger scale, but a new cluster to run for a two-person team.',
+      'Enqueueing a job right after commit — loses the event if the process dies between the two.',
+      'A managed webhook vendor — per-event pricing at our volume cost more than building it.',
+    ],
+    fix: 'Sent from both the old and new paths behind a flag for a week, compared delivery logs per endpoint, then moved customers over in 10% cohorts [S4]. Jordan R. built the replay screen in the final week.',
+    lesson: 'The outbox pattern gives you transactional delivery without a new broker. Start there before reaching for Kafka.',
+    context: 'Postgres 16 · Redis 7 streams · ~2k events/s at peak',
+    result: { label: 'Webhooks delivered on the first attempt', before: '92.1%', after: '99.7%' },
+    notes: [],
+    sources: [
+      { key: 'S1', kind: 'gitlab_issue', title: 'Issue #5102 · Webhooks block API requests', detail: 'description + 18 comments', status: 'fetched', hops: 0, excerpt: { kind: 'quotes', quotes: ['p99 on POST /invoices is 3s whenever one customer’s endpoint is slow', 'we need delivery off the request path entirely'] } },
+      { key: 'S2', kind: 'doc', title: 'RFC · Webhook delivery v2', detail: 'pasted by you · 4 sections used', status: 'pasted', hops: 0 },
+      { key: 'S3', kind: 'gitlab_mr', title: 'MR !2010 · Outbox relay', detail: 'merged · +412 −37', status: 'fetched', hops: 1, authoredByMe: true, excerpt: { kind: 'diff', file: 'db/migrate/20260902_create_outbox.rb', lines: [{ op: '+', text: 'create_table :outbox do |t|' }, { op: '+', text: '  t.string :topic, null: false' }, { op: '+', text: '  t.jsonb :payload, null: false' }, { op: '+', text: '  t.datetime :relayed_at, index: true' }, { op: '+', text: 'end' }] } },
+      { key: 'S4', kind: 'slack', title: '#webhooks-migration thread', detail: '26 messages · 4 people', status: 'fetched', hops: 1, excerpt: { kind: 'quotes', quotes: ['dual-send diff is clean for the first 10% cohort, moving to 30% tomorrow'] } },
+    ],
+    questions: [
+      {
+        id: 'q1',
+        authorId: 'u_priya',
+        authorRole: 'billing team',
+        body: 'How do you keep per-endpoint ordering when a delivery is being retried?',
+        at: '2026-09-28T10:20:00Z',
+        answer: {
+          authorId: ME_ID,
+          body: 'Each endpoint maps to one stream partition, and a worker holds the partition until the head event succeeds or moves to the dead-letter queue.',
+          at: '2026-09-28T11:05:00Z',
+        },
+      },
+    ],
+    history: [{ at: '2026-09-27T15:00:00Z', byId: ME_ID, summary: 'Published' }],
+    relatedIds: [],
+    promotedPostSlug: 'webhook-delivery-outbox-design',
+  },
+  {
     id: 'LR-212',
     type: 'incident',
     title: 'Checkout p99 latency hit 4.2s after the PgBouncer pool was halved',
@@ -345,6 +402,11 @@ export const records: TeamRecord[] = [
 
 /** Hand-tuned redaction rules for records that have them; others get defaults. */
 export const promotionRules: Record<string, RedactionRule[]> = {
+  'LR-220': [
+    { id: 'services', label: 'Service names', replacements: [{ match: 'api-server', with: 'our API' }], enabled: true },
+    { id: 'teammates', label: 'Teammate names', replacements: [{ match: 'Jordan R.', with: 'A teammate' }], enabled: true },
+    { id: 'workspace', label: 'Team name', replacements: [{ match: 'Platform Eng', with: 'The team' }], enabled: true },
+  ],
   'LR-212': [
     { id: 'services', label: 'Service names', replacements: [{ match: 'checkout-api', with: 'the checkout service' }], enabled: true },
     {

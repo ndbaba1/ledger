@@ -6,6 +6,7 @@ const KIND_LABEL: Record<RecordType, string> = {
   incident: 'Production incident',
   investigation: 'Investigation',
   decision: 'Architecture decision',
+  design: 'System design',
 }
 
 /** Sentence-case type pill used on posts and record cards. */
@@ -90,6 +91,22 @@ function SectionBody({ section, render }: { section: PostSection; render: (text:
               <span className={`steps__mark steps__mark--${kind}`}>{kind === 'dead_ends' ? 'Dead end —' : 'Rejected —'}</span>{' '}
               {render(item)}
             </span>
+          </li>
+        ))}
+      </ol>
+    )
+  }
+  if (kind === 'flow') {
+    return (
+      <ol className="flow" aria-label={`${section.heading}: ${items.length} steps`}>
+        {items.map((item, i) => (
+          <li key={i} className="flow__step">
+            <span className="flow__box">{render(item)}</span>
+            {i < items.length - 1 && (
+              <span className="flow__arrow" aria-hidden="true">
+                <Icon name="arrowRight" size={16} />
+              </span>
+            )}
           </li>
         ))}
       </ol>

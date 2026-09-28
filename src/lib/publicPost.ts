@@ -5,29 +5,45 @@ import { SECTION_LABELS } from './labels'
 import { redactToString } from './redact'
 
 /**
- * The public sections a record turns into, before redaction. Citations are
- * dropped because they point at private sources. For decisions, the decision
- * itself is shown up top (see `buildPost`), so it is not repeated here.
+ * A record's sections in reading order, for every type. `text` transforms
+ * each run of text (e.g. dropping private citations for a public post).
+ * Decisions show the decision itself up top, so it isn't repeated here.
  */
-export function rawPostSections(r: TeamRecord): PostSection[] {
-  const labels = SECTION_LABELS[r.type]
-  const c = removeCitations
-  const list = (items: string[]) => items.map((x) => `- ${c(x)}`).join('\n')
+export function sectionsFor(r: TeamRecord, text: (t: string) => string = (t) => t): PostSection[] {
+  const list = (items: string[]) => items.map((x) => `- ${text(x)}`).join('\n')
+  const notes: PostSection[] = r.notes.length ? [{ heading: 'Follow-ups', body: list(r.notes), kind: 'list' }] : []
+
+  if (r.type === 'design') {
+    return [
+      { heading: 'Goal', body: text(r.symptom), kind: 'text' },
+      ...(r.constraints?.length ? [{ heading: 'Constraints', body: list(r.constraints), kind: 'list' as const }] : []),
+      { heading: 'Design', body: text(r.rootCause), kind: 'text' },
+      ...(r.flow?.length ? [{ heading: 'Architecture', body: list(r.flow), kind: 'flow' as const }] : []),
+      ...(r.ruledOut.length ? [{ heading: 'Alternatives', body: list(r.ruledOut), kind: 'rejected' as const }] : []),
+      { heading: 'Rollout', body: text(r.fix), kind: 'text' },
+      ...notes,
+    ]
+  }
+  if (r.type === 'decision') {
+    return [
+      { heading: 'Context', body: text(r.symptom), kind: 'text' },
+      ...(r.ruledOut.length ? [{ heading: 'Options considered', body: list(r.ruledOut), kind: 'rejected' as const }] : []),
+      { heading: 'Consequences', body: text(r.fix), kind: 'text' },
+      ...notes,
+    ]
+  }
   return [
-    { heading: r.type === 'decision' ? 'Context' : 'Problem', body: c(r.symptom), kind: 'text' },
-    ...(r.ruledOut.length
-      ? [
-          {
-            heading: r.type === 'decision' ? 'Options considered' : 'Investigation',
-            body: list(r.ruledOut),
-            kind: r.type === 'decision' ? ('rejected' as const) : ('dead_ends' as const),
-          },
-        ]
-      : []),
-    ...(r.type === 'decision' ? [] : [{ heading: labels.rootCause, body: c(r.rootCause), kind: 'text' as const }]),
-    { heading: r.type === 'decision' ? 'Consequences' : 'Solution', body: c(r.fix), kind: 'text' },
-    ...(r.notes.length ? [{ heading: 'Follow-ups', body: list(r.notes), kind: 'list' as const }] : []),
+    { heading: 'Problem', body: text(r.symptom), kind: 'text' },
+    ...(r.ruledOut.length ? [{ heading: 'Investigation', body: list(r.ruledOut), kind: 'dead_ends' as const }] : []),
+    { heading: SECTION_LABELS[r.type].rootCause, body: text(r.rootCause), kind: 'text' },
+    { heading: 'Solution', body: text(r.fix), kind: 'text' },
+    ...notes,
   ]
+}
+
+/** The public sections of a record, before redaction: private citations removed. */
+export function rawPostSections(r: TeamRecord): PostSection[] {
+  return sectionsFor(r, removeCitations)
 }
 
 /** Every piece of text that will be published, for counting matches. */

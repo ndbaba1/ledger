@@ -2526,3 +2526,63 @@ a.evidence-list__body:hover .evidence-list__label {
     font-size: 16px;
   }
 }
+
+/* ---------- design type ---------- */
+
+.tag--design { color: #f5c07a; background: #2a1f10; border-color: #4f3a18; }
+.kind-pill--design { background: #2a1f10; color: #f5c07a; }
+
+.flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+}
+.flow__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.flow__box {
+  flex: 1;
+  display: block;
+  align-self: stretch;
+  min-height: 64px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.flow__step:first-child .flow__box {
+  border-color: #4f3a18;
+}
+.flow__step:last-child .flow__box {
+  border-color: var(--green-line);
+}
+.flow__arrow {
+  color: var(--faint);
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .flow {
+    flex-direction: column;
+  }
+  .flow__step {
+    flex-direction: column;
+    align-items: stretch;
+    flex-basis: auto;
+  }
+  .flow__arrow {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+}

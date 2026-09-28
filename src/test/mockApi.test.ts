@@ -26,13 +26,13 @@ describe('mock API: drafts', () => {
     await api.keepGapUnverified('d_4821', 'g2')
     const record = await api.approveDraft('d_4821')
 
-    expect(record.id).toBe('LR-214')
+    expect(record.id).toBe('LR-221')
     expect(record.ruledOut).toHaveLength(1)
     expect(record.notes).toEqual(['Cost review; we assumed checkout was over-provisioned.'])
     expect(record.publishedAt).toBe('2026-09-28T18:00:00.000Z')
 
     expect((await api.listDrafts()).map((d) => d.slug)).not.toContain('inc-4821')
-    expect((await api.listRecords())[0].id).toBe('LR-214')
+    expect((await api.listRecords())[0].id).toBe('LR-221')
   })
 
   it('adds a pasted link to the case file and rejects duplicates', async () => {
@@ -121,7 +121,8 @@ describe('mock API: promote to public', () => {
     const opts = { enabledRuleIds: ['services', 'teammates', 'links', 'workspace'], employerMode: 'hidden' as const }
     await api.publishPost('LR-212', opts)
     await api.publishPost('LR-212', opts)
-    expect((await api.getProfile('engineernamzy')).posts).toHaveLength(2)
+    // The seeded agent-db-scan and webhook design posts, plus this one.
+    expect((await api.getProfile('engineernamzy')).posts).toHaveLength(3)
   })
 })
 
@@ -142,7 +143,7 @@ describe('mock API: ask', () => {
 
   it('lets question-shaped searches match on meaningful words', async () => {
     const hits = await newApi().search('has redis eviction happened before?')
-    expect(hits.map((h) => h.record.id)).toEqual(['LR-190'])
+    expect(hits[0].record.id).toBe('LR-190')
   })
 
   it('lists the same records a question answer cites', async () => {
@@ -152,5 +153,27 @@ describe('mock API: ask', () => {
     const ids = hits.map((h) => h.record.id)
     for (const c of answer.citations) expect(ids).toContain(c.recordId)
     expect(answer.answer).toContain('In [1], a cost-cleanup MR')
+  })
+})
+
+describe('mock API: design records', () => {
+  it('seeds a redacted public post for the promoted design record', async () => {
+    const api = newApi()
+    const { post } = await api.getPost('engineernamzy', 'webhook-delivery-outbox-design')
+    expect(post.type).toBe('design')
+    expect(post.sections.map((s) => [s.heading, s.kind])).toEqual([
+      ['Goal', 'text'],
+      ['Constraints', 'list'],
+      ['Design', 'text'],
+      ['Architecture', 'flow'],
+      ['Alternatives', 'rejected'],
+      ['Rollout', 'text'],
+    ])
+    const { promotedFromRecordId, ...visible } = post
+    expect(promotedFromRecordId).toBe('LR-220')
+    const text = JSON.stringify(visible)
+    for (const secret of ['api-server', 'Jordan R.', '[S']) expect(text).not.toContain(secret)
+    expect(post.badges.map((b) => b.label)).toContain('Authored & merged the implementation')
+    expect(post.result?.after).toBe('99.7%')
   })
 })

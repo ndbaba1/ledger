@@ -17,6 +17,7 @@ const TABS: { key: RecordType | 'all'; label: string }[] = [
   { key: 'incident', label: 'Incidents' },
   { key: 'investigation', label: 'Investigations' },
   { key: 'decision', label: 'Decisions' },
+  { key: 'design', label: 'Designs' },
 ]
 
 export function ProfileScreen() {

@@ -13,6 +13,7 @@ const FILTERS: { key: RecordType | 'all'; label: string }[] = [
   { key: 'incident', label: 'Incidents' },
   { key: 'investigation', label: 'Investigations' },
   { key: 'decision', label: 'Decisions' },
+  { key: 'design', label: 'Designs' },
 ]
 
 const SUGGESTIONS = ['Has connection pool saturation happened before?', 'pgbouncer', 'redis', 'flaky ci']

@@ -109,6 +109,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
       incident: 'an earlier incident',
       investigation: 'an earlier investigation',
       decision: 'an earlier decision',
+      design: 'an earlier design',
     }
     return {
       id: 'record-ids',
@@ -146,12 +147,29 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     const when = monthYear(record.publishedAt)
     const host = source.kind.startsWith('github') ? 'GitHub' : 'GitLab'
     if ((source.kind === 'gitlab_mr' || source.kind === 'github_pr') && source.authoredByMe) {
-      return { label: 'Authored & merged the fix', detail: `private ${host} project · ${when}`, verified: true }
+      const what = record.type === 'design' ? 'the implementation' : record.type === 'decision' ? 'the change' : 'the fix'
+      return { label: `Authored & merged ${what}`, detail: `private ${host} project · ${when}`, verified: true }
     }
     if ((source.kind === 'gitlab_issue' || source.kind === 'github_issue') && source.hops === 0) {
-      return { label: 'Participated in the investigation', detail: when, verified: true }
+      const what = record.type === 'design' ? 'the design review' : record.type === 'decision' ? 'the decision' : 'the investigation'
+      return { label: `Participated in ${what}`, detail: when, verified: true }
     }
     return null
+  }
+
+  // Records that were promoted in the seed data get their public post built the same way publishing does.
+  for (const r of db.records) {
+    if (r.promotedPostSlug && !db.posts.some((p) => p.slug === r.promotedPostSlug)) {
+      db.posts.push(
+        buildPost(r, plannedRules(r), {
+          authorId: seed.ME_ID,
+          slug: r.promotedPostSlug,
+          publishedAt: r.publishedAt,
+          employerLine: undefined,
+          badges: r.sources.map((src) => badgeFor(src, r)).filter((b): b is Badge => b !== null),
+        }),
+      )
+    }
   }
 
   const api: LedgerApi = {
@@ -301,7 +319,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
             let score = 0
             let matched = 0
             for (const k of keywords) {
-              const s = (title.includes(k) ? 3 : 0) + (tags.includes(k) ? 2 : 0) + (body.includes(k) ? 1 : 0)
+              const s = (hasWord(title, k) ? 3 : 0) + (hasWord(tags, k) ? 2 : 0) + (hasWord(body, k) ? 1 : 0)
               score += s
               if (s) matched++
             }
@@ -411,6 +429,11 @@ export function keywordsOf(question: string): string[] {
         .filter((w) => w.length > 2 && !STOPWORDS.has(w)),
     ),
   ]
+}
+
+/** True when `word` starts a word in `text`, so "lag" matches "lagging" but not "flag". */
+function hasWord(text: string, word: string): boolean {
+  return new RegExp(`(^|[^a-z0-9_])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text)
 }
 
 function sentence(text: string): string {

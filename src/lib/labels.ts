@@ -34,6 +34,14 @@ export const SECTION_LABELS: Record<RecordType, SectionLabels> = {
     rootCause: 'Decision',
     fix: 'Consequences',
   },
+  design: {
+    summary: 'Goal',
+    timeline: 'Design trail',
+    symptom: 'Goal',
+    ruledOut: 'Alternatives',
+    rootCause: 'Design',
+    fix: 'Rollout',
+  },
 }
 
 export const TIMELINE_MARK: Record<TimelineKind, { label: string; tone: string } | null> = {

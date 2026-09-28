@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
-import type { ID, PostSection, Question, TeamRecord, User } from '../api/types'
+import type { ID, Question, TeamRecord, User } from '../api/types'
 import { useSession, useUsers } from '../app/session'
 import { Avatar, AvatarStack } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -10,8 +10,8 @@ import { SourceList } from '../components/SourceList'
 import { DraftedFrom } from '../components/SourceExcerpt'
 import { ErrorState, FieldError, Loading } from '../components/States'
 import { KindPill, PostContent } from '../components/PostContent'
+import { sectionsFor } from '../lib/publicPost'
 import { relativeTime, shortDate } from '../lib/format'
-import { SECTION_LABELS } from '../lib/labels'
 import { useMutation, useQuery } from '../lib/useAsync'
 
 type Tab = 'record' | 'sources'
@@ -149,7 +149,7 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
           {tab === 'record' && (
             <PostContent
               decision={record.type === 'decision' ? record.rootCause : undefined}
-              sections={recordSections(record)}
+              sections={sectionsFor(record).map((sec) => (sec.heading === 'Follow-ups' ? { ...sec, heading: 'From Q&A' } : sec))}
               result={record.result}
               lesson={record.lesson || undefined}
               render={(text) => <Inline text={text} />}
@@ -181,20 +181,6 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
   )
 }
 
-/** The record in the same section structure as a public post, with citations kept. */
-function recordSections(r: TeamRecord): PostSection[] {
-  const labels = SECTION_LABELS[r.type]
-  const list = (items: string[]) => items.map((x) => `- ${x}`).join('\n')
-  return [
-    { heading: r.type === 'decision' ? 'Context' : 'Problem', body: r.symptom },
-    ...(r.ruledOut.length
-      ? [{ heading: r.type === 'decision' ? 'Options considered' : 'Investigation', body: list(r.ruledOut), kind: r.type === 'decision' ? ('rejected' as const) : ('dead_ends' as const) }]
-      : []),
-    ...(r.type === 'decision' ? [] : [{ heading: labels.rootCause, body: r.rootCause }]),
-    { heading: r.type === 'decision' ? 'Consequences' : 'Solution', body: r.fix },
-    ...(r.notes.length ? [{ heading: 'From Q&A', body: list(r.notes), kind: 'list' as const }] : []),
-  ]
-}
 
 
 function afterPublish(at: string, publishedAt: string): string {
