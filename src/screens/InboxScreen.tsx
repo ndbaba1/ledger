@@ -8,10 +8,13 @@ import { useUsers } from '../app/session'
 import { relativeTime } from '../lib/format'
 import { stripInline } from '../lib/inline'
 import { useQuery } from '../lib/useAsync'
+import { KindPill } from '../components/PostContent'
+import { publishBlockers } from '../lib/writeups'
 
 export function InboxScreen() {
   const api = useApi()
   const drafts = useQuery(() => api.listDrafts(), [api])
+  const writeups = useQuery(() => api.listWriteups(), [api])
   const users = useUsers(drafts.data?.flatMap((d) => d.coAuthorIds) ?? [])
 
   return (
@@ -19,9 +22,47 @@ export function InboxScreen() {
       <header className="page-head">
         <div>
           <h1 className="page-title">Review inbox</h1>
-          <p className="page-sub">Drafts Ledger assembled from your work. Nothing is published until you approve it.</p>
+          <p className="page-sub">Drafts Ledger assembled from your work, and write-ups you started. Nothing is published until you approve it.</p>
         </div>
+        <Link to="/new" className="btn push-right hide-mobile">
+          <Icon name="plus" size={14} />
+          New write-up
+        </Link>
       </header>
+
+      {writeups.data && writeups.data.length > 0 && (
+        <section className="stack gap-10" aria-labelledby="yours-title">
+          <h2 id="yours-title" className="section-title">
+            Your write-ups
+          </h2>
+          <ul className="card-list">
+            {writeups.data.map((w) => {
+              const left = publishBlockers(w).length
+              return (
+                <li key={w.id}>
+                  <Link to={`/write/${w.id}`} className="card card--link">
+                    <div className="row gap-8 wrap">
+                      <KindPill type={w.type} />
+                      <span className={`status-pill status-pill--${w.status}`}>
+                        {w.status === 'proposed' ? 'Proposed' : w.status === 'shipped' ? 'Shipped' : 'Draft'}
+                      </span>
+                      <span className="mono muted small push-right">edited {relativeTime(w.updatedAt)}</span>
+                    </div>
+                    <h3 className="card-title">{w.title || 'Untitled write-up'}</h3>
+                    <span className={`small ${left ? 'text-amber' : 'text-green'}`}>
+                      {left ? `${left} thing${left === 1 ? '' : 's'} left before publishing` : 'Ready to publish'}
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      {drafts.data && drafts.data.length > 0 && (
+        <h2 className="section-title">Drafted from your work</h2>
+      )}
 
       {drafts.loading && !drafts.data && <Loading label="Loading drafts" />}
       {drafts.error && <ErrorState error={drafts.error} onRetry={drafts.reload} />}

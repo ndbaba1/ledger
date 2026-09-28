@@ -8,6 +8,8 @@ import { Loading } from './components/States'
 import { CasesScreen } from './screens/CasesScreen'
 import { DraftScreen } from './screens/DraftScreen'
 import { InboxScreen } from './screens/InboxScreen'
+import { NewWriteupScreen } from './screens/NewWriteupScreen'
+import { WriteupScreen } from './screens/WriteupScreen'
 import { PostScreen } from './screens/PostScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
 import { PromoteScreen } from './screens/PromoteScreen'
@@ -22,6 +24,8 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/inbox" replace />} />
         <Route path="inbox" element={<InboxScreen />} />
         <Route path="drafts/:id" element={<DraftScreen />} />
+        <Route path="new" element={<NewWriteupScreen />} />
+        <Route path="write/:id" element={<WriteupScreen />} />
         <Route path="cases" element={<CasesScreen />} />
         <Route path="records" element={<RecordsScreen />} />
         <Route path="records/:id" element={<RecordScreen />} />

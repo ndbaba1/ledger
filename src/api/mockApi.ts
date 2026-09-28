@@ -1,6 +1,7 @@
 import { NotFoundError, type LedgerApi } from './client'
 import * as seed from './fixtures'
 import type {
+  Writeup,
   AskAnswer,
   Badge,
   Draft,
@@ -17,6 +18,7 @@ import { isValidUrl, sourceFromUrl } from '../lib/sources'
 import { removeCitations, stripInline } from '../lib/inline'
 import { monthYear } from '../lib/format'
 import { buildPost, publishableTexts } from '../lib/publicPost'
+import { EMPTY_FIELDS, publishBlockers, toLines, writeupToRecord } from '../lib/writeups'
 
 export interface MockApiOptions {
   /** Artificial latency so loading states are visible. Use 0 in tests. */
@@ -54,6 +56,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     records: clone(seed.records),
     posts: clone(seed.posts),
     rules: clone(seed.promotionRules),
+    writeups: clone(seed.writeups),
   }
 
   const respond = <T,>(value: T): Promise<T> =>
@@ -71,6 +74,11 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     const r = db.records.find((x) => x.id === id)
     if (!r) throw new NotFoundError(`Record ${id}`)
     return r
+  }
+  const writeupById = (id: ID): Writeup => {
+    const w = db.writeups.find((x) => x.id === id)
+    if (!w) throw new NotFoundError(`Write-up ${id}`)
+    return w
   }
   const gapById = (draft: Draft, gapId: ID): Gap => {
     const g = draft.gaps.find((x) => x.id === gapId)
@@ -233,6 +241,84 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
       }),
 
     listCases: () => respond(db.cases),
+
+    listWriteups: () =>
+      respond(
+        db.writeups
+          .filter((w) => !w.publishedRecordId)
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      ),
+
+    createWriteup: (type) =>
+      run(() => {
+        const at = now().toISOString()
+        const w: Writeup = {
+          ...clone(EMPTY_FIELDS),
+          id: `w_${Date.now().toString(36)}${db.writeups.length}`,
+          type,
+          status: type === 'design' ? 'proposed' : 'draft',
+          evidence: [],
+          authorId: seed.ME_ID,
+          createdAt: at,
+          updatedAt: at,
+        }
+        db.writeups.unshift(w)
+        return w
+      }),
+
+    getWriteup: (id) => run(() => writeupById(id)),
+
+    saveWriteup: (id, fields) =>
+      run(() => {
+        const w = writeupById(id)
+        if (w.publishedRecordId) throw new Error('This write-up is already published.')
+        const clean = { ...fields }
+        // List fields arrive as arrays; drop blank items so the preview and record stay tidy.
+        for (const k of ['constraints', 'flow', 'ruledOut'] as const) {
+          if (clean[k]) clean[k] = toLines(clean[k]!.join('\n'))
+        }
+        Object.assign(w, clean, { updatedAt: now().toISOString() })
+        return w
+      }),
+
+    addWriteupEvidence: (id, url) =>
+      run(() => {
+        if (!isValidUrl(url)) throw new Error('That doesn’t look like a link. Paste a full https:// URL.')
+        const w = writeupById(id)
+        if (w.evidence.some((e) => e.url === url.trim())) throw new Error('That link is already attached.')
+        w.evidence.push(sourceFromUrl(url, w.evidence))
+        w.updatedAt = now().toISOString()
+        return w
+      }),
+
+    removeWriteupEvidence: (id, key) =>
+      run(() => {
+        const w = writeupById(id)
+        w.evidence = w.evidence.filter((e) => e.key !== key)
+        return w
+      }),
+
+    setWriteupStatus: (id, status) =>
+      run(() => {
+        const w = writeupById(id)
+        if (w.type !== 'design' && status !== 'draft') throw new Error('Only designs are proposed or shipped.')
+        if (w.type === 'design' && status === 'draft') throw new Error('A design is either proposed or shipped.')
+        w.status = status
+        w.updatedAt = now().toISOString()
+        return w
+      }),
+
+    publishWriteup: (id) =>
+      run(() => {
+        const w = writeupById(id)
+        if (w.publishedRecordId) return recordById(w.publishedRecordId)
+        const missing = publishBlockers(w)
+        if (missing.length) throw new Error(`Not ready to publish. Still needed: ${missing.join(', ')}.`)
+        const record = writeupToRecord(w, { id: nextRecordId(), publishedAt: now().toISOString(), authorId: seed.ME_ID })
+        db.records.unshift(record)
+        w.publishedRecordId = record.id
+        return record
+      }),
 
     listRecords: () => respond([...db.records].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))),
     getRecord: (id) => run(() => recordById(id)),

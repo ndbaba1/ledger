@@ -8,6 +8,9 @@ import type {
   PublishOptions,
   SearchHit,
   AskAnswer,
+  Writeup,
+  WriteupFields,
+  WriteupStatus,
   RecordType,
   TeamRecord,
   User,
@@ -34,6 +37,17 @@ export interface LedgerApi {
   approveDraft(draftId: ID): Promise<TeamRecord>
 
   listCases(): Promise<OpenCase[]>
+
+  /** Hand-written records: drafts, design proposals and shipped designs not yet published. */
+  listWriteups(): Promise<Writeup[]>
+  createWriteup(type: RecordType): Promise<Writeup>
+  getWriteup(id: ID): Promise<Writeup>
+  saveWriteup(id: ID, fields: Partial<WriteupFields>): Promise<Writeup>
+  addWriteupEvidence(id: ID, url: string): Promise<Writeup>
+  removeWriteupEvidence(id: ID, key: string): Promise<Writeup>
+  setWriteupStatus(id: ID, status: WriteupStatus): Promise<Writeup>
+  /** Fails with the list of what's missing when the write-up isn't ready. */
+  publishWriteup(id: ID): Promise<TeamRecord>
 
   listRecords(): Promise<TeamRecord[]>
   getRecord(id: ID): Promise<TeamRecord>

@@ -1,4 +1,5 @@
 import type {
+  Writeup,
   Draft,
   OpenCase,
   PublicPost,
@@ -475,5 +476,46 @@ export const posts: PublicPost[] = [
       },
     ],
     publishedAt: '2026-09-22T16:00:00Z',
+  },
+]
+
+/** A design written in Ledger before it was built; still a proposal. */
+export const writeups: Writeup[] = [
+  {
+    id: 'w_ratelimit',
+    type: 'design',
+    status: 'proposed',
+    title: 'Per-tenant rate limiting at the edge',
+    context: 'Envoy edge proxy · Redis 7 · ~40k requests/s at peak',
+    symptom:
+      'Stop one noisy tenant from degrading the API for everyone, without adding latency to normal requests. Today limits live in each service, so a burst reaches the database before anything says no.',
+    constraints: [
+      'Under 2 ms added at p99',
+      'Limits change without a deploy',
+      'Keep working if Redis is briefly unavailable (fail open, alert)',
+    ],
+    rootCause:
+      'Enforce limits in the Envoy edge proxy using the global rate-limit service, backed by the dedicated `noeviction` Redis from LR-190. Limits are keyed by tenant and route group and loaded from a config table the support team can edit.',
+    flow: ['Request hits Envoy', 'Rate-limit service checks tenant bucket', 'Redis counters (noeviction)', 'Allowed requests reach services'],
+    ruledOut: [
+      'Limits inside each service — a burst still costs a database round trip per request.',
+      'A CDN rate-limit rule — can’t key on tenant, only IP.',
+    ],
+    fix: '',
+    lesson: '',
+    evidence: [
+      {
+        key: 'S1',
+        kind: 'doc',
+        title: 'Doc · docs.google.com',
+        detail: 'added by you · link only',
+        status: 'linked',
+        url: 'https://docs.google.com/document/d/rate-limit-rfc',
+        hops: 0,
+      },
+    ],
+    authorId: ME_ID,
+    createdAt: '2026-09-25T14:00:00Z',
+    updatedAt: '2026-09-27T21:30:00Z',
   },
 ]

@@ -20,6 +20,8 @@ npm run build      # static build in dist/
 | --- | --- |
 | `#/inbox` | Review inbox — drafts assembled from your work |
 | `#/drafts/:slug` | Draft review — cited timeline, gaps to resolve, the case file of sources, approve & publish |
+| `#/new` | New write-up — pick incident, investigation, decision or design |
+| `#/write/:id` | Write-up editor — template fields, autosave, live preview, evidence, publish checklist; designs go Proposed → Shipped |
 | `#/cases` | Open cases still collecting sources |
 | `#/records` | Team records, newest first — incidents, investigations, decisions and system designs |
 | `#/records/:id` | Published record — "drafted from" evidence (PR diffs, Slack quotes), sources, history, Q&A with fold-into-record |

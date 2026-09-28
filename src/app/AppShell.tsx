@@ -50,6 +50,10 @@ export function AppShell() {
           </span>
           <Icon name="chevronsUpDown" size={14} />
         </button>
+        <Link to="/new" className="btn btn--primary sidebar__new">
+          <Icon name="plus" size={15} strokeWidth={2.5} />
+          <span className="sidebar__new-label">New write-up</span>
+        </Link>
         <nav className="sidebar__nav" aria-label="Primary">
           {items.map((item) => (
             <NavLink key={item.to} to={item.to} className="nav-link" title={item.label}>
@@ -89,6 +93,9 @@ export function AppShell() {
           </Link>
           <span className="topbar__workspace">{workspace.name}</span>
           <GlobalSearch />
+          <Link to="/new" className="icon-btn topbar__search-link topbar__new" aria-label="New write-up">
+            <Icon name="plus" size={20} />
+          </Link>
           <Link to="/search" className="icon-btn topbar__search-link" aria-label="Search">
             <Icon name="search" size={18} />
           </Link>

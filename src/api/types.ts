@@ -257,3 +257,32 @@ export interface AskAnswer {
   answer: string | null
   citations: { n: number; recordId: ID; title: string }[]
 }
+
+/** Where a hand-written write-up is: a working draft, a design proposal, or a design that has shipped. */
+export type WriteupStatus = 'draft' | 'proposed' | 'shipped'
+
+/** The fields a person fills in when writing a record by hand. */
+export interface WriteupFields {
+  title: string
+  context: string
+  symptom: string
+  constraints: string[]
+  rootCause: string
+  flow: string[]
+  ruledOut: string[]
+  fix: string
+  lesson: string
+  result?: ResultMetric
+}
+
+/** A record written in Ledger rather than drafted from sources. Private until published. */
+export interface Writeup extends WriteupFields {
+  id: ID
+  type: RecordType
+  status: WriteupStatus
+  evidence: Source[]
+  authorId: ID
+  createdAt: string
+  updatedAt: string
+  publishedRecordId?: ID
+}
