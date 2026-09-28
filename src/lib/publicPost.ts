@@ -6,25 +6,40 @@ import { redactToString } from './redact'
 
 /**
  * The public sections a record turns into, before redaction. Citations are
- * dropped because they point at private sources.
+ * dropped because they point at private sources. For decisions, the decision
+ * itself is shown up top (see `buildPost`), so it is not repeated here.
  */
 export function rawPostSections(r: TeamRecord): PostSection[] {
   const labels = SECTION_LABELS[r.type]
   const c = removeCitations
-  const sections: PostSection[] = [
-    { heading: labels.symptom, body: c(r.symptom) },
-    ...(r.ruledOut.length ? [{ heading: labels.ruledOut, body: r.ruledOut.map((x) => `- ${c(x)}`).join('\n') }] : []),
-    { heading: labels.rootCause, body: c(r.rootCause) },
-    { heading: labels.fix, body: c(r.fix) },
-    ...(r.notes.length ? [{ heading: 'Follow-ups', body: r.notes.map((n) => `- ${c(n)}`).join('\n') }] : []),
-    ...(r.lesson ? [{ heading: 'The lesson', body: c(r.lesson) }] : []),
+  const list = (items: string[]) => items.map((x) => `- ${c(x)}`).join('\n')
+  return [
+    { heading: r.type === 'decision' ? 'Context' : 'Problem', body: c(r.symptom), kind: 'text' },
+    ...(r.ruledOut.length
+      ? [
+          {
+            heading: r.type === 'decision' ? 'Options considered' : 'Investigation',
+            body: list(r.ruledOut),
+            kind: r.type === 'decision' ? ('rejected' as const) : ('dead_ends' as const),
+          },
+        ]
+      : []),
+    ...(r.type === 'decision' ? [] : [{ heading: labels.rootCause, body: c(r.rootCause), kind: 'text' as const }]),
+    { heading: r.type === 'decision' ? 'Consequences' : 'Solution', body: c(r.fix), kind: 'text' },
+    ...(r.notes.length ? [{ heading: 'Follow-ups', body: list(r.notes), kind: 'list' as const }] : []),
   ]
-  return sections
 }
 
 /** Every piece of text that will be published, for counting matches. */
 export function publishableTexts(r: TeamRecord): string[] {
-  return [r.title, ...r.tags, ...rawPostSections(r).map((s) => s.body)]
+  return [
+    r.title,
+    ...r.tags,
+    ...rawPostSections(r).map((s) => s.body),
+    ...(r.type === 'decision' ? [removeCitations(r.rootCause)] : []),
+    ...(r.context ? [r.context] : []),
+    ...(r.lesson ? [r.lesson] : []),
+  ]
 }
 
 /** Apply redactions line by line so list markers survive. */
@@ -45,8 +60,9 @@ export function buildPost(
   rules: RedactionRule[],
   meta: Pick<PublicPost, 'slug' | 'publishedAt' | 'employerLine' | 'badges' | 'authorId'>,
 ): PublicPost {
+  const clean = (t: string) => redactToString(removeCitations(t), rules)
   const sections = rawPostSections(r)
-    .map((s) => ({ heading: s.heading, body: redactBody(s.body, rules) }))
+    .map((s) => ({ ...s, body: redactBody(s.body, rules) }))
     .filter((s) => s.body.length > 0)
   return {
     ...meta,
@@ -54,12 +70,17 @@ export function buildPost(
     title: redactToString(r.title, rules),
     // Tags that had to be rewritten into prose are dropped rather than published.
     tags: r.tags.filter((t) => redactToString(t, rules) === t),
-    summary: redactToString(removeCitations(r.lesson || r.rootCause), rules),
+    summary: clean(r.lesson || r.rootCause),
+    ...(r.context ? { context: clean(r.context) } : {}),
+    ...(r.type === 'decision' ? { decision: clean(r.rootCause) } : {}),
     sections,
+    ...(r.result ? { result: r.result } : {}),
+    ...(r.lesson ? { lesson: clean(r.lesson) } : {}),
     promotedFromRecordId: r.id,
   }
 }
 
-export function postMinutes(post: Pick<PublicPost, 'sections'>): number {
-  return readMinutes(wordCount(stripInline(post.sections.map((s) => s.body).join(' '))))
+export function postMinutes(post: Pick<PublicPost, 'sections' | 'decision' | 'lesson'>): number {
+  const text = [post.decision ?? '', ...post.sections.map((s) => s.body), post.lesson ?? ''].join(' ')
+  return readMinutes(wordCount(stripInline(text)))
 }

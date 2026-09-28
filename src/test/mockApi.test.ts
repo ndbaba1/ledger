@@ -91,6 +91,24 @@ describe('mock API: promote to public', () => {
     expect((await api.getRecord('LR-212')).promotedPostSlug).toBe(post.slug)
   })
 
+  it('replaces internal record IDs and publishes decisions with a decision summary', async () => {
+    const api = newApi()
+    const plan = await api.getPromotionPlan('LR-213')
+    const idRule = plan.rules.find((r) => r.id === 'record-ids')
+    expect(idRule?.replacements).toEqual([{ match: 'LR-212', with: 'an earlier incident' }])
+
+    const post = await api.publishPost('LR-213', { enabledRuleIds: plan.rules.map((r) => r.id), employerMode: 'hidden' })
+    // Only the owner-only back-reference may mention a record ID.
+    const { promotedFromRecordId, ...visible } = post
+    expect(promotedFromRecordId).toBe('LR-213')
+    expect(JSON.stringify(visible)).not.toMatch(/LR-\d+/)
+    expect(post.sections[0].body).toContain('which caused an earlier incident')
+    expect(post.decision).toMatch(/^Compute `default_pool_size`/)
+    expect(post.sections.map((s) => s.heading)).toEqual(['Context', 'Options considered', 'Consequences'])
+    expect(post.sections[1].kind).toBe('rejected')
+    expect(post.lesson).toMatch(/computed, not copied/)
+  })
+
   it('keeps text as written when a rule is turned off', async () => {
     const api = newApi()
     const post = await api.publishPost('LR-212', { enabledRuleIds: ['links', 'teammates', 'workspace'], employerMode: 'hidden' })

@@ -220,6 +220,8 @@ export const records: TeamRecord[] = [
     },
     fix: 'Reverted the pool size, then changed the Helm chart so pool size is derived from worker count. Platform Eng added an alert on waiting clients. Tracked in platform/checkout#4821.',
     lesson: 'Derive pool size from worker count, and alert on waiting clients — not on DB CPU.',
+    context: 'PostgreSQL 16 · PgBouncer in session mode · checkout-api at lunchtime peak',
+    result: { label: 'Checkout p99', before: '4.2s', after: '310ms' },
     notes: [],
     sources: [
       { key: 'S1', kind: 'slack', title: '#inc-checkout thread', detail: '41 messages · 5 people', status: 'fetched', hops: 1 , excerpt: { kind: 'quotes', quotes: ['scaled read replicas, p99 didn’t move. primary cpu is sitting at 41%', 'SHOW POOLS: cl_waiting keeps climbing and the pool is pinned at 20'] } },
@@ -293,6 +295,7 @@ export const records: TeamRecord[] = [
     ],
     fix: 'All services on the shared chart pick this up on their next deploy.',
     lesson: 'Configuration that depends on other configuration should be computed, not copied.',
+    context: 'Shared Helm chart · PgBouncer in front of every service',
     notes: [],
     sources: [
       { key: 'S1', kind: 'gitlab_mr', title: 'MR !1940 · Computed pool size', detail: 'merged', status: 'fetched', hops: 0, authoredByMe: true },
@@ -313,6 +316,7 @@ export const records: TeamRecord[] = [
     ruledOut: ['Leaked connections in a specific spec — failures moved around between runs.'],
     fix: 'Set the pool to 2 per test worker and raised `max_connections` on the CI image.',
     lesson: 'Random failures that move between tests usually mean shared resource limits, not test bugs.',
+    result: { label: 'CI failure rate', before: '1 in 8 runs', after: '0 in 200 runs' },
     notes: [],
     sources: [{ key: 'S1', kind: 'gitlab_mr', title: 'MR !1711', detail: 'merged', status: 'fetched', hops: 0 }],
     questions: [],
@@ -374,9 +378,10 @@ export const posts: PublicPost[] = [
     tags: ['postgres', 'security', 'ai-agents'],
     summary:
       'Nobody granted DELETE on purpose — it came through ordinary role membership. Checking direct grants would never have shown it.',
+    context: 'PostgreSQL · a login provisioned for an AI agent · meant to be read-only',
     sections: [
       {
-        heading: 'What happened',
+        heading: 'Problem',
         body: 'I provisioned a Postgres login for an AI agent that was supposed to be read-only. While investigating stale test data, the agent attempted a `DELETE`.',
       },
       {
@@ -384,14 +389,16 @@ export const posts: PublicPost[] = [
         body: 'The write access came through ordinary role membership: the login inherited privileges from a role that could write. Nobody had explicitly intended that, and looking at the login’s own grants didn’t reveal it.',
       },
       {
-        heading: 'What I built',
-        body: '`agent-db-scan` resolves a credential’s effective privileges:\n- ownership\n- inherited roles\n- `PUBLIC` grants\n- default privileges on future objects\nIt never writes to the database or reads table contents.',
+        heading: 'What agent-db-scan resolves',
+        kind: 'list',
+        body: '- ownership\n- inherited roles\n- `PUBLIC` grants\n- default privileges on future objects',
       },
       {
-        heading: 'The lesson',
-        body: 'Audit what a credential can actually do, not what it was granted directly.',
+        heading: 'How it stays safe',
+        body: '`agent-db-scan` resolves those effective privileges without writing to the database or reading table contents.',
       },
     ],
+    lesson: 'Audit what a credential can actually do, not what it was granted directly.',
     badges: [
       {
         label: 'Maintainer',

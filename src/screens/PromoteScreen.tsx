@@ -8,7 +8,9 @@ import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { PaneTabs } from '../components/PaneTabs'
 import { ErrorState, FieldError, Loading } from '../components/States'
-import { TypeTag, VerifiedBadge } from '../components/Tags'
+import { VerifiedBadge } from '../components/Tags'
+import { KindPill, PostContent } from '../components/PostContent'
+import { removeCitations } from '../lib/inline'
 import { publishableTexts, rawPostSections } from '../lib/publicPost'
 import { countMatches, redact } from '../lib/redact'
 import { useMutation, useQuery } from '../lib/useAsync'
@@ -175,29 +177,23 @@ function PromoteView({ record, plan }: { record: TeamRecord; plan: PromotionPlan
               </div>
             </div>
             <div className="row gap-8">
-              <TypeTag type={record.type} />
+              <KindPill type={record.type} />
             </div>
             <h2 className="doc-title">
               <Redacted text={record.title} rules={rules} />
             </h2>
-            {sections.map((s) => (
-              <section key={s.heading} className="stack gap-6">
-                <h3 className="eyebrow">{s.heading}</h3>
-                {s.body.includes('\n') || s.body.startsWith('- ') ? (
-                  <ul className="prose-list">
-                    {s.body.split('\n').map((line, i) => (
-                      <li key={i}>
-                        <Redacted text={line.replace(/^- /, '')} rules={rules} />
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="prose">
-                    <Redacted text={s.body} rules={rules} />
-                  </p>
-                )}
-              </section>
-            ))}
+            {record.context && (
+              <p className="small muted">
+                <Redacted text={record.context} rules={rules} />
+              </p>
+            )}
+            <PostContent
+              decision={record.type === 'decision' ? removeCitations(record.rootCause) : undefined}
+              sections={sections}
+              result={record.result}
+              lesson={record.lesson || undefined}
+              render={(text) => <Redacted text={text} rules={rules} />}
+            />
             {badges.length > 0 && (
               <div className="row gap-8 wrap">
                 {badges.map((b) => (

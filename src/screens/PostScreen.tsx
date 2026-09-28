@@ -5,19 +5,19 @@ import { PublicLayout } from '../app/PublicLayout'
 import { useSession } from '../app/session'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { RichBody } from '../components/Inline'
+import { Inline } from '../components/Inline'
+import { KindPill, PostContent } from '../components/PostContent'
 import { ErrorState, Loading } from '../components/States'
-import { TypeTag, VerifiedBadge } from '../components/Tags'
-import { useQuery } from '../lib/useAsync'
 import { shortDate } from '../lib/format'
 import { postMinutes } from '../lib/publicPost'
+import { useQuery } from '../lib/useAsync'
 
 export function PostScreen() {
   const { handle = '', slug = '' } = useParams()
   const api = useApi()
   const location = useLocation()
   const { me } = useSession()
-  const data = useQuery(() => api.getPost(handle, slug), [api, handle, slug])
+  const data = useQuery(() => Promise.all([api.getPost(handle, slug), api.getProfile(handle)]), [api, handle, slug])
   const [banner, setBanner] = useState(Boolean((location.state as { justPublished?: boolean } | null)?.justPublished))
 
   if (data.error)
@@ -26,77 +26,124 @@ export function PostScreen() {
         <ErrorState error={data.error} onRetry={data.reload} />
       </PublicLayout>
     )
-  if (!data.data)
+  if (!data.data || data.data[0].post.slug !== slug)
     return (
       <PublicLayout>
         <Loading label="Loading post" />
       </PublicLayout>
     )
 
-  const { post, author } = data.data
+  const [{ post, author }, profile] = data.data
   const isMe = author.id === me.id
+  const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
 
   return (
     <PublicLayout>
-      <article className="post">
-        <Link to={`/u/${author.handle}`} className="row gap-6 small muted back-link">
-          <Icon name="arrowLeft" size={14} /> @{author.handle}
-        </Link>
+      <div className="post-page">
+        <article className="post-main">
+          <nav className="post-crumbs" aria-label="Breadcrumb">
+            <Link to={`/u/${author.handle}`}>@{author.handle}</Link>
+            <span aria-hidden="true">/</span>
+            <span className="truncate" aria-current="page">
+              {post.title}
+            </span>
+          </nav>
 
-        {banner && (
-          <div className="banner banner--green" role="status">
-            <Icon name="check" size={16} />
-            <span>Your post is live. Share the link — the verification badges travel with it.</span>
-            <button type="button" className="icon-btn" aria-label="Dismiss" onClick={() => setBanner(false)}>
-              <Icon name="x" size={14} />
-            </button>
-          </div>
-        )}
-
-        <header className="stack gap-14">
-          <div className="row gap-8 wrap">
-            <TypeTag type={post.type} />
-            <span className="mono muted small">{post.tags.join(' · ')}</span>
-          </div>
-          <h1 className="post__title">{post.title}</h1>
-          <div className="row gap-10 wrap">
-            <Avatar user={author} size="md" />
-            <div className="stack">
-              <span className="strong">{author.name}</span>
-              <span className="mono small muted">
-                @{author.handle}
-                {post.employerLine && ` · ${post.employerLine}`} · <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time> · {postMinutes(post)} min read
-              </span>
-            </div>
-          </div>
-          {post.badges.length > 0 && (
-            <div className="row gap-8 wrap">
-              {post.badges.map((b) => (
-                <VerifiedBadge key={b.label + b.detail} label={b.label} detail={b.detail} url={b.url} />
-              ))}
+          {banner && (
+            <div className="banner banner--green" role="status">
+              <Icon name="check" size={16} />
+              <span>Your post is live. Share the link — the verification badges travel with it.</span>
+              <button type="button" className="icon-btn" aria-label="Dismiss" onClick={() => setBanner(false)}>
+                <Icon name="x" size={14} />
+              </button>
             </div>
           )}
-        </header>
 
-        <div className="stack gap-24 post__body">
-          {post.sections.map((s) => (
-            <section key={s.heading} className="stack gap-8">
-              <h2 className="post__h2">{s.heading}</h2>
-              <RichBody text={s.body} />
+          <header className="post-head">
+            <div className="row gap-12 wrap">
+              <KindPill type={post.type} />
+              {post.tags.length > 0 && <span className="post-head__tags">{post.tags.join(' · ')}</span>}
+            </div>
+            <h1 className="post-head__title">{post.title}</h1>
+            <div className="post-head__meta">
+              <Avatar user={author} size="sm" />
+              <span>
+                <strong className="text">{author.name}</strong>
+                {post.employerLine && ` ${post.employerLine}`} · published{' '}
+                <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time> · {postMinutes(post)} min read
+                {post.context && <> · {post.context}</>}
+              </span>
+            </div>
+          </header>
+
+          <PostContent
+            decision={post.decision}
+            sections={post.sections}
+            result={post.result}
+            lesson={post.lesson}
+            render={(text) => <Inline text={text} />}
+          />
+
+          {isMe && post.promotedFromRecordId && (
+            <div className="owner-bar">
+              <Icon name="lock" size={13} />
+              <span>
+                Only you see this · from team record <span className="mono">{post.promotedFromRecordId}</span>
+              </span>
+              <Link to={`/records/${post.promotedFromRecordId}/promote`} className="push-right">
+                Edit redactions
+              </Link>
+            </div>
+          )}
+        </article>
+
+        <aside className="post-rail" aria-label="Evidence and more write-ups">
+          {post.badges.length > 0 && (
+            <section className="stack gap-12" aria-labelledby="evidence-title">
+              <h2 id="evidence-title" className="post-section__label">
+                Evidence
+              </h2>
+              <ul className="evidence-list">
+                {post.badges.map((b) => {
+                  const body = (
+                    <>
+                      <span className="evidence-list__label">{b.label}</span>
+                      {b.detail && <span className="evidence-list__detail">{b.detail}</span>}
+                    </>
+                  )
+                  return (
+                    <li key={b.label + b.detail} className="evidence-list__item">
+                      <Icon name="check" size={15} strokeWidth={2.5} className="text-green" />
+                      {b.url ? (
+                        <a href={b.url} target="_blank" rel="noreferrer" className="evidence-list__body">
+                          {body}
+                        </a>
+                      ) : (
+                        <span className="evidence-list__body">{body}</span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="small muted">Checked against GitLab and GitHub when published. Private work is verified without showing the code or company.</p>
             </section>
-          ))}
-        </div>
+          )}
 
-        {isMe && post.promotedFromRecordId && (
-          <div className="panel row gap-10 wrap small">
-            <Icon name="lock" size={14} className="muted" />
-            <span className="muted">Only you see this: promoted from team record {post.promotedFromRecordId}.</span>
-            <Link to={`/records/${post.promotedFromRecordId}/promote`} className="push-right">
-              Edit redactions
-            </Link>
-          </div>
-        )}
-      </article>
+          {more.length > 0 && (
+            <section className="stack gap-12" aria-labelledby="more-title">
+              <h2 id="more-title" className="post-section__label">
+                More from @{author.handle}
+              </h2>
+              {more.map((p) => (
+                <Link key={p.slug} to={`/u/${author.handle}/${p.slug}`} className="more-card">
+                  <KindPill type={p.type} />
+                  <span className="more-card__title">{p.title}</span>
+                </Link>
+              ))}
+            </section>
+          )}
+        </aside>
+      </div>
     </PublicLayout>
   )
 }

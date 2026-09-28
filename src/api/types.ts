@@ -142,6 +142,9 @@ export interface TeamRecord {
   detection?: { language: string; code: string }
   fix: string
   lesson: string
+  /** Environment line: versions, scale, the job involved. */
+  context?: string
+  result?: ResultMetric
   /** Answers folded in from Q&A threads. */
   notes: string[]
   sources: Source[]
@@ -168,9 +171,23 @@ export interface Badge {
   url?: string
 }
 
+/**
+ * How a section renders: running text, a plain list, or a numbered list of
+ * dead ends / rejected options. List bodies hold one "- " item per line.
+ */
+export type PostSectionKind = 'text' | 'list' | 'dead_ends' | 'rejected'
+
 export interface PostSection {
   heading: string
   body: string
+  kind?: PostSectionKind
+}
+
+/** A before/after measurement, e.g. "Query time: 1.6s → 40ms". */
+export interface ResultMetric {
+  label: string
+  before: string
+  after: string
 }
 
 export interface PublicPost {
@@ -180,7 +197,13 @@ export interface PublicPost {
   title: string
   tags: string[]
   summary: string
+  /** Environment line: versions, scale, the job involved. */
+  context?: string
+  /** For decisions: what was decided, shown up top. */
+  decision?: string
   sections: PostSection[]
+  result?: ResultMetric
+  lesson?: string
   badges: Badge[]
   publishedAt: string
   /** Employer line shown on the post, if the author chose to show one. */

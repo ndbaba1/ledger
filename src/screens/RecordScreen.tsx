@@ -1,7 +1,7 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
-import type { ID, Question, TeamRecord, User } from '../api/types'
+import type { ID, PostSection, Question, TeamRecord, User } from '../api/types'
 import { useSession, useUsers } from '../app/session'
 import { Avatar, AvatarStack } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -9,7 +9,7 @@ import { Inline } from '../components/Inline'
 import { SourceList } from '../components/SourceList'
 import { DraftedFrom } from '../components/SourceExcerpt'
 import { ErrorState, FieldError, Loading } from '../components/States'
-import { TypeTag } from '../components/Tags'
+import { KindPill, PostContent } from '../components/PostContent'
 import { relativeTime, shortDate } from '../lib/format'
 import { SECTION_LABELS } from '../lib/labels'
 import { useMutation, useQuery } from '../lib/useAsync'
@@ -38,7 +38,6 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
     ...record.history.map((h) => h.byId),
   ])
   const authors = record.authorIds.map((uid) => users.get(uid)).filter((u) => u !== undefined)
-  const labels = SECTION_LABELS[record.type]
   const isAuthor = record.authorIds.includes(me.id)
 
   const copyLink = async () => {
@@ -92,13 +91,10 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
       <div className="split split--record">
         <article className="split__main">
           <header className="stack gap-12">
-            <div className="row gap-8 wrap">
-              <TypeTag type={record.type} />
-              {record.tags.map((t) => (
-                <span key={t} className="mono muted small">
-                  {t}
-                </span>
-              ))}
+            <div className="row gap-12 wrap">
+              <KindPill type={record.type} />
+              <span className="small muted strong">Team-visible</span>
+              <span className="mono muted small">{record.tags.join(' · ')}</span>
             </div>
             <h1 className="doc-title doc-title--lg">{record.title}</h1>
             <div className="row gap-10 wrap small muted">
@@ -106,6 +102,12 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
               <span>{authors.map((a) => a.name).join(', ')}</span>
               <span aria-hidden="true">·</span>
               <span>published {shortDate(record.publishedAt)}</span>
+              {record.context && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{record.context}</span>
+                </>
+              )}
               {record.history.length > 1 && (
                 <>
                   <span aria-hidden="true">·</span>
@@ -145,60 +147,23 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
           </div>
 
           {tab === 'record' && (
-            <div className="stack gap-22">
-              <div className="grid-2">
-                <Callout label={labels.symptom}>
-                  <Inline text={record.symptom} />
-                </Callout>
-                <Callout label={labels.rootCause}>
-                  <Inline text={record.rootCause} />
-                </Callout>
-              </div>
-              {record.ruledOut.length > 0 && (
-                <section className="stack gap-8">
-                  <h2 className="section-title">{labels.ruledOut}</h2>
-                  <ul className="prose-list">
-                    {record.ruledOut.map((r, i) => (
-                      <li key={i}>
-                        <Inline text={r} />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-              {record.detection && (
-                <section className="stack gap-8">
-                  <h2 className="section-title">How to spot it next time</h2>
-                  <pre className="code-block">
-                    <code>{record.detection.code}</code>
-                  </pre>
-                </section>
-              )}
-              <section className="stack gap-8">
-                <h2 className="section-title">{labels.fix}</h2>
-                <p className="prose">
-                  <Inline text={record.fix} />
-                </p>
-              </section>
-              {record.notes.length > 0 && (
-                <section className="stack gap-8">
-                  <h2 className="section-title">From Q&amp;A</h2>
-                  <ul className="prose-list">
-                    {record.notes.map((n, i) => (
-                      <li key={i}>
-                        <Inline text={n} />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-              {record.lesson && (
-                <div className="lesson">
-                  <span className="eyebrow eyebrow--amber">The lesson</span>
-                  <p className="prose">{record.lesson}</p>
-                </div>
-              )}
-            </div>
+            <PostContent
+              decision={record.type === 'decision' ? record.rootCause : undefined}
+              sections={recordSections(record)}
+              result={record.result}
+              lesson={record.lesson || undefined}
+              render={(text) => <Inline text={text} />}
+              extra={
+                record.detection && (
+                  <section className="post-section">
+                    <h2 className="post-section__label">How to spot it next time</h2>
+                    <pre className="code-block">
+                      <code>{record.detection.code}</code>
+                    </pre>
+                  </section>
+                )
+              }
+            />
           )}
 
           {tab === 'sources' && <SourceList sources={record.sources} showExcerpts />}
@@ -216,14 +181,21 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
   )
 }
 
-function Callout({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="card stack gap-6">
-      <span className="eyebrow">{label}</span>
-      <p className="prose prose--sm">{children}</p>
-    </div>
-  )
+/** The record in the same section structure as a public post, with citations kept. */
+function recordSections(r: TeamRecord): PostSection[] {
+  const labels = SECTION_LABELS[r.type]
+  const list = (items: string[]) => items.map((x) => `- ${x}`).join('\n')
+  return [
+    { heading: r.type === 'decision' ? 'Context' : 'Problem', body: r.symptom },
+    ...(r.ruledOut.length
+      ? [{ heading: r.type === 'decision' ? 'Options considered' : 'Investigation', body: list(r.ruledOut), kind: r.type === 'decision' ? ('rejected' as const) : ('dead_ends' as const) }]
+      : []),
+    ...(r.type === 'decision' ? [] : [{ heading: labels.rootCause, body: r.rootCause }]),
+    { heading: r.type === 'decision' ? 'Consequences' : 'Solution', body: r.fix },
+    ...(r.notes.length ? [{ heading: 'From Q&A', body: list(r.notes), kind: 'list' as const }] : []),
+  ]
 }
+
 
 function afterPublish(at: string, publishedAt: string): string {
   // Count calendar days, so an edit the next morning reads as "1 day after".

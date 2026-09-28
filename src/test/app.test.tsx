@@ -93,6 +93,25 @@ describe('Ledger app', () => {
     expect(within(panel).getByText('Linked evidence')).toBeInTheDocument()
   })
 
+  it('renders a public post with its structure, evidence and more from the author', async () => {
+    renderAt('#/u/engineernamzy/read-only-postgres-login-delete')
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('read-only')
+    expect(screen.getByText('Investigation')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Lesson' })).toBeInTheDocument()
+    const evidence = screen.getByRole('complementary', { name: 'Evidence and more write-ups' })
+    expect(within(evidence).getByRole('link', { name: /Maintainer/ })).toHaveAttribute(
+      'href',
+      'https://github.com/vaultkit-inc/agent-db-scan',
+    )
+  })
+
+  it('shows a record as numbered dead ends with a result', async () => {
+    renderAt('#/records/LR-212')
+    const steps = await screen.findAllByText('Dead end —')
+    expect(steps).toHaveLength(2)
+    expect(screen.getByText('Checkout p99')).toBeInTheDocument()
+  })
+
   it('shows a not-found state for unknown records', async () => {
     renderAt('#/records/LR-999')
     expect(await screen.findByText('Not found')).toBeInTheDocument()

@@ -101,7 +101,32 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     return `LR-${max + 1}`
   }
 
+  /** Internal record IDs (LR-212) mean nothing outside the team; describe them instead. */
+  const recordIdRule = (record: TeamRecord): RedactionRule | null => {
+    const ids = [...new Set(publishableTexts(record).join(' ').match(/\bLR-\d+\b/g) ?? [])]
+    if (!ids.length) return null
+    const noun: Record<TeamRecord['type'], string> = {
+      incident: 'an earlier incident',
+      investigation: 'an earlier investigation',
+      decision: 'an earlier decision',
+    }
+    return {
+      id: 'record-ids',
+      label: 'Internal record IDs',
+      replacements: ids.map((id) => {
+        const ref = db.records.find((x) => x.id === id)
+        return { match: id, with: ref ? noun[ref.type] : 'an earlier record' }
+      }),
+      enabled: true,
+    }
+  }
+
   const plannedRules = (record: TeamRecord): RedactionRule[] => {
+    const idRule = recordIdRule(record)
+    return [...baseRules(record), ...(idRule ? [idRule] : [])]
+  }
+
+  const baseRules = (record: TeamRecord): RedactionRule[] => {
     if (db.rules[record.id]) return clone(db.rules[record.id])
     const names = db.users
       .filter((u) => u.id !== seed.ME_ID && publishableTexts(record).some((t) => t.includes(u.name)))
