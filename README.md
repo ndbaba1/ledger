@@ -29,8 +29,10 @@ npm run build      # static build in dist/
 | `#/records/:id/promote` | Promote to public — live redaction preview, evidence → verified badges, employer display |
 | `#/search?q=` | Search by symptom, error, service; questions also get an "Ask Ledger" answer citing past records |
 | `#/search?mode=match` | Seen this before? — paste an alert, metric or error to find records with matching signals, plus a preview of the Slack reply |
-| `#/settings` | Team & settings — members and roles, email invites, invite link, join by company email, integrations, trigger label, publishing policy |
-| `#/join/:token` | Join page an invitee sees from an invite email or link |
+| `#/settings` | Team & settings — members and roles, invites by @username or email, former members, invite link, join by company email, integrations, trigger label, publishing policy |
+| `#/join/:token` | Join page an invitee sees from an invite (try `inv_mei` for a username invite, `inv_sam` for email) |
+
+Accounts belong to people, not companies. A Ledger account (username + GitHub login) joins a workspace as a membership with an optional work email. When someone leaves, the membership ends but the account stays: team records remain credited to them, their public posts stay on their profile, and they can be invited back by the same username.
 | `#/t/:tag` | Topic page — every public write-up on a topic, most-hit problems first, related topics |
 | `#/u/:handle` | Public profile with proof-of-work badges |
 | `#/u/:handle/:slug` | Public post — “I hit this too”, Ask the author (public once answered; author answers, dismisses or adds answers to the post) |

@@ -4047,3 +4047,64 @@ code.slack__text {
     justify-content: flex-start;
   }
 }
+
+/* Invite by username: suggestions under the invite box */
+.invite-box {
+  position: relative;
+}
+.suggest {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.suggest__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.suggest__item:hover:not(:disabled),
+.suggest__item:focus-visible {
+  background: var(--surface-3);
+}
+.suggest__item:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.suggest__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.member--former .member__name {
+  color: var(--text-3);
+}
+.author-left {
+  color: var(--faint);
+}
+@media (max-width: 767px) {
+  .member--former {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+  .member--former .member__actions {
+    grid-column: 2;
+    grid-row: auto;
+    justify-content: flex-start;
+  }
+}
+.author-link {
+  color: inherit;
+}
+.author-link:hover {
+  color: var(--text);
+}

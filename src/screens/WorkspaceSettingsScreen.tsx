@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
-import type { Integration, InviteResult, Member, WorkspaceRole, WorkspaceSettings } from '../api/types'
+import type { Integration, Invite, InviteResult, Member, WorkspaceRole, WorkspaceSettings } from '../api/types'
 import { useSession } from '../app/session'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -108,6 +108,7 @@ function MembersTab({
         {canManage && <InviteForm s={s} onChange={onChange} />}
         <MemberList s={s} canManage={canManage} onChange={onChange} recordCounts={recordCounts} />
         {s.invites.length > 0 && <PendingInvites s={s} canManage={canManage} onChange={onChange} />}
+        {s.formerMembers.length > 0 && <FormerMembers s={s} canManage={canManage} onChange={onChange} recordCounts={recordCounts} />}
       </div>
       <div className="stack gap-16">
         <InviteLinkCard s={s} canManage={canManage} onChange={onChange} />
@@ -117,13 +118,32 @@ function MembersTab({
   )
 }
 
+/** The token being typed at the end of the invite box, if it looks like a username. */
+function trailingHandle(text: string): string | null {
+  if (!text || /[\s,;]$/.test(text)) return null
+  const last = text.split(/[\s,;]+/).pop() ?? ''
+  const m = /^@?([a-z0-9_-]{2,})$/i.exec(last)
+  return m ? m[1].toLowerCase() : null
+}
+
 function InviteForm({ s, onChange }: { s: WorkspaceSettings; onChange: (s: WorkspaceSettings) => void }) {
   const api = useApi()
-  const [emails, setEmails] = useState('')
+  const [text, setText] = useState('')
   const [role, setRole] = useState<WorkspaceRole>('member')
   const [result, setResult] = useState<InviteResult>()
   const invite = useMutation((list: string[], r: WorkspaceRole) => api.inviteMembers(list, r))
-  const parsed = useMemo(() => emails.split(/[\s,;]+/).filter(Boolean), [emails])
+  const parsed = useMemo(() => text.split(/[\s,;]+/).filter(Boolean), [text])
+  const typing = trailingHandle(text)
+  const suggestions = useQuery(() => (typing ? api.findUsers(typing) : Promise.resolve([])), [api, typing])
+  const taken = new Set([...s.members.map((m) => m.user.id), ...s.invites.flatMap((i) => (i.user ? [i.user.id] : []))])
+  const options = (suggestions.data ?? []).filter((u) => !parsed.slice(0, -1).includes(`@${u.handle}`))
+  const domain = s.autoJoinDomain ?? 'northwind.dev'
+
+  const pick = (handle: string) => {
+    const head = text.replace(/@?[a-z0-9_-]*$/i, '')
+    setText(`${head}@${handle}, `)
+    document.getElementById('invite-targets')?.focus()
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -131,7 +151,7 @@ function InviteForm({ s, onChange }: { s: WorkspaceSettings; onChange: (s: Works
     if (res) {
       onChange(res.settings)
       setResult(res)
-      if (res.sent.length) setEmails(res.skipped.map((x) => x.email).join('\n'))
+      if (res.sent.length) setText(res.skipped.map((x) => x.target).join('\n'))
     }
   }
 
@@ -141,23 +161,44 @@ function InviteForm({ s, onChange }: { s: WorkspaceSettings; onChange: (s: Works
         <h2 id="invite-title" className="side-title">
           Invite your team
         </h2>
-        <p className="small muted">They’ll get an email with a link to join {s.workspace.name}. Invites expire after 14 days.</p>
+        <p className="small muted">
+          Already on Ledger? Invite them by <span className="mono text">@username</span>. Their account stays theirs, so if they leave{' '}
+          {s.workspace.company}, their public posts and profile go with them. New to Ledger? Use their work email.
+        </p>
       </div>
       <form className="stack gap-10" onSubmit={submit}>
-        <label htmlFor="invite-emails" className="label">
-          Email addresses
+        <label htmlFor="invite-targets" className="label">
+          Usernames or emails
         </label>
-        <textarea
-          id="invite-emails"
-          className="input input--lines"
-          rows={3}
-          placeholder={`sam@${s.autoJoinDomain ?? 'northwind.dev'}, kim@${s.autoJoinDomain ?? 'northwind.dev'}`}
-          value={emails}
-          onChange={(e) => {
-            setEmails(e.target.value)
-            invite.clearError()
-          }}
-        />
+        <div className="invite-box">
+          <textarea
+            id="invite-targets"
+            className="input input--lines"
+            rows={3}
+            placeholder={`@meiw, sam@${domain}`}
+            value={text}
+            autoComplete="off"
+            aria-describedby={options.length && typing ? 'invite-suggest' : undefined}
+            onChange={(e) => {
+              setText(e.target.value)
+              invite.clearError()
+            }}
+          />
+          {typing && options.length > 0 && (
+            <ul id="invite-suggest" className="suggest" aria-label="Ledger accounts">
+              {options.map((u) => (
+                <li key={u.id}>
+                  <button type="button" className="suggest__item" disabled={taken.has(u.id)} onClick={() => pick(u.handle)}>
+                    <Avatar user={u} size="xs" />
+                    <span className="suggest__name">{u.name}</span>
+                    <span className="mono small muted">@{u.handle}</span>
+                    {taken.has(u.id) && <span className="small muted push-right">already here</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="row gap-10 wrap">
           <label htmlFor="invite-role" className="small muted">
             Invite as
@@ -182,8 +223,8 @@ function InviteForm({ s, onChange }: { s: WorkspaceSettings; onChange: (s: Works
               </span>
             )}
             {result.skipped.map((x) => (
-              <span key={x.email} className="text-amber">
-                Skipped {x.email}: {x.reason}
+              <span key={x.target} className="text-amber">
+                Skipped {x.target}: {x.reason}
               </span>
             ))}
           </div>
@@ -249,7 +290,12 @@ function MemberRow({
           {m.user.name}
           {isMe && <span className="muted"> (you)</span>}
         </span>
-        <span className="mono small muted truncate">{m.email}</span>
+        <span className="small muted truncate">
+          <Link to={`/u/${m.user.handle}`} className="mono">
+            @{m.user.handle}
+          </Link>
+          {m.workEmail && <span className="hide-mobile"> · {m.workEmail}</span>}
+        </span>
       </div>
       <span className="member__stat small muted">
         {records} record{records === 1 ? '' : 's'}
@@ -312,7 +358,10 @@ function MemberRow({
         </div>
       )}
       {confirming && (
-        <p className="member__note small muted">Their records stay in the workspace. They lose access immediately.</p>
+        <p className="member__note small muted">
+          They lose access to the workspace now. {records ? `Their ${records} record${records === 1 ? ' stays' : 's stay'} here, still credited to` : 'Their account'}{' '}
+          <span className="mono">@{m.user.handle}</span>{records ? '' : ' stays theirs'}, and their public profile goes with them.
+        </p>
       )}
     </li>
   )
@@ -333,11 +382,21 @@ function PendingInvites({ s, canManage, onChange }: { s: WorkspaceSettings; canM
           const expired = new Date(inv.expiresAt).getTime() < now
           return (
             <li key={inv.id} className="member member--invite">
-              <span className="avatar avatar--sm member__pending" aria-hidden="true">
-                <Icon name="mail" size={14} />
-              </span>
+              {inv.user ? (
+                <Avatar user={inv.user} size="sm" />
+              ) : (
+                <span className="avatar avatar--sm member__pending" aria-hidden="true">
+                  <Icon name="mail" size={14} />
+                </span>
+              )}
               <div className="member__who">
-                <span className="member__name mono">{inv.email}</span>
+                {inv.user ? (
+                  <span className="member__name">
+                    {inv.user.name} <span className="mono small muted">@{inv.user.handle}</span>
+                  </span>
+                ) : (
+                  <span className="member__name mono">{inv.email}</span>
+                )}
                 <span className={`small ${expired ? 'text-amber' : 'muted'}`}>
                   {expired ? 'Expired' : `Sent ${relativeTime(inv.sentAt)}`} · {ROLE_LABEL[inv.role]}
                 </span>
@@ -377,8 +436,84 @@ function PendingInvites({ s, canManage, onChange }: { s: WorkspaceSettings; canM
       </ul>
       <FieldError message={resend.error ?? revoke.error} />
       <p className="small muted">
-        Preview what an invitee sees: <Link to={`/join/${s.invites[0].id}`}>open the invite for {s.invites[0].email}</Link>
+        Preview what an invitee sees: <Link to={`/join/${s.invites[0].id}`}>open the invite for {inviteLabel(s.invites[0])}</Link>
       </p>
+    </section>
+  )
+}
+
+function inviteLabel(inv: Invite): string {
+  return inv.user ? `@${inv.user.handle}` : (inv.email ?? 'invite')
+}
+
+/** People who left. Their accounts are theirs; the team keeps the records, still credited to them. */
+function FormerMembers({
+  s,
+  canManage,
+  onChange,
+  recordCounts,
+}: {
+  s: WorkspaceSettings
+  canManage: boolean
+  onChange: (s: WorkspaceSettings) => void
+  recordCounts: Map<string, number>
+}) {
+  const api = useApi()
+  const reinvite = useMutation((handle: string, role: WorkspaceRole) => api.inviteMembers([`@${handle}`], role))
+  const invited = new Set(s.invites.flatMap((i) => (i.user ? [i.user.id] : [])))
+  return (
+    <section className="stack gap-10" aria-labelledby="former-title">
+      <div className="stack gap-4">
+        <h2 id="former-title" className="eyebrow">
+          Former members · {s.formerMembers.length}
+        </h2>
+        <p className="small muted">
+          They no longer have access. Records they wrote stay here, still credited to their Ledger account, and their public
+          posts stay on their own profile.
+        </p>
+      </div>
+      <ul className="member-list">
+        {s.formerMembers.map((f) => {
+          const records = recordCounts.get(f.user.id) ?? 0
+          return (
+            <li key={f.user.id} className="member member--former">
+              <Avatar user={f.user} size="sm" />
+              <div className="member__who">
+                <span className="member__name">{f.user.name}</span>
+                <span className="small muted truncate">
+                  <Link to={`/u/${f.user.handle}`} className="mono">
+                    @{f.user.handle}
+                  </Link>{' '}
+                  · left {shortDate(f.leftAt)}
+                </span>
+              </div>
+              <span className="member__stat small muted">
+                {records} record{records === 1 ? '' : 's'} credited
+              </span>
+              {canManage && (
+                <div className="member__actions">
+                  {invited.has(f.user.id) ? (
+                    <span className="small muted">Invited back</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn--sm"
+                      disabled={reinvite.pending}
+                      onClick={async () => {
+                        const res = await reinvite.run(f.user.handle, f.role === 'owner' ? 'admin' : f.role)
+                        if (res) onChange(res.settings)
+                      }}
+                    >
+                      Invite back
+                    </button>
+                  )}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      <FieldError message={reinvite.error} />
     </section>
   )
 }

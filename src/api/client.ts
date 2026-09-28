@@ -80,7 +80,10 @@ export interface LedgerApi {
 
   /** Workspace admin. Owners and admins can change things; members can only read. */
   getWorkspaceSettings(): Promise<WorkspaceSettings>
-  inviteMembers(emails: string[], role: WorkspaceRole): Promise<InviteResult>
+  /** Each target is a Ledger username (`@handle`) or an email address. */
+  inviteMembers(targets: string[], role: WorkspaceRole): Promise<InviteResult>
+  /** Ledger accounts whose username or name starts with the query, for @-mention style invites. */
+  findUsers(query: string): Promise<User[]>
   resendInvite(inviteId: ID): Promise<WorkspaceSettings>
   revokeInvite(inviteId: ID): Promise<WorkspaceSettings>
   changeRole(userId: ID, role: WorkspaceRole): Promise<WorkspaceSettings>

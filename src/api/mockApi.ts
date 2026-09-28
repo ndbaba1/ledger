@@ -68,6 +68,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     publicQuestions: clone(seed.publicQuestions),
     hitsByMe: new Set(seed.hitsByMe),
     members: clone(seed.members),
+    formerMembers: clone(seed.formerMembers),
     invites: clone(seed.invites),
     integrations: clone(seed.integrations),
     policy: clone(seed.policy),
@@ -126,6 +127,13 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
 
 
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  /** `@Handle` and bare `handle` become `@handle`; emails are lowercased. */
+  const normalizeTarget = (raw: string) => {
+    const t = raw.trim().toLowerCase()
+    if (!t) return ''
+    if (t.startsWith('@')) return t
+    return t.includes('@') ? t : `@${t}`
+  }
   const DAY = 86_400_000
   const PROVIDER_NAME: Record<Integration['provider'], string> = { gitlab: 'GitLab', github: 'GitHub', slack: 'Slack' }
 
@@ -149,7 +157,13 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         .map(({ userId, ...m }) => ({ ...m, user: users.get(userId)! }))
         .filter((m) => m.user)
         .sort((a, b) => order[a.role] - order[b.role] || a.user.name.localeCompare(b.user.name)),
-      invites: [...db.invites].sort((a, b) => b.sentAt.localeCompare(a.sentAt)),
+      formerMembers: db.formerMembers
+        .map(({ userId, ...m }) => ({ ...m, user: users.get(userId)! }))
+        .filter((m) => m.user)
+        .sort((a, b) => b.leftAt.localeCompare(a.leftAt)),
+      invites: [...db.invites]
+        .sort((a, b) => b.sentAt.localeCompare(a.sentAt))
+        .map(({ userId, ...inv }): Invite => (userId ? { ...inv, user: users.get(userId) } : inv)),
       inviteLink: db.inviteLink,
       autoJoinDomain: db.autoJoinDomain,
       integrations: db.integrations,
@@ -613,32 +627,52 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
 
     getWorkspaceSettings: () => run(settings),
 
-    inviteMembers: (emails, role) =>
+    inviteMembers: (targets, role) =>
       run(() => {
         requireAdmin()
         if (role === 'owner' && myRole() !== 'owner') throw new Error('Only owners can invite other owners.')
-        const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))]
-        if (!wanted.length) throw new Error('Add at least one email address.')
+        const wanted = [...new Set(targets.map(normalizeTarget).filter(Boolean))]
+        if (!wanted.length) throw new Error('Add at least one username or email.')
         const sent: string[] = []
-        const skipped: { email: string; reason: string }[] = []
+        const skipped: { target: string; reason: string }[] = []
         const at = now()
-        for (const email of wanted) {
-          if (!EMAIL.test(email)) skipped.push({ email, reason: 'not a valid email' })
-          else if (db.members.some((m) => m.email === email)) skipped.push({ email, reason: 'already a member' })
-          else if (db.invites.some((i) => i.email === email)) skipped.push({ email, reason: 'already invited' })
+        const invite = (to: { userId?: string; email?: string }) =>
+          db.invites.push({
+            id: `inv_${Date.now().toString(36)}${db.invites.length}`,
+            ...to,
+            role,
+            invitedById: seed.ME_ID,
+            sentAt: at.toISOString(),
+            expiresAt: new Date(at.getTime() + 14 * DAY).toISOString(),
+          })
+        for (const target of wanted) {
+          if (target.startsWith('@')) {
+            const user = db.users.find((u) => u.handle.toLowerCase() === target.slice(1))
+            if (!user) skipped.push({ target, reason: 'no Ledger account with that username. Invite them by email instead' })
+            else if (db.members.some((m) => m.userId === user.id)) skipped.push({ target, reason: 'already a member' })
+            else if (db.invites.some((i) => i.userId === user.id)) skipped.push({ target, reason: 'already invited' })
+            else {
+              invite({ userId: user.id })
+              sent.push(target)
+            }
+          } else if (!EMAIL.test(target)) skipped.push({ target, reason: 'not a username or email' })
+          else if (db.members.some((m) => m.workEmail === target)) skipped.push({ target, reason: 'already a member' })
+          else if (db.invites.some((i) => i.email === target)) skipped.push({ target, reason: 'already invited' })
           else {
-            db.invites.push({
-              id: `inv_${Date.now().toString(36)}${db.invites.length}`,
-              email,
-              role,
-              invitedById: seed.ME_ID,
-              sentAt: at.toISOString(),
-              expiresAt: new Date(at.getTime() + 14 * DAY).toISOString(),
-            })
-            sent.push(email)
+            invite({ email: target })
+            sent.push(target)
           }
         }
         return { settings: settings(), sent, skipped }
+      }),
+
+    findUsers: (query) =>
+      run(() => {
+        const q = query.trim().toLowerCase().replace(/^@/, '')
+        if (!q) return []
+        return db.users
+          .filter((u) => u.handle.toLowerCase().startsWith(q) || u.name.toLowerCase().startsWith(q))
+          .slice(0, 5)
       }),
 
     resendInvite: (inviteId) =>
@@ -677,7 +711,11 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         const m = db.members.find((x) => x.userId === userId)
         if (!m) throw new NotFoundError('Member')
         if (m.role === 'owner' && myRole() !== 'owner') throw new Error('Only owners can remove owners.')
+        if (m.role === 'owner' && ownerCount() === 1) throw new Error('A workspace needs at least one owner.')
         db.members = db.members.filter((x) => x.userId !== userId)
+        // The account and its credit stay; only the membership ends.
+        db.formerMembers = db.formerMembers.filter((x) => x.userId !== userId)
+        db.formerMembers.push({ userId, role: m.role, joinedAt: m.joinedAt, leftAt: now().toISOString() })
         return settings()
       }),
 
@@ -740,7 +778,9 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
           role: inv?.role ?? 'member',
           memberCount: db.members.length,
           recordCount: db.records.length,
-          ...(inv ? { email: inv.email } : {}),
+          ...(inv?.email ? { email: inv.email } : {}),
+          ...(inv?.userId ? { invitee: db.users.find((u) => u.id === inv.userId) } : {}),
+          ...(inv?.userId && db.formerMembers.some((f) => f.userId === inv.userId) ? { rejoining: true } : {}),
         }
       }),
 
@@ -748,7 +788,15 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
       run(() => {
         const inv = db.invites.find((i) => i.id === token)
         if (!inv && !(db.inviteLink.enabled && token === db.inviteLink.token)) throw new NotFoundError('Invite')
-        if (inv) db.invites = db.invites.filter((i) => i.id !== inv.id)
+        if (inv && new Date(inv.expiresAt) < now()) throw new Error('This invite has expired. Ask a workspace admin to resend it.')
+        if (inv) {
+          db.invites = db.invites.filter((i) => i.id !== inv.id)
+          // Invited by username: the existing account joins (or rejoins) with all its history.
+          if (inv.userId && !db.members.some((m) => m.userId === inv.userId)) {
+            db.formerMembers = db.formerMembers.filter((f) => f.userId !== inv.userId)
+            db.members.push({ userId: inv.userId, role: inv.role, joinedAt: now().toISOString() })
+          }
+        }
         return db.workspace
       }),
 

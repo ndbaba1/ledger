@@ -40,6 +40,10 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
   ])
   const authors = record.authorIds.map((uid) => users.get(uid)).filter((u) => u !== undefined)
   const isAuthor = record.authorIds.includes(me.id)
+  // People who left keep their credit; they just can't answer questions here anymore.
+  const api = useApi()
+  const team = useQuery(() => api.getWorkspaceSettings(), [api])
+  const former = new Set(team.data?.formerMembers.map((f) => f.user.id) ?? [])
 
   const copyLink = async () => {
     try {
@@ -100,7 +104,17 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
             <h1 className="doc-title doc-title--lg">{record.title}</h1>
             <div className="row gap-10 wrap small muted">
               <AvatarStack users={authors} size="sm" />
-              <span>{authors.map((a) => a.name).join(', ')}</span>
+              <span>
+                {authors.map((a, i) => (
+                  <span key={a.id}>
+                    {i > 0 && ', '}
+                    <Link to={`/u/${a.handle}`} className="author-link">
+                      {a.name}
+                    </Link>
+                    {former.has(a.id) && <span className="author-left"> (left {workspace.company})</span>}
+                  </span>
+                ))}
+              </span>
               <span aria-hidden="true">·</span>
               <span>published {shortDate(record.publishedAt)}</span>
               {record.context && (
@@ -170,7 +184,7 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
           {tab === 'sources' && <SourceList sources={record.sources} showExcerpts />}
 
           <EditHistory record={record} users={users} />
-          <QuestionsPanel record={record} users={users} isAuthor={isAuthor} onChange={onChange} />
+          <QuestionsPanel record={record} users={users} isAuthor={isAuthor} former={former} onChange={onChange} />
         </article>
 
         <aside className="split__side" aria-label="Evidence and related records">
@@ -221,19 +235,23 @@ function QuestionsPanel({
   record,
   users,
   isAuthor,
+  former,
   onChange,
 }: {
   record: TeamRecord
   users: Map<ID, User>
   isAuthor: boolean
+  former: Set<ID>
   onChange: (r: TeamRecord) => void
 }) {
   const { me } = useSession()
   const api = useApi()
   const [body, setBody] = useState('')
   const ask = useMutation((text: string) => api.askQuestion(record.id, text))
-  // Questions go to the first author who isn't you.
-  const respondent = record.authorIds.filter((id) => id !== me.id).map((id) => users.get(id))[0]
+  // Questions go to the first author who isn't you and is still on the team.
+  const respondent = record.authorIds
+    .filter((id) => id !== me.id && !former.has(id))
+    .map((id) => users.get(id))[0]
   const respondentFirst = respondent?.name.split(' ')[0]
   const plural = record.authorIds.length > 1
 

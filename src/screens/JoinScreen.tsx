@@ -42,8 +42,14 @@ export function JoinScreen() {
             <div className="row gap-10">
               <Avatar user={preview.data.invitedBy} size="md" />
               <span className="small muted">
-                <strong className="text">{preview.data.invitedBy.name}</strong> invited you
-                {preview.data.email ? (
+                <strong className="text">{preview.data.invitedBy.name}</strong>{' '}
+                {preview.data.rejoining ? 'invited you back' : 'invited you'}
+                {preview.data.invitee ? (
+                  <>
+                    {' '}
+                    as <span className="mono text">@{preview.data.invitee.handle}</span>
+                  </>
+                ) : preview.data.email ? (
                   <>
                     {' '}
                     as <span className="mono text">{preview.data.email}</span>
@@ -72,9 +78,15 @@ export function JoinScreen() {
             </ul>
             <FieldError message={accept.error} />
             <button type="button" className="btn btn--primary join__cta" onClick={join} disabled={accept.pending}>
-              {accept.pending ? 'Joining…' : 'Join with GitHub'}
+              {accept.pending ? 'Joining…' : preview.data.invitee ? `Join as @${preview.data.invitee.handle}` : 'Join with GitHub'}
             </button>
-            <p className="small muted">Your public profile stays yours if you leave the company. Team records stay with the team.</p>
+            <p className="small muted">
+              {preview.data.invitee
+                ? 'Your account, username and public posts stay yours.'
+                : 'You’ll pick a username when you sign in. It’s yours, not the company’s.'}{' '}
+              If you leave {preview.data.company}, the team keeps its records, still credited to you, and your public profile goes
+              with you.
+            </p>
           </div>
         )}
       </div>

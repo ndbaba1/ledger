@@ -1,4 +1,5 @@
 import type {
+  FormerMember,
   Invite,
   Member,
   Integration,
@@ -396,7 +397,7 @@ export const records: TeamRecord[] = [
     type: 'investigation',
     title: 'Flaky CI: the Postgres test database ran out of connections under parallel specs',
     tags: ['ci', 'postgres', 'rspec'],
-    authorIds: ['u_amara'],
+    authorIds: ['u_amara', 'u_hannah'],
     publishedAt: '2026-08-14T15:00:00Z',
     symptom: 'About 1 in 8 CI runs failed with “too many clients already”, always in different specs.',
     rootCause: 'Parallel test workers each opened a pool of 10, exceeding `max_connections` on the CI database.',
@@ -751,16 +752,23 @@ export const hitsByMe: string[] = ['hannahl/retries-turned-a-blip-into-an-outage
 // ---- workspace admin -------------------------------------------------------
 
 type MemberSeed = Omit<Member, 'user'> & { userId: string }
+type FormerMemberSeed = Omit<FormerMember, 'user'> & { userId: string }
+type InviteSeed = Omit<Invite, 'user'> & { userId?: string }
 
 export const members: MemberSeed[] = [
-  { userId: ME_ID, email: 'nnamdi@northwind.dev', role: 'owner', joinedAt: '2026-06-02T15:00:00Z' },
-  { userId: 'u_amara', email: 'amara@northwind.dev', role: 'admin', joinedAt: '2026-06-03T10:00:00Z' },
-  { userId: 'u_jordan', email: 'jordan@northwind.dev', role: 'member', joinedAt: '2026-06-10T09:30:00Z' },
-  { userId: 'u_priya', email: 'priya@northwind.dev', role: 'member', joinedAt: '2026-07-01T14:20:00Z' },
-  { userId: 'u_leo', email: 'leo@northwind.dev', role: 'member', joinedAt: '2026-07-22T11:05:00Z' },
+  { userId: ME_ID, workEmail: 'nnamdi@northwind.dev', role: 'owner', joinedAt: '2026-06-02T15:00:00Z' },
+  { userId: 'u_amara', workEmail: 'amara@northwind.dev', role: 'admin', joinedAt: '2026-06-03T10:00:00Z' },
+  { userId: 'u_jordan', workEmail: 'jordan@northwind.dev', role: 'member', joinedAt: '2026-06-10T09:30:00Z' },
+  { userId: 'u_priya', workEmail: 'priya@northwind.dev', role: 'member', joinedAt: '2026-07-01T14:20:00Z' },
+  { userId: 'u_leo', workEmail: 'leo@northwind.dev', role: 'member', joinedAt: '2026-07-22T11:05:00Z' },
 ]
 
-export const invites: Invite[] = [
+/** Hannah left Northwind; LR-201 still credits her and her public posts stay on her profile. */
+export const formerMembers: FormerMemberSeed[] = [
+  { userId: 'u_hannah', role: 'member', joinedAt: '2026-06-04T09:00:00Z', leftAt: '2026-09-05T17:00:00Z' },
+]
+
+export const invites: InviteSeed[] = [
   {
     id: 'inv_sam',
     email: 'sam@northwind.dev',
@@ -768,6 +776,14 @@ export const invites: Invite[] = [
     invitedById: ME_ID,
     sentAt: '2026-09-26T16:00:00Z',
     expiresAt: '2026-10-10T16:00:00Z',
+  },
+  {
+    id: 'inv_mei',
+    userId: 'u_mei',
+    role: 'member',
+    invitedById: 'u_amara',
+    sentAt: '2026-09-27T13:00:00Z',
+    expiresAt: '2026-10-11T13:00:00Z',
   },
   {
     id: 'inv_kofi',

@@ -373,16 +373,33 @@ export interface SignalMatch {
 export type WorkspaceRole = 'owner' | 'admin' | 'member'
 export type IntegrationProvider = 'gitlab' | 'github' | 'slack'
 
+/**
+ * A person's membership in a company workspace. The account (`user`) is theirs
+ * and outlives the membership; the work email belongs to the membership.
+ */
 export interface Member {
   user: User
-  email: string
+  /** Company email verified when they joined. People invited by username may not have one. */
+  workEmail?: string
   role: WorkspaceRole
   joinedAt: string
 }
 
+/** Someone who left. Their records stay with the team, still credited to their account. */
+export interface FormerMember {
+  user: User
+  role: WorkspaceRole
+  joinedAt: string
+  leftAt: string
+}
+
+/** Invites go to an existing Ledger account by username, or to an email for people new to Ledger. */
 export interface Invite {
   id: ID
-  email: string
+  /** Set when invited by username. */
+  user?: User
+  /** Set when invited by email. */
+  email?: string
   role: WorkspaceRole
   invitedById: ID
   sentAt: string
@@ -412,6 +429,7 @@ export interface WorkspaceSettings {
   workspace: Workspace
   myRole: WorkspaceRole
   members: Member[]
+  formerMembers: FormerMember[]
   invites: Invite[]
   inviteLink: { token: string; enabled: boolean }
   /** People signing in with an email at this domain can join without an invite. */
@@ -429,10 +447,15 @@ export interface InvitePreview {
   memberCount: number
   recordCount: number
   email?: string
+  /** The account the invite was sent to, when invited by username. */
+  invitee?: User
+  /** They were in this workspace before and are being invited back. */
+  rejoining?: boolean
 }
 
 export interface InviteResult {
   settings: WorkspaceSettings
+  /** Each invitee as typed: `@handle` or an email. */
   sent: string[]
-  skipped: { email: string; reason: string }[]
+  skipped: { target: string; reason: string }[]
 }

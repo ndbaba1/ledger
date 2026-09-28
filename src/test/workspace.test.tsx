@@ -12,19 +12,51 @@ describe('mock API: workspace admin', () => {
     const s = await newApi().getWorkspaceSettings()
     expect(s.myRole).toBe('owner')
     expect(s.members.map((m) => m.role)).toEqual(['owner', 'admin', 'member', 'member', 'member'])
-    expect(s.invites.map((i) => i.email)).toEqual(['sam@northwind.dev', 'kofi@northwind.dev'])
+    expect(s.invites.map((i) => i.email ?? `@${i.user?.handle}`)).toEqual(['@meiw', 'sam@northwind.dev', 'kofi@northwind.dev'])
+    expect(s.formerMembers.map((f) => f.user.handle)).toEqual(['hannahl'])
   })
 
   it('invites new emails and explains every skipped one', async () => {
-    const res = await newApi().inviteMembers(['Kim@Northwind.dev', 'amara@northwind.dev', 'sam@northwind.dev', 'nope', 'kim@northwind.dev'], 'member')
+    const res = await newApi().inviteMembers(['Kim@Northwind.dev', 'amara@northwind.dev', 'sam@northwind.dev', 'bad@email', 'kim@northwind.dev'], 'member')
     expect(res.sent).toEqual(['kim@northwind.dev'])
     expect(res.skipped).toEqual([
-      { email: 'amara@northwind.dev', reason: 'already a member' },
-      { email: 'sam@northwind.dev', reason: 'already invited' },
-      { email: 'nope', reason: 'not a valid email' },
+      { target: 'amara@northwind.dev', reason: 'already a member' },
+      { target: 'sam@northwind.dev', reason: 'already invited' },
+      { target: 'bad@email', reason: 'not a username or email' },
     ])
     const kim = res.settings.invites.find((i) => i.email === 'kim@northwind.dev')!
     expect(kim.expiresAt).toBe('2026-10-12T20:00:00.000Z')
+  })
+
+  it('invites Ledger accounts by username', async () => {
+    const api = newApi()
+    const res = await api.inviteMembers(['@TomasR', 'adeo', '@amarak', '@meiw', '@nobody-here'], 'member')
+    expect(res.sent).toEqual(['@tomasr', '@adeo'])
+    expect(res.skipped.map((x) => [x.target, x.reason.split('.')[0]])).toEqual([
+      ['@amarak', 'already a member'],
+      ['@meiw', 'already invited'],
+      ['@nobody-here', 'no Ledger account with that username'],
+    ])
+    expect(res.settings.invites.find((i) => i.user?.handle === 'tomasr')?.email).toBeUndefined()
+    expect((await api.findUsers('@to')).map((u) => u.handle)).toEqual(['tomasr'])
+  })
+
+  it('keeps a leaver’s account and credit, and lets them rejoin with the same username', async () => {
+    const api = newApi()
+    const s = await api.removeMember('u_priya')
+    expect(s.members.map((m) => m.user.id)).not.toContain('u_priya')
+    expect(s.formerMembers.map((f) => f.user.handle)).toContain('priyas')
+    // Their record still credits the same account.
+    expect((await api.getRecord('LR-148')).authorIds).toEqual(['u_priya'])
+    expect((await api.getProfile('priyas')).user.id).toBe('u_priya')
+
+    const back = await api.inviteMembers(['@priyas'], 'member')
+    const inv = back.settings.invites.find((i) => i.user?.id === 'u_priya')!
+    expect((await api.previewInvite(inv.id)).rejoining).toBe(true)
+    await api.acceptInvite(inv.id)
+    const after = await api.getWorkspaceSettings()
+    expect(after.members.map((m) => m.user.id)).toContain('u_priya')
+    expect(after.formerMembers.map((f) => f.user.id)).not.toContain('u_priya')
   })
 
   it('keeps at least one owner and lets owners change roles', async () => {
@@ -33,7 +65,9 @@ describe('mock API: workspace admin', () => {
     const s = await api.changeRole('u_jordan', 'admin')
     expect(s.members.find((m) => m.user.id === 'u_jordan')?.role).toBe('admin')
     await expect(api.removeMember('u_nnamdi')).rejects.toThrow(/yourself/)
-    expect((await api.removeMember('u_leo')).members).toHaveLength(4)
+    const s2 = await api.removeMember('u_leo')
+    expect(s2.members).toHaveLength(4)
+    expect(s2.formerMembers[0].user.id).toBe('u_leo')
   })
 
   it('stops members from changing settings', async () => {
@@ -81,11 +115,13 @@ describe('workspace admin in the app', () => {
     window.location.hash = '#/settings'
     const user = userEvent.setup()
     render(<App api={newApi()} />)
-    await user.type(await screen.findByLabelText('Email addresses'), 'kim@northwind.dev, ola@northwind.dev')
+    await user.type(await screen.findByLabelText('Usernames or emails'), 'kim@northwind.dev, @tom')
+    await user.click(await screen.findByRole('button', { name: /Tomás R\..*@tomasr/ }))
     await user.click(screen.getByRole('button', { name: 'Send 2 invites' }))
-    expect(await screen.findByText(/Sent to kim@northwind.dev, ola@northwind.dev/)).toBeInTheDocument()
-    const pending = screen.getByRole('region', { name: /Pending invites · 4/ })
+    expect(await screen.findByText(/Sent to kim@northwind.dev, @tomasr/)).toBeInTheDocument()
+    const pending = screen.getByRole('region', { name: /Pending invites · 5/ })
     expect(within(pending).getByText('kim@northwind.dev')).toBeInTheDocument()
+    expect(within(pending).getByText('@tomasr')).toBeInTheDocument()
   })
 
   it('removes a member after confirming', async () => {
@@ -93,8 +129,12 @@ describe('workspace admin in the app', () => {
     const user = userEvent.setup()
     render(<App api={newApi()} />)
     await user.click(await screen.findByRole('button', { name: 'Remove Leo M.' }))
+    expect(screen.getByText(/Their 1 record stays here, still credited to/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Remove Leo' }))
     expect(await screen.findByRole('region', { name: 'Members · 4' })).toBeInTheDocument()
+    const former = screen.getByRole('region', { name: /Former members · 2/ })
+    expect(within(former).getByText('Leo M.')).toBeInTheDocument()
+    expect(within(former).getAllByRole('button', { name: 'Invite back' })).toHaveLength(2)
   })
 
   it('turns off public publishing and the promote page respects it', async () => {
@@ -113,6 +153,23 @@ describe('workspace admin in the app', () => {
     expect(screen.getByText('sam@northwind.dev')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Join with GitHub' }))
     expect(await screen.findByRole('heading', { name: 'Review inbox' })).toBeInTheDocument()
+  })
+
+  it('shows a username invite as the invitee’s own account', async () => {
+    window.location.hash = '#/join/inv_mei'
+    const user = userEvent.setup()
+    render(<App api={newApi()} />)
+    expect(await screen.findByText('@meiw')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Join as @meiw' }))
+    expect(await screen.findByRole('heading', { name: 'Review inbox' })).toBeInTheDocument()
+  })
+
+  it('marks authors who left on a record and sends questions to someone still here', async () => {
+    window.location.hash = '#/records/LR-201'
+    render(<App api={newApi()} />)
+    expect(await screen.findByText('(left Northwind)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Hannah L.' })).toHaveAttribute('href', '#/u/hannahl')
+    expect(screen.getByPlaceholderText('Ask Amara a question…')).toBeInTheDocument()
   })
 
   it('explains an expired invite', async () => {
