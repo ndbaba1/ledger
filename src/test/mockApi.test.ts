@@ -60,7 +60,7 @@ describe('mock API: records and Q&A', () => {
 
   it('searches across record text and ranks title and tag matches first', async () => {
     const hits = await newApi().search('pgbouncer')
-    expect(hits.map((h) => h.record.id)).toEqual(['LR-212', 'LR-213', 'LR-148'])
+    expect(hits.map((h) => h.record.id)).toEqual(['LR-212', 'LR-205', 'LR-213', 'LR-148'])
     expect(await newApi().search('pgbouncer', 'decision')).toHaveLength(1)
     expect(await newApi().search('nothing-matches-this')).toHaveLength(0)
   })
@@ -121,8 +121,8 @@ describe('mock API: promote to public', () => {
     const opts = { enabledRuleIds: ['services', 'teammates', 'links', 'workspace'], employerMode: 'hidden' as const }
     await api.publishPost('LR-212', opts)
     await api.publishPost('LR-212', opts)
-    // The seeded agent-db-scan and webhook design posts, plus this one.
-    expect((await api.getProfile('engineernamzy')).posts).toHaveLength(3)
+    // The seeded agent-db-scan, webhook design and PgBouncer design posts, plus this one.
+    expect((await api.getProfile('engineernamzy')).posts).toHaveLength(4)
   })
 })
 

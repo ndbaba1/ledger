@@ -4234,3 +4234,217 @@ code.slack__text {
     min-width: 30px;
   }
 }
+
+/* Projects: a body of work on the profile */
+.project-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+}
+.project-row__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+.project-row__title {
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 700;
+  text-wrap: pretty;
+}
+.project-row__title a {
+  color: var(--text);
+}
+.project-row__title a:hover {
+  color: var(--amber);
+}
+.project-row__when {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.role-tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.role-tag--led {
+  border-color: var(--amber-line);
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+.project-facts {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.project-facts dt {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-top: 3px;
+}
+.project-facts dd {
+  margin: 0;
+  color: var(--text-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.project-facts__items {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 0;
+}
+.project-facts__items > a:not(:first-child)::before,
+.project-facts__items > :not(:first-child):not(.project-facts__sep)::before {
+  content: '·';
+  padding: 0 8px;
+  color: var(--faint);
+}
+.project-facts__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.project-facts a {
+  color: var(--text-2);
+}
+.project-facts a:hover {
+  color: var(--amber);
+}
+.project-facts__private svg {
+  margin-left: 6px;
+  vertical-align: -1px;
+  color: var(--faint);
+}
+.project-facts__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--green);
+}
+.project-facts__outcome {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text);
+}
+.project-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+.feed__note {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+}
+.change-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 20px;
+  font-size: 14px;
+}
+.change-row__title {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.change-row__role {
+  font-size: 12px;
+  color: var(--muted);
+}
+.change-row__role--authored {
+  color: var(--green);
+}
+.change-row__date {
+  font-size: 12px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: right;
+}
+.pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.pick input {
+  margin-top: 3px;
+  accent-color: var(--amber);
+}
+.pick--off {
+  opacity: 0.55;
+  cursor: default;
+}
+.pick__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.segmented__opt--off {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.part-of {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--muted);
+}
+.part-of strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.part-of:hover strong {
+  color: var(--amber);
+}
+@media (max-width: 767px) {
+  .project-row {
+    padding: 16px 14px;
+  }
+  .project-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .project-facts dd + dt {
+    margin-top: 8px;
+  }
+  .project-page {
+    padding: 24px 16px 48px;
+  }
+  .change-row {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    padding: 10px 14px;
+  }
+  .change-row__role {
+    display: none;
+  }
+}

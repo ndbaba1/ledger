@@ -8,7 +8,8 @@ import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { FeedList, FilterMenu } from '../components/FeedList'
-import { ListHeader } from '../components/ListBox'
+import { ListBox, ListHeader } from '../components/ListBox'
+import { ProjectSummary } from '../components/ProjectSummary'
 import { useQuery } from '../lib/useAsync'
 
 const TABS: { key: RecordType | 'all'; label: string }[] = [
@@ -39,7 +40,7 @@ export function ProfileScreen() {
       </PublicLayout>
     )
 
-  const { user, posts, hitByViewer = [] } = profile.data
+  const { user, posts, projects = [], hitByViewer = [] } = profile.data
   const visible = posts.filter((p) => tab === 'all' || p.type === tab)
   const verified = posts.flatMap((p) => p.badges).filter((b) => b.verified).length
   const isMe = user.id === me.id
@@ -69,6 +70,27 @@ export function ProfileScreen() {
               )}
             </div>
           </section>
+
+          {projects.length > 0 && (
+            <ListBox
+              labelledBy="profile-projects"
+              header={
+                <ListHeader id="profile-projects" icon={<Icon name="folder" size={16} />} title="Projects" count={projects.length}>
+                  {isMe && (
+                    <Link to="/inbox#projects" className="btn-link push-right">
+                      Add a project
+                    </Link>
+                  )}
+                </ListHeader>
+              }
+            >
+              {projects.map((p) => (
+                <li key={p.slug}>
+                  <ProjectSummary project={p} handle={user.handle} />
+                </li>
+              ))}
+            </ListBox>
+          )}
 
           <FeedList
             labelledBy="profile-posts"

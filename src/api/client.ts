@@ -25,6 +25,11 @@ import type {
   RecordType,
   TeamRecord,
   User,
+  ProjectCandidate,
+  ProjectOptions,
+  ProjectPage,
+  ProjectPlan,
+  PublicProject,
   Workspace,
 } from './types'
 
@@ -97,6 +102,12 @@ export interface LedgerApi {
   acceptInvite(token: string): Promise<Workspace>
 
   getProfile(handle: string): Promise<Profile>
+  getProject(handle: string, slug: string): Promise<ProjectPage>
+
+  /** Groups of records Ledger thinks are one project, for the current user. */
+  listProjectCandidates(): Promise<ProjectCandidate[]>
+  getProjectPlan(candidateId: ID): Promise<ProjectPlan>
+  publishProject(candidateId: ID, options: ProjectOptions): Promise<PublicProject>
   getPost(handle: string, slug: string): Promise<{ post: PublicPost; author: User }>
 
   /** Public Q&A and "I hit this too" for a post, as the current viewer sees them. */

@@ -289,6 +289,8 @@ export interface SearchHit {
 export interface Profile {
   user: User
   posts: PublicPost[]
+  /** Bodies of work, pinned above the write-ups. */
+  projects: PublicProject[]
   /** Slugs of this person's posts the viewer said they hit too. */
   hitByViewer?: string[]
 }
@@ -462,4 +464,84 @@ export interface InviteResult {
   /** Each invitee as typed: `@handle` or an email. */
   sent: string[]
   skipped: { target: string; reason: string }[]
+}
+
+// ---- projects: a body of work backed by several records -------------------
+
+export type ProjectRole = 'led' | 'contributed'
+
+/** A merge request or pull request that belongs to a project. */
+export interface ProjectChange {
+  ref: string
+  title: string
+  role: 'authored' | 'reviewed'
+  mergedAt: string
+}
+
+/**
+ * Records Ledger noticed belong together (same epic, label or channel).
+ * The engineer names it and chooses what to publish.
+ */
+export interface ProjectCandidate {
+  id: ID
+  suggestedTitle: string
+  /** Why Ledger grouped these, e.g. "epic &14 · Connection pooling". */
+  groupedBy: string
+  recordIds: ID[]
+  changes: ProjectChange[]
+  /** Set once published; publishing again updates it. */
+  publishedSlug?: string
+}
+
+export interface ProjectPlan {
+  candidate: ProjectCandidate
+  records: TeamRecord[]
+  rules: RedactionRule[]
+  industryLabel: string
+  workspaceName: string
+  /** What was published last time, to start from. */
+  published?: PublicProject
+}
+
+export interface ProjectOptions {
+  title: string
+  role: ProjectRole
+  recordIds: ID[]
+  /** Decision and design records to list as key decisions. */
+  decisionRecordIds: ID[]
+  /** The record whose before → after result is the outcome. */
+  outcomeRecordId: ID | null
+  enabledRuleIds: ID[]
+  employerMode: EmployerMode
+}
+
+/** One piece of evidence: a record, public if it was published as a post. */
+export interface ProjectRecordRef {
+  type: RecordType
+  title: string
+  postSlug?: string
+}
+
+export interface PublicProject {
+  slug: string
+  authorId: ID
+  /** In the engineer’s own words. Everything else is counted or quoted by Ledger. */
+  title: string
+  role: ProjectRole
+  period: { from: string; to: string }
+  employerLine?: string
+  /** Internal refs are dropped; titles go through the same redaction as posts. */
+  changes: { total: number; authored: number; reviewed: number; items: Omit<ProjectChange, 'ref'>[] }
+  records: ProjectRecordRef[]
+  decisions: ProjectRecordRef[]
+  outcome?: ResultMetric & { postSlug?: string }
+  tags: string[]
+  publishedAt: string
+}
+
+export interface ProjectPage {
+  project: PublicProject
+  author: User
+  /** The public posts among the evidence. */
+  posts: PublicPost[]
 }

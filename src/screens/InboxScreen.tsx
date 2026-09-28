@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import { AvatarStack } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -14,6 +15,12 @@ export function InboxScreen() {
   const api = useApi()
   const drafts = useQuery(() => api.listDrafts(), [api])
   const writeups = useQuery(() => api.listWriteups(), [api])
+  const projects = useQuery(() => api.listProjectCandidates(), [api])
+  const location = useLocation()
+  const ready = Boolean(projects.data && drafts.data)
+  useEffect(() => {
+    if (ready && location.hash === '#projects') document.getElementById('projects')?.scrollIntoView({ block: 'start' })
+  }, [ready, location.hash])
   const users = useUsers(drafts.data?.flatMap((d) => d.coAuthorIds) ?? [])
 
   return (
@@ -65,6 +72,7 @@ export function InboxScreen() {
       )}
 
       {drafts.loading && !drafts.data && <Loading label="Loading drafts" />}
+
       {drafts.error && <ErrorState error={drafts.error} onRetry={drafts.reload} />}
       {drafts.data?.length === 0 && (
         <Empty title="Inbox zero">New drafts appear here when an issue closes with the ledger label, or when someone runs /ledger track.</Empty>
@@ -110,6 +118,45 @@ export function InboxScreen() {
             )
           })}
         </ListBox>
+      )}
+      {projects.data && projects.data.length > 0 && (
+        <div id="projects">
+          <ListBox
+            labelledBy="projects-title"
+            header={
+              <ListHeader
+                id="projects-title"
+                icon={<Icon name="folder" size={16} />}
+                title="Projects Ledger noticed"
+                count={`${projects.data.filter((p) => !p.publishedSlug).length} new`}
+              />
+            }
+          >
+            {projects.data.map((p) => (
+              <ListRow
+                key={p.id}
+                to={`/projects/${p.id}`}
+                title={p.suggestedTitle}
+                summary={`${p.recordIds.length} records and ${p.changes.length} merge requests share ${p.groupedBy}. Name it and publish it as one body of work on your profile.`}
+                meta={
+                  <>
+                    <span className="mono">{p.groupedBy}</span>
+                    <span className="feed-row__people">
+                      <Icon name="merge" size={12} />
+                      {p.changes.filter((c) => c.role === 'authored').length} authored
+                    </span>
+                    {p.publishedSlug ? <span className="feed-row__ok">On your profile</span> : <span className="feed-row__warn">Not published</span>}
+                  </>
+                }
+                aside={
+                  <Link to={`/projects/${p.id}`} className={`btn btn--sm hide-mobile${p.publishedSlug ? '' : ' btn--primary'}`} tabIndex={-1} aria-hidden="true">
+                    {p.publishedSlug ? 'Update' : 'Name it'}
+                  </Link>
+                }
+              />
+            ))}
+          </ListBox>
+        </div>
       )}
     </div>
   )

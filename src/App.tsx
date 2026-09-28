@@ -1,3 +1,5 @@
+import { ProjectComposerScreen } from './screens/ProjectComposerScreen'
+import { ProjectScreen } from './screens/ProjectScreen'
 import { Component, Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { HashRouter, Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ApiProvider } from './api/ApiContext'
@@ -45,11 +47,13 @@ export function AppRoutes() {
         <Route path="records/:id/promote" element={<PromoteScreen />} />
         <Route path="search" element={<SearchScreen />} />
         <Route path="settings" element={<WorkspaceSettingsScreen />} />
+        <Route path="projects/:id" element={<ProjectComposerScreen />} />
         <Route path="*" element={<NotFound />} />
       </Route>
       <Route path="t/:tag" element={<TopicScreen />} />
       <Route path="join/:token" element={<JoinScreen />} />
       <Route path="u/:handle" element={<ProfileScreen />} />
+      <Route path="u/:handle/projects/:slug" element={<ProjectScreen />} />
       <Route path="u/:handle/:slug" element={<PostScreen />} />
     </Routes>
   )

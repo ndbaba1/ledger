@@ -9,6 +9,9 @@ import type {
   Draft,
   OpenCase,
   PublicPost,
+  ProjectCandidate,
+  ProjectOptions,
+  PublicProject,
   RedactionRule,
   TeamRecord,
   User,
@@ -216,6 +219,65 @@ export const cases: OpenCase[] = [
 ]
 
 export const records: TeamRecord[] = [
+  {
+    id: 'LR-205',
+    type: 'design',
+    title: 'Put checkout and billing behind PgBouncer transaction pooling',
+    tags: ['pgbouncer', 'postgres', 'capacity'],
+    authorIds: [ME_ID, 'u_amara'],
+    publishedAt: '2026-08-20T16:00:00Z',
+    symptom:
+      'Postgres was holding about 1,900 connections at peak, most of them idle, and every new pod made it worse. checkout-api and billing-api each opened a session per worker thread.',
+    constraints: [
+      'No downtime for checkout during the switch',
+      'Two services use session features (advisory locks, prepared statements)',
+      'Stay on the existing Postgres primary this quarter',
+    ],
+    rootCause:
+      'Run PgBouncer as a sidecar-free deployment in front of the primary, in transaction mode for services that can use it and session mode for the two that can’t. Services connect to PgBouncer instead of Postgres, and pool size is set per service.',
+    flow: [
+      'Service connects to PgBouncer, not Postgres',
+      'Transaction pool for stateless services',
+      'Session pool for the two that need session features',
+      'PgBouncer holds a small, fixed set of server connections',
+    ],
+    ruledOut: [
+      'Raising `max_connections` — memory per connection made it a stopgap.',
+      'Application-side pooling only — every pod still adds its own pool.',
+    ],
+    fix: 'Moved services over one at a time behind a connection-string flag, starting with the lowest-traffic ones. billing-api went last because of its advisory locks.',
+    lesson: 'Put a pooler in front of Postgres before connection count becomes the limit, not after.',
+    context: 'Postgres 16 · PgBouncer 1.22 · ~40 pods at peak',
+    result: { label: 'Postgres connections at peak', before: '1,900', after: '260' },
+    notes: [],
+    sources: [
+      { key: 'S1', kind: 'gitlab_issue', title: 'Issue #4410 · Postgres connection count', detail: 'description + 12 comments', status: 'fetched', hops: 0 },
+      { key: 'S2', kind: 'gitlab_mr', title: 'MR !1788 · PgBouncer deployment', detail: 'merged · +260 −4', status: 'fetched', hops: 1, authoredByMe: true },
+    ],
+    questions: [],
+    history: [{ at: '2026-08-20T16:00:00Z', byId: ME_ID, summary: 'Published' }],
+    relatedIds: ['LR-212', 'LR-213'],
+    promotedPostSlug: 'pgbouncer-transaction-pooling',
+  },
+  {
+    id: 'LR-215',
+    type: 'incident',
+    title: 'Webhooks sent twice after a delivery worker was killed mid-batch',
+    tags: ['webhooks', 'redis', 'idempotency'],
+    authorIds: [ME_ID],
+    publishedAt: '2026-09-18T14:00:00Z',
+    symptom: 'About 300 customers received the same webhook twice during a deploy.',
+    rootCause: 'Workers acknowledged stream entries after the whole batch, so a worker killed mid-batch left sent events unacknowledged and another worker sent them again.',
+    ruledOut: ['Customer endpoints retrying — the duplicates had different delivery IDs from our side.'],
+    fix: 'Acknowledge each entry right after its delivery, and send a stable `Webhook-Id` header so customers can drop duplicates.',
+    lesson: 'At-least-once delivery needs an ID the receiver can deduplicate on.',
+    result: { label: 'Duplicate deliveries per deploy', before: '~300', after: '0' },
+    notes: [],
+    sources: [{ key: 'S1', kind: 'gitlab_mr', title: 'MR !2051 · Ack per entry', detail: 'merged', status: 'fetched', hops: 0, authoredByMe: true }],
+    questions: [],
+    history: [{ at: '2026-09-18T14:00:00Z', byId: ME_ID, summary: 'Published' }],
+    relatedIds: ['LR-220'],
+  },
   {
     id: 'LR-220',
     type: 'design',
@@ -439,6 +501,18 @@ export const records: TeamRecord[] = [
 
 /** Hand-tuned redaction rules for records that have them; others get defaults. */
 export const promotionRules: Record<string, RedactionRule[]> = {
+  'LR-205': [
+    {
+      id: 'services',
+      label: 'Service names',
+      replacements: [
+        { match: 'checkout-api', with: 'the checkout service' },
+        { match: 'billing-api', with: 'the billing service' },
+      ],
+      enabled: true,
+    },
+    { id: 'workspace', label: 'Team name', replacements: [{ match: 'Platform Eng', with: 'The team' }], enabled: true },
+  ],
   'LR-220': [
     { id: 'services', label: 'Service names', replacements: [{ match: 'api-server', with: 'our API' }], enabled: true },
     { id: 'teammates', label: 'Teammate names', replacements: [{ match: 'Jordan R.', with: 'A teammate' }], enabled: true },
@@ -814,3 +888,97 @@ export const policy: WorkspacePolicy = {
 
 export const inviteLinkToken = 'nw-7Qm2xK'
 export const autoJoinDomain: string | null = null
+
+// ---- projects ----------------------------------------------------------------
+
+const change = (ref: string, title: string, role: 'authored' | 'reviewed', mergedAt: string) => ({ ref, title, role, mergedAt })
+
+export const projectCandidates: ProjectCandidate[] = [
+  {
+    id: 'pc_pooling',
+    suggestedTitle: 'Rebuilt Postgres connection pooling for checkout and billing',
+    groupedBy: 'epic &14 · Connection pooling',
+    recordIds: ['LR-205', 'LR-212', 'LR-213'],
+    changes: [
+      change('platform/infra!1788', 'Deploy PgBouncer in front of the primary', 'authored', '2026-08-04T15:00:00Z'),
+      change('platform/infra!1791', 'PgBouncer dashboards and pool metrics', 'authored', '2026-08-05T18:00:00Z'),
+      change('platform/checkout!1802', 'Move checkout-api to transaction pooling', 'authored', '2026-08-08T14:00:00Z'),
+      change('platform/checkout!1806', 'Drop prepared statements in checkout-api', 'authored', '2026-08-08T19:00:00Z'),
+      change('platform/search!611', 'Move search indexer to the pooler', 'reviewed', '2026-08-11T13:00:00Z'),
+      change('platform/billing!977', 'Replace advisory locks in billing-api with row locks', 'authored', '2026-08-13T16:00:00Z'),
+      change('platform/billing!981', 'Move billing-api to the session pool', 'authored', '2026-08-14T15:00:00Z'),
+      change('platform/infra!1822', 'Pool size per service in the Helm chart', 'authored', '2026-08-18T17:00:00Z'),
+      change('platform/notifications!402', 'Move notifications to the pooler', 'reviewed', '2026-08-19T12:00:00Z'),
+      change('platform/infra!1830', 'Lower max_connections on the primary', 'authored', '2026-08-21T14:00:00Z'),
+      change('platform/infra!1912', 'Revert pool size cut for checkout', 'authored', '2026-09-23T20:00:00Z'),
+      change('platform/infra!1918', 'Alert on PgBouncer waiting clients', 'reviewed', '2026-09-24T15:00:00Z'),
+      change('platform/infra!1940', 'Compute pool size from worker count', 'authored', '2026-09-26T16:00:00Z'),
+      change('platform/infra!1944', 'Floor and ceiling for computed pool sizes', 'authored', '2026-09-26T19:00:00Z'),
+    ],
+    publishedSlug: 'postgres-connection-pooling',
+  },
+  {
+    id: 'pc_webhooks',
+    suggestedTitle: 'Moved webhook delivery off the request path',
+    groupedBy: 'label ~webhooks-v2 · #webhooks-migration',
+    recordIds: ['LR-220', 'LR-215'],
+    changes: [
+      change('platform/api!2004', 'Outbox table and writes in api-server', 'authored', '2026-09-02T15:00:00Z'),
+      change('platform/api!2010', 'Outbox relay onto Redis streams', 'authored', '2026-09-04T17:00:00Z'),
+      change('platform/api!2017', 'Delivery workers with signed payloads', 'authored', '2026-09-08T16:00:00Z'),
+      change('platform/api!2023', 'Backoff schedule and dead-letter queue', 'authored', '2026-09-10T18:00:00Z'),
+      change('platform/web!1310', 'Replay failed deliveries from the dashboard', 'reviewed', '2026-09-15T14:00:00Z'),
+      change('platform/api!2051', 'Acknowledge each stream entry after delivery', 'authored', '2026-09-18T13:00:00Z'),
+      change('platform/api!2058', 'Stable Webhook-Id header', 'authored', '2026-09-19T15:00:00Z'),
+    ],
+  },
+]
+
+/** Projects already published when the app starts, built the same way publishing does. */
+export const publishedProjects: { candidateId: string; options: ProjectOptions; publishedAt: string }[] = [
+  {
+    candidateId: 'pc_pooling',
+    publishedAt: '2026-09-27T20:00:00Z',
+    options: {
+      title: 'Rebuilt Postgres connection pooling for checkout and billing',
+      role: 'led',
+      recordIds: ['LR-205', 'LR-212', 'LR-213'],
+      decisionRecordIds: ['LR-205', 'LR-213'],
+      outcomeRecordId: 'LR-205',
+      enabledRuleIds: ['services', 'teammates', 'workspace', 'links'],
+      employerMode: 'industry',
+    },
+  },
+]
+
+/** A community engineer's project, for their public profile. */
+export const communityProjects: PublicProject[] = [
+  {
+    slug: 'payments-resilience',
+    authorId: 'u_hannah',
+    title: 'Made payment calls survive provider outages',
+    role: 'led',
+    period: { from: '2026-06-02T00:00:00Z', to: '2026-08-19T00:00:00Z' },
+    employerLine: 'at a payments company',
+    changes: {
+      total: 9,
+      authored: 7,
+      reviewed: 2,
+      items: [
+        { title: 'Retry in one layer with full jitter', role: 'authored', mergedAt: '2026-08-12T00:00:00Z' },
+        { title: 'Circuit breaker around the provider client', role: 'authored', mergedAt: '2026-08-14T00:00:00Z' },
+        { title: 'Idempotency keys on charge jobs', role: 'authored', mergedAt: '2026-07-20T00:00:00Z' },
+        { title: 'Remove SDK-level retries', role: 'authored', mergedAt: '2026-08-11T00:00:00Z' },
+        { title: 'Provider error budget dashboard', role: 'reviewed', mergedAt: '2026-06-30T00:00:00Z' },
+      ],
+    },
+    records: [
+      { type: 'incident', title: 'Retries turned a 30-second payment provider blip into a 40-minute outage', postSlug: 'retries-turned-a-blip-into-an-outage' },
+      { type: 'decision', title: 'Keep retries in the layer that knows about idempotency' },
+    ],
+    decisions: [{ type: 'decision', title: 'Keep retries in the layer that knows about idempotency' }],
+    outcome: { label: 'Time to recover from a provider blip', before: '40 min', after: '45 s', postSlug: 'retries-turned-a-blip-into-an-outage' },
+    tags: ['payments', 'retries'],
+    publishedAt: '2026-08-20T00:00:00Z',
+  },
+]

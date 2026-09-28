@@ -9,6 +9,12 @@ import type {
   TopicPage,
   ExploreResult,
   FeedItem,
+  EmployerMode,
+  ProjectCandidate,
+  ProjectOptions,
+  ProjectPage,
+  ProjectPlan,
+  PublicProject,
   Writeup,
   AskAnswer,
   Badge,
@@ -25,6 +31,7 @@ import type {
 import { isValidUrl, sourceFromUrl } from '../lib/sources'
 import { removeCitations, stripInline } from '../lib/inline'
 import { monthYear } from '../lib/format'
+import { buildProject, mergeRules, projectProblems } from '../lib/project'
 import { buildPost, publishableTexts } from '../lib/publicPost'
 import { EMPTY_FIELDS, publishBlockers, toLines, writeupToRecord } from '../lib/writeups'
 import { matchRecords } from '../lib/signals'
@@ -75,6 +82,8 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     policy: clone(seed.policy),
     inviteLink: { token: seed.inviteLinkToken, enabled: true },
     autoJoinDomain: seed.autoJoinDomain as string | null,
+    projectCandidates: clone(seed.projectCandidates),
+    projects: clone(seed.communityProjects) as PublicProject[],
   }
 
   const respond = <T,>(value: T): Promise<T> =>
@@ -279,6 +288,34 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         }),
       )
     }
+  }
+
+  const employerLineFor = (mode: EmployerMode) =>
+    mode === 'hidden' ? undefined : `at ${mode === 'industry' ? INDUSTRY_LABEL : db.workspace.name}`
+
+  const candidateById = (id: ID) => {
+    const c = db.projectCandidates.find((x) => x.id === id)
+    if (!c) throw new NotFoundError('Project')
+    return c
+  }
+  const projectRecords = (c: ProjectCandidate) => c.recordIds.map(recordById)
+  const projectRules = (c: ProjectCandidate) => mergeRules(projectRecords(c).map(plannedRules))
+
+  const makeProject = (c: ProjectCandidate, options: ProjectOptions, publishedAt: string) => {
+    const records = projectRecords(c)
+    const problems = projectProblems(c, records, options, seed.ME_ID)
+    if (problems.length) throw new Error(problems[0])
+    return buildProject(c, records, options, {
+      authorId: seed.ME_ID,
+      slug: c.publishedSlug ?? slugify(options.title),
+      publishedAt,
+      rules: projectRules(c),
+      employerLine: employerLineFor(options.employerMode),
+    })
+  }
+
+  for (const p of seed.publishedProjects) {
+    db.projects.push(makeProject(candidateById(p.candidateId), p.options, p.publishedAt))
   }
 
   const api: LedgerApi = {
@@ -811,7 +848,10 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
           .filter((p) => p.authorId === user.id)
           .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
         const hitByViewer = posts.filter((p) => db.hitsByMe.has(`${handle}/${p.slug}`)).map((p) => p.slug)
-        return { user, posts, hitByViewer }
+        const projects = db.projects
+          .filter((p) => p.authorId === user.id)
+          .sort((a, b) => b.period.to.localeCompare(a.period.to))
+        return { user, posts, hitByViewer, projects }
       }),
 
     getPost: (handle, slug) =>
@@ -820,6 +860,44 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         const post = author && db.posts.find((p) => p.authorId === author.id && p.slug === slug)
         if (!author || !post) throw new NotFoundError('Post')
         return { post, author }
+      }),
+
+    getProject: (handle, slug) =>
+      run<ProjectPage>(() => {
+        const author = db.users.find((u) => u.handle === handle)
+        const project = author && db.projects.find((p) => p.authorId === author.id && p.slug === slug)
+        if (!author || !project) throw new NotFoundError('Project')
+        const slugs = new Set(project.records.flatMap((r) => (r.postSlug ? [r.postSlug] : [])))
+        const posts = db.posts.filter((p) => p.authorId === author.id && slugs.has(p.slug))
+        return { project, author, posts }
+      }),
+
+    listProjectCandidates: () => run(() => db.projectCandidates),
+
+    getProjectPlan: (candidateId) =>
+      run<ProjectPlan>(() => {
+        const candidate = candidateById(candidateId)
+        const published = candidate.publishedSlug
+          ? db.projects.find((p) => p.authorId === seed.ME_ID && p.slug === candidate.publishedSlug)
+          : undefined
+        return {
+          candidate,
+          records: projectRecords(candidate),
+          rules: projectRules(candidate),
+          industryLabel: INDUSTRY_LABEL,
+          workspaceName: db.workspace.name,
+          ...(published ? { published } : {}),
+        }
+      }),
+
+    publishProject: (candidateId, options) =>
+      run(() => {
+        if (db.policy.publicPromotion === 'off') throw new Error('Your workspace has turned off publishing to public profiles.')
+        const c = candidateById(candidateId)
+        const project = makeProject(c, options, now().toISOString())
+        db.projects = [project, ...db.projects.filter((p) => !(p.authorId === seed.ME_ID && p.slug === project.slug))]
+        c.publishedSlug = project.slug
+        return project
       }),
 
     getThread: (handle, slug) => run(() => thread(handle, slug)),

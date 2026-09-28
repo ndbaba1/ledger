@@ -49,6 +49,7 @@ export function PostScreen() {
   const currentThread = thread ?? loadedThread
   const isMe = author.id === me.id
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
+  const partOf = profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug))
 
   return (
     <PublicLayout>
@@ -82,6 +83,12 @@ export function PostScreen() {
               ))}
             </div>
             <h1 className="post-head__title">{post.title}</h1>
+            {partOf && (
+              <Link to={`/u/${author.handle}/projects/${partOf.slug}`} className="part-of">
+                <Icon name="folder" size={13} />
+                Part of <strong>{partOf.title}</strong>
+              </Link>
+            )}
             <div className="post-head__meta">
               <Avatar user={author} size="sm" />
               <span>

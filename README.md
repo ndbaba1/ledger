@@ -30,6 +30,8 @@ npm run build      # static build in dist/
 | `#/search?q=` | Search by symptom, error, service; questions also get an "Ask Ledger" answer citing past records |
 | `#/search?mode=match` | Seen this before? — paste an alert, metric or error to find records with matching signals, plus a preview of the Slack reply |
 | `#/settings` | Team & settings — members and roles, invites by @username or email, former members, invite link, join by company email, integrations, trigger label, publishing policy |
+| `#/u/:handle/projects/:slug` | A project: name, role, period, verified evidence (merge requests, records), key decisions and outcome |
+| `#/projects/:id` | Name a project Ledger noticed and choose what backs it (try `pc_webhooks`) |
 | `#/join/:token` | Join page an invitee sees from an invite (try `inv_mei` for a username invite, `inv_sam` for email) |
 
 Accounts belong to people, not companies. A Ledger account (username + GitHub login) joins a workspace as a membership with an optional work email. When someone leaves, the membership ends but the account stays: team records remain credited to them, their public posts stay on their profile, and they can be invited back by the same username.
