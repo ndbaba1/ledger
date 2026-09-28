@@ -1,6 +1,7 @@
-import { Fragment } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { tokenizeInline } from '../lib/inline'
+import { parseBlocks } from '../lib/markdown'
 
 interface InlineProps {
   text: string
@@ -18,6 +19,24 @@ export function Inline({ text, onCite, activeCite, refHref }: InlineProps) {
       {tokenizeInline(text).map((t, i) => {
         if (t.type === 'text') return <Fragment key={i}>{t.value}</Fragment>
         if (t.type === 'code') return <code key={i} className="code-inline">{t.value}</code>
+        if (t.type === 'bold')
+          return (
+            <strong key={i}>
+              <Inline text={t.value} onCite={onCite} activeCite={activeCite} refHref={refHref} />
+            </strong>
+          )
+        if (t.type === 'italic')
+          return (
+            <em key={i}>
+              <Inline text={t.value} onCite={onCite} activeCite={activeCite} refHref={refHref} />
+            </em>
+          )
+        if (t.type === 'link')
+          return (
+            <a key={i} href={t.href} target="_blank" rel="noreferrer noopener" className="text-link">
+              {t.text}
+            </a>
+          )
         if (t.type === 'ref') {
           const href = refHref?.(t.n)
           return href ? (
@@ -52,32 +71,48 @@ export function Inline({ text, onCite, activeCite, refHref }: InlineProps) {
   )
 }
 
-/** Paragraphs with "- " bullet lines turned into lists. */
-export function RichBody({ text }: { text: string }) {
-  const blocks: { list: boolean; lines: string[] }[] = []
-  for (const line of text.split('\n')) {
-    const isItem = line.startsWith('- ')
-    const last = blocks[blocks.length - 1]
-    if (last && last.list === isItem && isItem) last.lines.push(line.slice(2))
-    else blocks.push({ list: isItem, lines: [isItem ? line.slice(2) : line] })
-  }
+/**
+ * Block-level Markdown: paragraphs, bullet and numbered lists, fenced code.
+ * `render` draws each run of inline text, so callers can highlight redactions.
+ */
+export function Markdown({
+  text,
+  render = (t) => <Inline text={t} />,
+  paragraphClass = 'prose',
+}: {
+  text: string
+  render?: (text: string) => ReactNode
+  paragraphClass?: string
+}) {
   return (
     <>
-      {blocks.map((b, i) =>
-        b.list ? (
+      {parseBlocks(text).map((b, i) => {
+        if (b.type === 'p')
+          return (
+            <p key={i} className={paragraphClass}>
+              {render(b.text)}
+            </p>
+          )
+        if (b.type === 'code')
+          return (
+            <pre key={i} className="code-block">
+              <code>{b.code}</code>
+            </pre>
+          )
+        const items = b.items.map((item, j) => <li key={j}>{render(item)}</li>)
+        return b.type === 'ul' ? (
           <ul key={i} className="prose-list">
-            {b.lines.map((l, j) => (
-              <li key={j}>
-                <Inline text={l} />
-              </li>
-            ))}
+            {items}
           </ul>
         ) : (
-          <p key={i} className="prose">
-            <Inline text={b.lines.join(' ')} />
-          </p>
-        ),
-      )}
+          <ol key={i} className="prose-list prose-list--numbered" start={b.start}>
+            {items}
+          </ol>
+        )
+      })}
     </>
   )
 }
+
+/** @deprecated use Markdown */
+export const RichBody = ({ text }: { text: string }) => <Markdown text={text} />

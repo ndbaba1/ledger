@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { Writeup, WriteupFields, WriteupStatus } from '../api/types'
@@ -7,24 +7,26 @@ import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { PaneTabs } from '../components/PaneTabs'
 import { KindPill, PostContent } from '../components/PostContent'
+import { ListEditor } from '../components/ListEditor'
+import { RichEditor } from '../components/RichEditor'
 import { SourceIcon } from '../components/Tags'
 import { ErrorState, FieldError, Loading } from '../components/States'
 import { relativeTime } from '../lib/format'
 import { sectionsFor } from '../lib/publicPost'
 import { useMutation, useQuery } from '../lib/useAsync'
-import { TYPE_INFO, publishRequirements, toLines, writeupToRecord, type FieldDef } from '../lib/writeups'
+import { TYPE_INFO, publishRequirements, writeupToRecord, type FieldDef } from '../lib/writeups'
 
 type View = 'write' | 'preview' | 'side'
 
-/** Editable text for every field; list fields are kept as raw text while typing. */
-interface FormText {
+/** Editor state: Markdown for text fields, arrays (blank rows kept while typing) for lists. */
+interface FormState {
   title: string
   context: string
   symptom: string
-  constraints: string
+  constraints: string[]
   rootCause: string
-  flow: string
-  ruledOut: string
+  flow: string[]
+  ruledOut: string[]
   fix: string
   lesson: string
   resultLabel: string
@@ -32,15 +34,15 @@ interface FormText {
   resultAfter: string
 }
 
-function toForm(w: Writeup): FormText {
+function toForm(w: Writeup): FormState {
   return {
     title: w.title,
     context: w.context,
     symptom: w.symptom,
-    constraints: w.constraints.join('\n'),
+    constraints: [...w.constraints],
     rootCause: w.rootCause,
-    flow: w.flow.join('\n'),
-    ruledOut: w.ruledOut.join('\n'),
+    flow: [...w.flow],
+    ruledOut: [...w.ruledOut],
     fix: w.fix,
     lesson: w.lesson,
     resultLabel: w.result?.label ?? '',
@@ -49,16 +51,17 @@ function toForm(w: Writeup): FormText {
   }
 }
 
-function toFields(f: FormText): WriteupFields {
+function toFields(f: FormState): WriteupFields {
   const hasResult = f.resultLabel.trim() || f.resultBefore.trim() || f.resultAfter.trim()
+  const clean = (xs: string[]) => xs.map((x) => x.trim()).filter(Boolean)
   return {
     title: f.title,
     context: f.context,
     symptom: f.symptom,
-    constraints: toLines(f.constraints),
+    constraints: clean(f.constraints),
     rootCause: f.rootCause,
-    flow: toLines(f.flow),
-    ruledOut: toLines(f.ruledOut),
+    flow: clean(f.flow),
+    ruledOut: clean(f.ruledOut),
     fix: f.fix,
     lesson: f.lesson,
     result: hasResult
@@ -84,7 +87,7 @@ function Editor({ initial }: { initial: Writeup }) {
   const navigate = useNavigate()
   const { me, workspace } = useSession()
   const [w, setW] = useState(initial)
-  const [form, setForm] = useState<FormText>(() => toForm(initial))
+  const [form, setForm] = useState<FormState>(() => toForm(initial))
   const [view, setView] = useState<View>('write')
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const dirty = useRef(false)
@@ -111,7 +114,7 @@ function Editor({ initial }: { initial: Writeup }) {
     return () => clearTimeout(t)
   }, [api, w.id, fields])
 
-  const set = (key: keyof FormText, value: string) => {
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     dirty.current = true
     setForm((f) => ({ ...f, [key]: value }))
   }
@@ -208,27 +211,57 @@ function Editor({ initial }: { initial: Writeup }) {
               <label htmlFor="w-title" className="sr-only">
                 Title
               </label>
-              <input
-                id="w-title"
-                className="writer__title"
-                placeholder={`Title, e.g. ${info.example}`}
-                value={form.title}
-                onChange={(e) => set('title', e.target.value)}
-              />
-              {info.fields.map((f) => (
-                <Field key={f.key} def={f} value={form[f.key]} onChange={(v) => set(f.key, v)} />
+              <TitleInput value={form.title} placeholder={`Title, e.g. ${info.example}`} onChange={(v) => set('title', v)} />
+              {info.fields.map((f, i) => (
+                <SectionCard key={f.key} def={f} step={i + 1} filled={isFilled(fields, f.key)}>
+                  {f.kind === 'short' ? (
+                    <input
+                      id={`w-${f.key}`}
+                      className="input"
+                      value={form[f.key] as string}
+                      placeholder={f.placeholder}
+                      onChange={(e) => set(f.key, e.target.value)}
+                      aria-labelledby={`w-${f.key}-label`}
+                      aria-describedby={`w-${f.key}-help`}
+                    />
+                  ) : f.kind === 'lines' ? (
+                    <ListEditor
+                      id={`w-${f.key}`}
+                      items={form[f.key] as string[]}
+                      onChange={(items) => set(f.key, items)}
+                      placeholder={f.placeholder ?? ''}
+                      itemName={f.itemName ?? 'item'}
+                      numbered={f.numbered}
+                      labelledBy={`w-${f.key}-label`}
+                    />
+                  ) : (
+                    <RichEditor
+                      id={`w-${f.key}`}
+                      value={form[f.key] as string}
+                      onChange={(md) => set(f.key, md)}
+                      placeholder={f.placeholder}
+                      labelledBy={`w-${f.key}-label`}
+                      describedBy={`w-${f.key}-help`}
+                    />
+                  )}
+                </SectionCard>
               ))}
-              <fieldset className="writer__field fieldset">
-                <legend className="writer__label">
-                  Result <span className="writer__opt">{isDesign ? 'needed before publishing' : 'optional'}</span>
-                </legend>
-                <p className="writer__help" id="w-result-help">
-                  One number that moved, e.g. “Checkout p99: 4.2s → 310ms”.
-                </p>
+              <SectionCard
+                def={{
+                  key: 'result' as never,
+                  label: 'Result',
+                  help: 'One number that moved, e.g. “Checkout p99: 4.2s → 310ms”.',
+                  kind: 'short',
+                  required: isDesign,
+                }}
+                step={info.fields.length + 1}
+                filled={Boolean(fields.result?.label && fields.result.before && fields.result.after)}
+                optionalLabel={isDesign ? 'needed to publish' : undefined}
+              >
                 <div className="result-inputs">
                   <label className="stack gap-4">
                     <span className="small muted">Measure</span>
-                    <input className="input" value={form.resultLabel} onChange={(e) => set('resultLabel', e.target.value)} placeholder="Checkout p99" aria-describedby="w-result-help" />
+                    <input className="input" value={form.resultLabel} onChange={(e) => set('resultLabel', e.target.value)} placeholder="Checkout p99" />
                   </label>
                   <label className="stack gap-4">
                     <span className="small muted">Before</span>
@@ -239,7 +272,7 @@ function Editor({ initial }: { initial: Writeup }) {
                     <input className="input" value={form.resultAfter} onChange={(e) => set('resultAfter', e.target.value)} placeholder="310ms" />
                   </label>
                 </div>
-              </fieldset>
+              </SectionCard>
             </form>
           )}
         </section>
@@ -307,31 +340,68 @@ function Editor({ initial }: { initial: Writeup }) {
   )
 }
 
-function Field({ def, value, onChange }: { def: FieldDef; value: string; onChange: (v: string) => void }) {
-  const id = `w-${def.key}`
-  const helpId = `${id}-help`
+/** A title field that wraps and grows instead of scrolling sideways on small screens. */
+function TitleInput({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
   return (
-    <div className="writer__field">
-      <label htmlFor={id} className="writer__label">
-        {def.label} {!def.required && <span className="writer__opt">optional</span>}
-      </label>
-      <p id={helpId} className="writer__help">
+    <textarea
+      ref={ref}
+      id="w-title"
+      rows={1}
+      className="writer__title"
+      placeholder={placeholder}
+      value={value}
+      // A title is one line: Enter shouldn't add a newline.
+      onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+      onChange={(e) => onChange(e.target.value.replace(/\n/g, ' '))}
+    />
+  )
+}
+
+function isFilled(fields: WriteupFields, key: FieldDef['key']): boolean {
+  const v = fields[key]
+  return Array.isArray(v) ? v.length > 0 : v.trim().length > 0
+}
+
+/** One template section: numbered header, required/optional badge, hint, then its editor. */
+function SectionCard({
+  def,
+  step,
+  filled,
+  optionalLabel,
+  children,
+}: {
+  def: FieldDef
+  step: number
+  filled: boolean
+  optionalLabel?: string
+  children: ReactNode
+}) {
+  const id = `w-${def.key}`
+  return (
+    <section className={`wsec${filled ? ' wsec--filled' : ''}`} aria-labelledby={`${id}-label`}>
+      <header className="wsec__head">
+        <span className="wsec__step" aria-hidden="true">
+          {filled ? <Icon name="check" size={13} strokeWidth={3} /> : String(step).padStart(2, '0')}
+        </span>
+        <h2 id={`${id}-label`} className="wsec__title">
+          {def.label}
+        </h2>
+        <span className={`wsec__badge${def.required ? ' wsec__badge--req' : ''}`}>
+          {optionalLabel ?? (def.required ? 'required' : 'optional')}
+        </span>
+      </header>
+      <p id={`${id}-help`} className="wsec__help">
         {def.help}
       </p>
-      {def.kind === 'short' ? (
-        <input id={id} className="input" value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={helpId} />
-      ) : (
-        <textarea
-          id={id}
-          className={`input${def.kind === 'lines' ? ' input--lines' : ''}`}
-          rows={def.kind === 'lines' ? 3 : 4}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-describedby={helpId}
-          aria-required={def.required || undefined}
-        />
-      )}
-    </div>
+      {children}
+    </section>
   )
 }
 

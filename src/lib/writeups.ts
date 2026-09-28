@@ -9,6 +9,12 @@ export interface FieldDef {
   /** 'short' = one line, 'text' = paragraph, 'lines' = one item per line. */
   kind: 'short' | 'text' | 'lines'
   required?: boolean
+  /** For text fields: prompt shown in the empty editor. For lists: example first item. */
+  placeholder?: string
+  /** For list fields: what one item is called ("dead end", "constraint"). */
+  itemName?: string
+  /** For list fields: show 01, 02… instead of bullets. */
+  numbered?: boolean
 }
 
 export interface TypeInfo {
@@ -24,21 +30,52 @@ const context: FieldDef = {
   label: 'Environment',
   help: 'Versions, scale and the service or job involved. Shown under the title.',
   kind: 'short',
+  placeholder: 'PostgreSQL 16 · PgBouncer · checkout-api at peak',
 }
 const lesson: FieldDef = {
   key: 'lesson',
   label: 'Lesson',
   help: 'The one thing you’d tell the next engineer. It becomes the highlighted takeaway.',
   kind: 'text',
+  placeholder: 'Alert on waiting clients, not on database CPU.',
 }
 
 function problemFields(deadEndsHelp: string): FieldDef[] {
   return [
     context,
-    { key: 'symptom', label: 'Problem', help: 'What was wrong, and how it showed up.', kind: 'text', required: true },
-    { key: 'ruledOut', label: 'Dead ends', help: deadEndsHelp, kind: 'lines' },
-    { key: 'rootCause', label: 'Root cause', help: 'What was actually going on, and how you proved it.', kind: 'text', required: true },
-    { key: 'fix', label: 'Solution', help: 'What you changed, and anything you added so it can’t recur.', kind: 'text', required: true },
+    {
+      key: 'symptom',
+      label: 'Problem',
+      help: 'What was wrong, and how it showed up.',
+      kind: 'text',
+      required: true,
+      placeholder: 'p99 went from 310ms to 4.2s at lunchtime peak…',
+    },
+    {
+      key: 'ruledOut',
+      label: 'Dead ends',
+      help: deadEndsHelp,
+      kind: 'lines',
+      itemName: 'dead end',
+      numbered: true,
+      placeholder: 'Scaled read replicas — primary CPU was only 41%',
+    },
+    {
+      key: 'rootCause',
+      label: 'Root cause',
+      help: 'What was actually going on, and how you proved it.',
+      kind: 'text',
+      required: true,
+      placeholder: 'A config change halved the pool, so clients queued…',
+    },
+    {
+      key: 'fix',
+      label: 'Solution',
+      help: 'What you changed, and anything you added so it can’t recur.',
+      kind: 'text',
+      required: true,
+      placeholder: 'Reverted, then derived the pool size from worker count…',
+    },
     lesson,
   ]
 }
@@ -62,16 +99,33 @@ export const TYPE_INFO: Record<RecordType, TypeInfo> = {
     example: 'Derive pool sizes from worker count',
     fields: [
       context,
-      { key: 'symptom', label: 'Context', help: 'What prompted the decision.', kind: 'text', required: true },
-      { key: 'rootCause', label: 'Decision', help: 'What you decided, in a sentence or two. Shown up top.', kind: 'text', required: true },
+      { key: 'symptom', label: 'Context', help: 'What prompted the decision.', kind: 'text', required: true, placeholder: 'Pool sizes were hand-set and drifted…' },
+      {
+        key: 'rootCause',
+        label: 'Decision',
+        help: 'What you decided, in a sentence or two. Shown up top.',
+        kind: 'text',
+        required: true,
+        placeholder: 'Compute pool size from workers × threads × pods.',
+      },
       {
         key: 'ruledOut',
         label: 'Options rejected',
-        help: 'One per line: the option — why you didn’t pick it.',
+        help: 'Each option, and why you didn’t pick it.',
         kind: 'lines',
         required: true,
+        itemName: 'option',
+        numbered: true,
+        placeholder: 'Keep hand-tuning — relies on people remembering',
       },
-      { key: 'fix', label: 'Consequences', help: 'What changes because of this, good and bad.', kind: 'text', required: true },
+      {
+        key: 'fix',
+        label: 'Consequences',
+        help: 'What changes because of this, good and bad.',
+        kind: 'text',
+        required: true,
+        placeholder: 'Every service picks this up on its next deploy…',
+      },
       lesson,
     ],
   },
@@ -81,17 +135,41 @@ export const TYPE_INFO: Record<RecordType, TypeInfo> = {
     example: 'Webhook delivery with retries and a dead-letter queue',
     fields: [
       context,
-      { key: 'symptom', label: 'Goal', help: 'What it needs to do, and for whom.', kind: 'text', required: true },
-      { key: 'constraints', label: 'Constraints', help: 'One per line: scale, latency, cost, deadlines.', kind: 'lines' },
-      { key: 'rootCause', label: 'Design', help: 'How it works.', kind: 'text', required: true },
+      { key: 'symptom', label: 'Goal', help: 'What it needs to do, and for whom.', kind: 'text', required: true, placeholder: 'Deliver webhooks at least once without blocking the API…' },
+      {
+        key: 'constraints',
+        label: 'Constraints',
+        help: 'Scale, latency, cost, deadlines.',
+        kind: 'lines',
+        itemName: 'constraint',
+        placeholder: 'About 2,000 events per second at peak',
+      },
+      { key: 'rootCause', label: 'Design', help: 'How it works.', kind: 'text', required: true, placeholder: 'Write each event to an outbox table in the same transaction…' },
       {
         key: 'flow',
         label: 'Architecture',
-        help: 'One component per line, in order. It becomes a diagram.',
+        help: 'The main path through the system, in order. It becomes a diagram.',
         kind: 'lines',
+        itemName: 'component',
+        numbered: true,
+        placeholder: 'API writes the change and an outbox row',
       },
-      { key: 'ruledOut', label: 'Alternatives', help: 'One per line: the option — why not.', kind: 'lines' },
-      { key: 'fix', label: 'Rollout', help: 'How it shipped: flags, migrations, backfills. Needed before publishing.', kind: 'text' },
+      {
+        key: 'ruledOut',
+        label: 'Alternatives',
+        help: 'Each option you considered, and why not.',
+        kind: 'lines',
+        itemName: 'alternative',
+        numbered: true,
+        placeholder: 'Kafka — a new cluster to run for a two-person team',
+      },
+      {
+        key: 'fix',
+        label: 'Rollout',
+        help: 'How it shipped: flags, migrations, backfills. Needed before publishing.',
+        kind: 'text',
+        placeholder: 'Dual-sent behind a flag for a week, then moved customers in 10% cohorts…',
+      },
       lesson,
     ],
   },

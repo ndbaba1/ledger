@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { PostSection, RecordType, ResultMetric } from '../api/types'
 import { Icon } from './Icon'
+import { Markdown } from './Inline'
 
 const KIND_LABEL: Record<RecordType, string> = {
   incident: 'Production incident',
@@ -35,7 +36,9 @@ export function PostContent({ decision, sections, result, lesson, extra, render 
             <Icon name="check" size={14} strokeWidth={2.5} />
             Decided
           </span>
-          <p className="decided__text">{render(decision)}</p>
+          <div className="decided__text stack gap-10">
+            <Markdown text={decision} render={render} paragraphClass="" />
+          </div>
         </section>
       )}
 
@@ -65,7 +68,9 @@ export function PostContent({ decision, sections, result, lesson, extra, render 
           <h2 id="lesson-label" className="post-section__label">
             Lesson
           </h2>
-          <p className="lesson-box__text">{render(lesson)}</p>
+          <div className="lesson-box__text stack gap-10">
+            <Markdown text={lesson} render={render} paragraphClass="" />
+          </div>
         </section>
       )}
     </div>
@@ -121,5 +126,9 @@ function SectionBody({ section, render }: { section: PostSection; render: (text:
       </ul>
     )
   }
-  return <p className="post-text">{render(section.body)}</p>
+  return (
+    <div className="post-text stack gap-12">
+      <Markdown text={section.body} render={render} paragraphClass="" />
+    </div>
+  )
 }

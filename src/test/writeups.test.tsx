@@ -81,10 +81,11 @@ describe('writing in the app', () => {
 
     await user.click(await screen.findByRole('button', { name: /Start decision/ }))
     await user.type(await screen.findByLabelText('Title'), 'Use UUIDv7 for new primary keys')
-    await user.type(screen.getByLabelText(/^Context/), 'Random UUIDs fragment our B-tree indexes.')
-    await user.type(screen.getByLabelText(/^Decision/), 'New tables use UUIDv7.')
-    await user.type(screen.getByLabelText(/^Options rejected/), 'bigserial — leaks row counts')
-    await user.type(screen.getByLabelText(/^Consequences/), 'Old tables keep UUIDv4.')
+    await user.type(screen.getByRole('textbox', { name: 'Context' }), 'Random UUIDs fragment our B-tree indexes.')
+    await user.type(screen.getByRole('textbox', { name: 'Decision' }), 'New tables use UUIDv7.')
+    await user.type(screen.getByRole('textbox', { name: 'option 1' }), 'bigserial — leaks row counts{Enter}UUIDv4 — random inserts')
+    expect(screen.getByRole('textbox', { name: 'option 2' })).toHaveValue('UUIDv4 — random inserts')
+    await user.type(screen.getByRole('textbox', { name: 'Consequences' }), 'Old tables keep UUIDv4.')
 
     const publish = screen.getByRole('button', { name: 'Publish to Platform Eng' })
     expect(publish).toBeDisabled()

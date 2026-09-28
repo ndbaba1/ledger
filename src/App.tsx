@@ -1,4 +1,4 @@
-import { Component, useEffect, type ReactNode } from 'react'
+import { Component, Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { HashRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ApiProvider } from './api/ApiContext'
 import type { LedgerApi } from './api/client'
@@ -9,13 +9,15 @@ import { CasesScreen } from './screens/CasesScreen'
 import { DraftScreen } from './screens/DraftScreen'
 import { InboxScreen } from './screens/InboxScreen'
 import { NewWriteupScreen } from './screens/NewWriteupScreen'
-import { WriteupScreen } from './screens/WriteupScreen'
 import { PostScreen } from './screens/PostScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
 import { PromoteScreen } from './screens/PromoteScreen'
 import { RecordScreen } from './screens/RecordScreen'
 import { RecordsScreen } from './screens/RecordsScreen'
 import { SearchScreen } from './screens/SearchScreen'
+
+// The editor pulls in TipTap; load it only when someone opens a write-up.
+const WriteupScreen = lazy(() => import('./screens/WriteupScreen').then((m) => ({ default: m.WriteupScreen })))
 
 export function AppRoutes() {
   return (
@@ -25,7 +27,14 @@ export function AppRoutes() {
         <Route path="inbox" element={<InboxScreen />} />
         <Route path="drafts/:id" element={<DraftScreen />} />
         <Route path="new" element={<NewWriteupScreen />} />
-        <Route path="write/:id" element={<WriteupScreen />} />
+        <Route
+          path="write/:id"
+          element={
+            <Suspense fallback={<Loading label="Opening editor" />}>
+              <WriteupScreen />
+            </Suspense>
+          }
+        />
         <Route path="cases" element={<CasesScreen />} />
         <Route path="records" element={<RecordsScreen />} />
         <Route path="records/:id" element={<RecordScreen />} />
