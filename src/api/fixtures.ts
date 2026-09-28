@@ -33,6 +33,11 @@ export const users: User[] = [
   { id: 'u_jordan', name: 'Jordan R.', handle: 'jordanr', initials: 'JR', avatarHue: 155 },
   { id: 'u_priya', name: 'Priya S.', handle: 'priyas', initials: 'PS', avatarHue: 20 },
   { id: 'u_leo', name: 'Leo M.', handle: 'leom', initials: 'LM', avatarHue: 190 },
+  // Engineers outside this workspace who publish on Ledger.
+  { id: 'u_hannah', name: 'Hannah L.', handle: 'hannahl', initials: 'HL', avatarHue: 330, headline: 'Staff engineer · payments', location: 'Berlin', stack: ['go', 'postgres', 'kafka'] },
+  { id: 'u_tomas', name: 'Tomás R.', handle: 'tomasr', initials: 'TR', avatarHue: 95, headline: 'SRE · streaming platform', location: 'Lisbon', stack: ['kafka', 'jvm', 'kubernetes'] },
+  { id: 'u_mei', name: 'Mei W.', handle: 'meiw', initials: 'MW', avatarHue: 45, headline: 'Data platform engineer', location: 'Singapore', stack: ['postgres', 'clickhouse', 'python'] },
+  { id: 'u_ade', name: 'Ade O.', handle: 'adeo', initials: 'AO', avatarHue: 260, headline: 'Backend engineer · logistics', location: 'Lagos', stack: ['kotlin', 'sqlite', 'go'] },
 ]
 
 export const workspace: Workspace = {
@@ -517,5 +522,150 @@ export const writeups: Writeup[] = [
     authorId: ME_ID,
     createdAt: '2026-09-25T14:00:00Z',
     updatedAt: '2026-09-27T21:30:00Z',
+  },
+]
+
+/** Public posts from engineers outside the workspace, for the Explore page. */
+export const communityPosts: PublicPost[] = [
+  {
+    slug: 'retries-turned-a-blip-into-an-outage',
+    authorId: 'u_hannah',
+    type: 'incident',
+    title: 'Retries turned a 30-second payment provider blip into a 40-minute outage',
+    tags: ['payments', 'retries', 'circuit-breaker'],
+    summary: 'Every client retried three times with no jitter, so the provider stayed overloaded long after it recovered.',
+    context: 'Go services · third-party payment API · ~600 requests/s at peak',
+    sections: [
+      {
+        heading: 'Problem',
+        kind: 'text',
+        body: 'The payment provider returned 503s for about 30 seconds. Our checkout stayed down for 40 minutes, long after their status page went green.',
+      },
+      {
+        heading: 'Investigation',
+        kind: 'dead_ends',
+        body: '- Assumed the provider was still degraded — their own dashboard showed normal latency for other customers.\n- Suspected our connection pool was exhausted — pool metrics were healthy the whole time.',
+      },
+      {
+        heading: 'Root cause',
+        kind: 'text',
+        body: 'Three layers each retried three times with a fixed 1s delay: the SDK, our client wrapper and the job queue. One failed charge became up to 27 requests, all arriving in synchronized waves that kept tripping the provider’s rate limiter.',
+      },
+      {
+        heading: 'Solution',
+        kind: 'text',
+        body: 'Retries now happen in exactly one layer, with exponential backoff and full jitter. A circuit breaker opens after 20% errors over 10 seconds and sends a single probe request before closing.',
+      },
+    ],
+    result: { label: 'Time to recover from a provider blip', before: '40 min', after: '45 s' },
+    lesson: 'Count your retries end to end. Retries at every layer multiply, and without jitter they arrive together.',
+    badges: [{ label: 'Authored & merged the fix', detail: 'private GitHub project · Aug 2026', verified: true }],
+    publishedAt: '2026-08-19T14:00:00Z',
+  },
+  {
+    slug: 'kafka-lag-only-on-mondays',
+    authorId: 'u_tomas',
+    type: 'investigation',
+    title: 'Kafka consumer lag that only appeared on Monday mornings',
+    tags: ['kafka', 'jvm', 'gc'],
+    summary: 'A weekly compaction job and a heap sized for weekday traffic combined into long GC pauses every Monday.',
+    context: 'Kafka 3.7 · JVM consumers on Kubernetes · 12 partitions',
+    sections: [
+      {
+        heading: 'Problem',
+        kind: 'text',
+        body: 'Every Monday between 08:00 and 10:00, consumer lag on the orders topic climbed past 2 million messages, then drained by lunch. No deploys or config changes lined up with it.',
+      },
+      {
+        heading: 'Investigation',
+        kind: 'dead_ends',
+        body: '- Added partitions and consumers — lag moved but didn’t shrink.\n- Blamed the broker — broker CPU and disk were flat during the spikes.',
+      },
+      {
+        heading: 'Root cause',
+        kind: 'text',
+        body: 'A weekly job re-emitted a week of order updates on Monday mornings. The larger batches pushed consumers into old-generation GC with pauses over 8 seconds, which triggered rebalances, which paused every consumer again.',
+      },
+      {
+        heading: 'Solution',
+        kind: 'text',
+        body: 'Capped `max.poll.records`, moved to the cooperative sticky assignor so a rebalance doesn’t stop every consumer, and resized the heap from GC logs rather than guesses.',
+      },
+    ],
+    result: { label: 'Peak Monday lag', before: '2.1M messages', after: '18k messages' },
+    lesson: 'If a problem follows the calendar, look for a scheduled job before you look at capacity.',
+    badges: [{ label: 'Authored & merged the fix', detail: 'private GitLab project · Sep 2026', verified: true }],
+    publishedAt: '2026-09-09T09:30:00Z',
+  },
+  {
+    slug: 'partition-events-by-day-not-tenant',
+    authorId: 'u_mei',
+    type: 'decision',
+    title: 'Partition event tables by day, not by tenant',
+    tags: ['postgres', 'partitioning', 'retention'],
+    summary: 'Day partitions made retention a metadata operation and kept the partition count predictable.',
+    context: 'PostgreSQL 16 · ~3,000 tenants · 90-day retention',
+    decision: 'Range-partition the `events` table by day, and add `tenant_id` as the first column of each index instead of partitioning on it.',
+    sections: [
+      {
+        heading: 'Context',
+        kind: 'text',
+        body: 'Deleting expired events row by row took hours every night and bloated the table. We needed retention to be cheap and query speed to stay flat as tenants grew.',
+      },
+      {
+        heading: 'Options considered',
+        kind: 'rejected',
+        body: '- Partition by tenant — thousands of partitions, and retention still needs row deletes.\n- Keep one table with a nightly batch delete — the bloat and vacuum load were the problem we started with.',
+      },
+      {
+        heading: 'Consequences',
+        kind: 'text',
+        body: 'Dropping a day is instant. Queries must include a time range to prune partitions, so we added a lint rule for queries on `events` without one.',
+      },
+    ],
+    lesson: 'Partition along the axis you delete by. Filter along the axis you query by.',
+    badges: [{ label: 'Authored & merged the change', detail: 'private GitHub project · Jul 2026', verified: true }],
+    publishedAt: '2026-07-30T11:00:00Z',
+  },
+  {
+    slug: 'offline-first-delivery-tracking',
+    authorId: 'u_ade',
+    type: 'design',
+    title: 'Offline-first delivery tracking for drivers with patchy signal',
+    tags: ['mobile', 'sync', 'sqlite'],
+    summary: 'Drivers record every scan locally and sync an append-only log, so nothing is lost when signal drops.',
+    context: 'Android app · SQLite on device · ~4,000 drivers',
+    sections: [
+      {
+        heading: 'Goal',
+        kind: 'text',
+        body: 'Let drivers record pickups and drop-offs anywhere, including basements and rural roads, without losing a scan or double-counting one.',
+      },
+      {
+        heading: 'Constraints',
+        kind: 'list',
+        body: '- Signal can be gone for hours\n- Cheap Android phones with limited storage\n- Dispatch needs updates within a minute of signal returning',
+      },
+      {
+        heading: 'Design',
+        kind: 'text',
+        body: 'Each scan is written to an append-only log in SQLite with a client-generated ID. A sync worker ships the log in order when there’s signal, and the server deduplicates by ID, so replays are safe.',
+      },
+      {
+        heading: 'Architecture',
+        kind: 'flow',
+        body: '- Driver scans a parcel\n- Event appended to the local SQLite log\n- Sync worker sends batches when online\n- Server dedupes by event ID and updates dispatch',
+      },
+      {
+        heading: 'Alternatives',
+        kind: 'rejected',
+        body: '- Sync the current state of each parcel — two offline phones overwrite each other.\n- Block scans until online — drivers stopped scanning and wrote on paper instead.',
+      },
+      { heading: 'Rollout', kind: 'text', body: 'Piloted with 50 drivers in the worst-coverage region for three weeks, then rolled out city by city.' },
+    ],
+    result: { label: 'Scans lost per week', before: '~1,200', after: '0' },
+    lesson: 'For offline apps, sync events, not state. Events can be replayed; state can only be overwritten.',
+    badges: [{ label: 'Authored & merged the implementation', detail: 'private GitHub project · Sep 2026', verified: true }],
+    publishedAt: '2026-09-15T16:20:00Z',
   },
 ]

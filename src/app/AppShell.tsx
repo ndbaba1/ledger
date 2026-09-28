@@ -33,6 +33,7 @@ export function AppShell() {
     { to: '/search', label: 'Search', short: 'Search', icon: 'search' },
     { to: `/u/${me.handle}`, label: 'My public profile', short: 'Profile', icon: 'globe' },
   ]
+  const explore: NavItem = { to: '/', label: 'Explore public write-ups', short: 'Explore', icon: 'compass' }
 
   return (
     <div className="shell">
@@ -55,8 +56,8 @@ export function AppShell() {
           <span className="sidebar__new-label">New write-up</span>
         </Link>
         <nav className="sidebar__nav" aria-label="Primary">
-          {items.map((item) => (
-            <NavLink key={item.to} to={item.to} className="nav-link" title={item.label}>
+          {[...items, explore].map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.to === '/'} className="nav-link" title={item.label}>
               <Icon name={item.icon} size={17} />
               <span className="nav-link__label">{item.label}</span>
               {item.count ? (

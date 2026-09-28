@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useEffect, type ReactNode } from 'react'
-import { HashRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { HashRouter, Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ApiProvider } from './api/ApiContext'
 import type { LedgerApi } from './api/client'
 import { AppShell } from './app/AppShell'
@@ -8,6 +8,7 @@ import { Loading } from './components/States'
 import { CasesScreen } from './screens/CasesScreen'
 import { DraftScreen } from './screens/DraftScreen'
 import { InboxScreen } from './screens/InboxScreen'
+import { LandingScreen } from './screens/LandingScreen'
 import { NewWriteupScreen } from './screens/NewWriteupScreen'
 import { PostScreen } from './screens/PostScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
@@ -22,8 +23,8 @@ const WriteupScreen = lazy(() => import('./screens/WriteupScreen').then((m) => (
 export function AppRoutes() {
   return (
     <Routes>
+      <Route index element={<LandingScreen />} />
       <Route element={<AppShell />}>
-        <Route index element={<Navigate to="/inbox" replace />} />
         <Route path="inbox" element={<InboxScreen />} />
         <Route path="drafts/:id" element={<DraftScreen />} />
         <Route path="new" element={<NewWriteupScreen />} />
@@ -91,7 +92,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }
 // Embedded previews (VITE_ROUTER=memory) keep routes in memory instead of the URL.
 function Router({ children }: { children: ReactNode }) {
   return import.meta.env.VITE_ROUTER === 'memory' ? (
-    <MemoryRouter initialEntries={['/inbox']}>{children}</MemoryRouter>
+    <MemoryRouter initialEntries={['/']}>{children}</MemoryRouter>
   ) : (
     <HashRouter>{children}</HashRouter>
   )

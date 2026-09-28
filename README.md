@@ -18,7 +18,8 @@ npm run build      # static build in dist/
 
 | Route | Screen |
 | --- | --- |
-| `#/inbox` | Review inbox — drafts assembled from your work |
+| `#/` | Explore — the public front page: every public write-up, searchable, filterable by type and topic |
+| `#/inbox` | Review inbox (workspace home) — drafts assembled from your work |
 | `#/drafts/:slug` | Draft review — cited timeline, gaps to resolve, the case file of sources, approve & publish |
 | `#/new` | New write-up — pick incident, investigation, decision or design |
 | `#/write/:id` | Write-up editor — template fields, autosave, live preview, evidence, publish checklist; designs go Proposed → Shipped |

@@ -9,6 +9,8 @@ import type {
   SearchHit,
   AskAnswer,
   Writeup,
+  ExploreParams,
+  ExploreResult,
   WriteupFields,
   WriteupStatus,
   RecordType,
@@ -61,6 +63,9 @@ export interface LedgerApi {
 
   getPromotionPlan(recordId: ID): Promise<PromotionPlan>
   publishPost(recordId: ID, options: PublishOptions): Promise<PublicPost>
+
+  /** Every public post from every engineer, searchable and filterable. No sign-in needed. */
+  explore(params: ExploreParams): Promise<ExploreResult>
 
   getProfile(handle: string): Promise<Profile>
   getPost(handle: string, slug: string): Promise<{ post: PublicPost; author: User }>

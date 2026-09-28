@@ -286,3 +286,23 @@ export interface Writeup extends WriteupFields {
   updatedAt: string
   publishedRecordId?: ID
 }
+
+/** One post in the public feed, with its author. */
+export interface FeedItem {
+  post: PublicPost
+  author: User
+}
+
+export interface ExploreParams {
+  query?: string
+  type?: RecordType
+  tag?: string
+}
+
+export interface ExploreResult {
+  items: FeedItem[]
+  /** Most-used tags across all public posts, for browsing. */
+  tags: { tag: string; count: number }[]
+  /** Public posts in total, before filters. */
+  total: number
+}

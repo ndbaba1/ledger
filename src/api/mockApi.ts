@@ -1,6 +1,7 @@
 import { NotFoundError, type LedgerApi } from './client'
 import * as seed from './fixtures'
 import type {
+  ExploreResult,
   Writeup,
   AskAnswer,
   Badge,
@@ -54,7 +55,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     drafts: clone(seed.drafts),
     cases: clone(seed.cases),
     records: clone(seed.records),
-    posts: clone(seed.posts),
+    posts: clone([...seed.posts, ...seed.communityPosts]),
     rules: clone(seed.promotionRules),
     writeups: clone(seed.writeups),
   }
@@ -462,6 +463,60 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         }
         r.promotedPostSlug = post.slug
         return post
+      }),
+
+    explore: ({ query = '', type, tag }) =>
+      run<ExploreResult>(() => {
+        const authors = new Map(db.users.map((u) => [u.id, u]))
+        const all = db.posts
+          .map((post) => ({ post, author: authors.get(post.authorId)! }))
+          .filter((x) => x.author)
+
+        const counts = new Map<string, number>()
+        for (const { post } of all) for (const t of post.tags) counts.set(t, (counts.get(t) ?? 0) + 1)
+        const tags = [...counts.entries()]
+          .map(([t, count]) => ({ tag: t, count }))
+          .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+          .slice(0, 12)
+
+        let items = all.filter(({ post }) => (!type || post.type === type) && (!tag || post.tags.includes(tag)))
+
+        const q = query.trim().toLowerCase()
+        if (q) {
+          const raw = q.split(/\s+/)
+          const keys = keywordsOf(q)
+          const words = raw.length > 2 && keys.length ? keys : raw
+          const needed = raw.length > 2 && keys.length ? Math.max(1, Math.ceil(words.length / 2)) : words.length
+          const scored = items
+            .map((item) => {
+              const { post, author } = item
+              const title = post.title.toLowerCase()
+              const hay = [
+                post.title,
+                post.summary,
+                post.context ?? '',
+                post.decision ?? '',
+                post.lesson ?? '',
+                post.tags.join(' '),
+                author.name,
+                author.handle,
+                ...post.sections.map((s) => s.body),
+              ]
+                .map(stripInline)
+                .join('\n')
+                .toLowerCase()
+              const matched = words.filter((w) => hay.includes(w)).length
+              const score = words.reduce((n, w) => n + (title.includes(w) ? 3 : 0) + (post.tags.some((t) => t.includes(w)) ? 2 : 0), matched)
+              return { item, matched, score }
+            })
+            .filter((x) => x.matched >= needed)
+            .sort((a, b) => b.score - a.score || b.item.post.publishedAt.localeCompare(a.item.post.publishedAt))
+          items = scored.map((x) => x.item)
+        } else {
+          items = [...items].sort((a, b) => b.post.publishedAt.localeCompare(a.post.publishedAt))
+        }
+
+        return { items, tags, total: all.length }
       }),
 
     getProfile: (handle) =>
