@@ -7,6 +7,7 @@ import type {
   PublicPost,
   PublishOptions,
   SearchHit,
+  AskAnswer,
   RecordType,
   TeamRecord,
   User,
@@ -41,6 +42,8 @@ export interface LedgerApi {
   foldAnswer(recordId: ID, questionId: ID): Promise<TeamRecord>
 
   search(query: string, type?: RecordType): Promise<SearchHit[]>
+  /** Answer a question from team records only, citing each record used. */
+  ask(question: string): Promise<AskAnswer>
 
   getPromotionPlan(recordId: ID): Promise<PromotionPlan>
   publishPost(recordId: ID, options: PublishOptions): Promise<PublicPost>

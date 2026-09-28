@@ -22,9 +22,9 @@ npm run build      # static build in dist/
 | `#/drafts/:slug` | Draft review — cited timeline, gaps to resolve, the case file of sources, approve & publish |
 | `#/cases` | Open cases still collecting sources |
 | `#/records` | Team records, newest first |
-| `#/records/:id` | Published record — sources, history, "ask the authors" Q&A with fold-into-record |
+| `#/records/:id` | Published record — "drafted from" evidence (PR diffs, Slack quotes), sources, history, Q&A with fold-into-record |
 | `#/records/:id/promote` | Promote to public — live redaction preview, evidence → verified badges, employer display |
-| `#/search?q=` | Search by symptom, error, service |
+| `#/search?q=` | Search by symptom, error, service; questions also get an "Ask Ledger" answer citing past records |
 | `#/u/:handle` | Public profile with proof-of-work badges |
 | `#/u/:handle/:slug` | Public post |
 

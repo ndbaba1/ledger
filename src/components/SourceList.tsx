@@ -1,9 +1,13 @@
 import type { Source } from '../api/types'
 import { SOURCE_KIND_LABEL } from '../lib/sources'
+import { SourceExcerpt } from './SourceExcerpt'
 import { SourceIcon, SourceStatusLabel } from './Tags'
 
-/** The list of sources behind a draft or record; `activeKey` highlights one. */
-export function SourceList({ sources, activeKey }: { sources: Source[]; activeKey?: string }) {
+/**
+ * The list of sources behind a draft or record. `activeKey` highlights one
+ * and opens its quoted evidence; `showExcerpts` opens all of them.
+ */
+export function SourceList({ sources, activeKey, showExcerpts = false }: { sources: Source[]; activeKey?: string; showExcerpts?: boolean }) {
   return (
     <ul className="source-list">
       {sources.map((s) => (
@@ -31,6 +35,11 @@ export function SourceList({ sources, activeKey }: { sources: Source[]; activeKe
             <span className="source__detail">{s.detail}</span>
           </span>
           <SourceStatusLabel status={s.status} />
+          {s.excerpt && (showExcerpts || activeKey === s.key) && (
+            <div className="source__excerpt">
+              <SourceExcerpt excerpt={s.excerpt} />
+            </div>
+          )}
         </li>
       ))}
     </ul>

@@ -74,6 +74,25 @@ describe('Ledger app', () => {
     expect(screen.getByText('Redis eviction dropped rate-limit keys during a traffic spike')).toBeInTheDocument()
   })
 
+  it('answers a question above the search results with linked citations', async () => {
+    const user = renderAt('#/search')
+    await user.type(await screen.findByLabelText('Search records', { selector: '#search-q' }), 'Has connection pool saturation happened before?')
+    const card = await screen.findByRole('region', { name: 'Has connection pool saturation happened before?' })
+    expect(await within(card).findByText(/this has come up/)).toBeInTheDocument()
+    const first = within(card).getByRole('link', { name: 'Record 1' })
+    expect(first).toHaveAttribute('href', '#/records/LR-212')
+    await user.click(first)
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Checkout p99 latency')
+  })
+
+  it('shows the PR diff and Slack quotes a record was drafted from', async () => {
+    renderAt('#/records/LR-212')
+    const panel = await screen.findByRole('region', { name: 'Drafted from' })
+    expect(within(panel).getAllByRole('group', { name: 'Diff of charts/checkout/values.yaml' })).toHaveLength(2)
+    expect(within(panel).getByText(/cl_waiting keeps climbing/)).toBeInTheDocument()
+    expect(within(panel).getByText('Linked evidence')).toBeInTheDocument()
+  })
+
   it('shows a not-found state for unknown records', async () => {
     renderAt('#/records/LR-999')
     expect(await screen.findByText('Not found')).toBeInTheDocument()

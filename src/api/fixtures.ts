@@ -85,11 +85,11 @@ export const drafts: Draft[] = [
       },
     ],
     sources: [
-      { key: 'S1', kind: 'slack', title: '#inc-checkout thread', detail: '41 messages · 5 people · via issue link', status: 'fetched', hops: 1 },
-      { key: 'S2', kind: 'gitlab_issue', title: 'Issue #4821', detail: 'description + 23 comments', status: 'fetched', hops: 0 },
-      { key: 'S3', kind: 'gitlab_mr', title: 'MR !1932 · Revert pool size', detail: 'merged · +1 −1 · closes #4821', status: 'fetched', hops: 1, authoredByMe: true },
+      { key: 'S1', kind: 'slack', title: '#inc-checkout thread', detail: '41 messages · 5 people · via issue link', status: 'fetched', hops: 1 , excerpt: { kind: 'quotes', quotes: ['scaled read replicas, p99 didn’t move. primary cpu is sitting at 41%', 'SHOW POOLS: cl_waiting keeps climbing and the pool is pinned at 20'] } },
+      { key: 'S2', kind: 'gitlab_issue', title: 'Issue #4821', detail: 'description + 23 comments', status: 'fetched', hops: 0 , excerpt: { kind: 'quotes', quotes: ['this started right after yesterday’s deploy — anything touch the pooler?'] } },
+      { key: 'S3', kind: 'gitlab_mr', title: 'MR !1932 · Revert pool size', detail: 'merged · +1 −1 · closes #4821', status: 'fetched', hops: 1, authoredByMe: true , excerpt: { kind: 'diff', file: 'charts/checkout/values.yaml', lines: [{ op: '-', text: 'default_pool_size: 20' }, { op: '+', text: 'default_pool_size: 40' }] } },
       { key: 'S4', kind: 'link', title: 'Grafana · checkout p99 panel', detail: 'link only · no connector', status: 'linked', hops: 1 },
-      { key: 'S5', kind: 'gitlab_mr', title: 'MR !1874 · Reduce pgbouncer pool', detail: 'found 2 hops out · via comment on S2', status: 'fetched', hops: 2 },
+      { key: 'S5', kind: 'gitlab_mr', title: 'MR !1874 · Reduce pgbouncer pool', detail: 'found 2 hops out · via comment on S2', status: 'fetched', hops: 2 , excerpt: { kind: 'diff', file: 'charts/checkout/values.yaml', lines: [{ op: ' ', text: 'pgbouncer:' }, { op: '-', text: '  default_pool_size: 40' }, { op: '+', text: '  default_pool_size: 20  # cost cleanup' }] } },
       { key: 'S6', kind: 'doc', title: 'Google Doc · capacity notes', detail: 'pasted by you · 2 sections used', status: 'pasted', hops: 0 },
     ],
     redactions: [
@@ -222,11 +222,11 @@ export const records: TeamRecord[] = [
     lesson: 'Derive pool size from worker count, and alert on waiting clients — not on DB CPU.',
     notes: [],
     sources: [
-      { key: 'S1', kind: 'slack', title: '#inc-checkout thread', detail: '41 messages · 5 people', status: 'fetched', hops: 1 },
-      { key: 'S2', kind: 'gitlab_issue', title: 'Issue #4821', detail: 'description + 23 comments', status: 'fetched', hops: 0 },
-      { key: 'S3', kind: 'gitlab_mr', title: 'MR !1932 · Revert pool size', detail: 'merged · +1 −1', status: 'fetched', hops: 1, authoredByMe: true },
+      { key: 'S1', kind: 'slack', title: '#inc-checkout thread', detail: '41 messages · 5 people', status: 'fetched', hops: 1 , excerpt: { kind: 'quotes', quotes: ['scaled read replicas, p99 didn’t move. primary cpu is sitting at 41%', 'SHOW POOLS: cl_waiting keeps climbing and the pool is pinned at 20'] } },
+      { key: 'S2', kind: 'gitlab_issue', title: 'Issue #4821', detail: 'description + 23 comments', status: 'fetched', hops: 0 , excerpt: { kind: 'quotes', quotes: ['this started right after yesterday’s deploy — anything touch the pooler?'] } },
+      { key: 'S3', kind: 'gitlab_mr', title: 'MR !1932 · Revert pool size', detail: 'merged · +1 −1', status: 'fetched', hops: 1, authoredByMe: true , excerpt: { kind: 'diff', file: 'charts/checkout/values.yaml', lines: [{ op: '-', text: 'default_pool_size: 20' }, { op: '+', text: 'default_pool_size: 40' }] } },
       { key: 'S4', kind: 'link', title: 'Grafana · checkout p99 panel', detail: 'link only', status: 'linked', hops: 1 },
-      { key: 'S5', kind: 'gitlab_mr', title: 'MR !1874 · Reduce pgbouncer pool', detail: 'merged the day before', status: 'fetched', hops: 2 },
+      { key: 'S5', kind: 'gitlab_mr', title: 'MR !1874 · Reduce pgbouncer pool', detail: 'merged the day before', status: 'fetched', hops: 2 , excerpt: { kind: 'diff', file: 'charts/checkout/values.yaml', lines: [{ op: ' ', text: 'pgbouncer:' }, { op: '-', text: '  default_pool_size: 40' }, { op: '+', text: '  default_pool_size: 20  # cost cleanup' }] } },
       { key: 'S6', kind: 'doc', title: 'Google Doc · capacity notes', detail: 'pasted', status: 'pasted', hops: 0 },
     ],
     questions: [
@@ -272,7 +272,7 @@ export const records: TeamRecord[] = [
     notes: [],
     sources: [
       { key: 'S1', kind: 'gitlab_issue', title: 'Issue #3310', detail: '14 comments', status: 'fetched', hops: 0 },
-      { key: 'S2', kind: 'gitlab_mr', title: 'MR !1402 · Batch pool', detail: 'merged', status: 'fetched', hops: 1 },
+      { key: 'S2', kind: 'gitlab_mr', title: 'MR !1402 · Batch pool', detail: 'merged', status: 'fetched', hops: 1, excerpt: { kind: 'diff', file: 'config/pgbouncer.ini', lines: [{ op: '+', text: '[databases] billing_batch = pool_size=10 pool_mode=transaction' }] } },
     ],
     questions: [],
     history: [{ at: '2026-03-31T21:00:00Z', byId: 'u_priya', summary: 'Published' }],

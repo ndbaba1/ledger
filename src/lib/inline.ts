@@ -3,8 +3,9 @@ export type InlineToken =
   | { type: 'text'; value: string }
   | { type: 'code'; value: string }
   | { type: 'cite'; key: string }
+  | { type: 'ref'; n: number }
 
-const PATTERN = /`([^`]+)`|\[(S\d+)\]/g
+const PATTERN = /`([^`]+)`|\[(S\d+)\]|\[(\d{1,2})\]/g
 
 export function tokenizeInline(text: string): InlineToken[] {
   const out: InlineToken[] = []
@@ -13,7 +14,8 @@ export function tokenizeInline(text: string): InlineToken[] {
     const at = m.index ?? 0
     if (at > last) out.push({ type: 'text', value: text.slice(last, at) })
     if (m[1] !== undefined) out.push({ type: 'code', value: m[1] })
-    else out.push({ type: 'cite', key: m[2] })
+    else if (m[2] !== undefined) out.push({ type: 'cite', key: m[2] })
+    else out.push({ type: 'ref', n: Number(m[3]) })
     last = at + m[0].length
   }
   if (last < text.length) out.push({ type: 'text', value: text.slice(last) })

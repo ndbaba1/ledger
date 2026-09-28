@@ -37,6 +37,11 @@ export type SourceKind =
 
 export type SourceStatus = 'fetched' | 'linked' | 'pasted' | 'failed'
 
+/** What Ledger quotes from a source: diff lines from a PR/MR, or messages from a thread. */
+export type SourceExcerpt =
+  | { kind: 'diff'; file: string; lines: { op: '+' | '-' | ' '; text: string }[] }
+  | { kind: 'quotes'; quotes: string[] }
+
 export interface Source {
   /** Citation key used inline in text, e.g. "S3". */
   key: string
@@ -49,6 +54,7 @@ export interface Source {
   hops: number
   /** The current user authored this artifact (used for verification badges). */
   authoredByMe?: boolean
+  excerpt?: SourceExcerpt
 }
 
 export type TimelineKind = 'step' | 'dead_end' | 'fix'
@@ -215,4 +221,12 @@ export interface SearchHit {
 export interface Profile {
   user: User
   posts: PublicPost[]
+}
+
+/** A synthesized answer to a question, citing team records as [1], [2]… */
+export interface AskAnswer {
+  question: string
+  /** Null when no record covers the question. */
+  answer: string | null
+  citations: { n: number; recordId: ID; title: string }[]
 }

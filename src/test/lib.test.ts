@@ -99,3 +99,15 @@ describe('format', () => {
     expect(shortDate('2025-03-31T12:00:00Z', now)).toBe('Mar 31, 2025')
   })
 })
+
+describe('numbered references', () => {
+  it('tokenizes [1]-style references separately from source citations', () => {
+    expect(tokenizeInline('See [1] and [S2].')).toEqual([
+      { type: 'text', value: 'See ' },
+      { type: 'ref', n: 1 },
+      { type: 'text', value: ' and ' },
+      { type: 'cite', key: 'S2' },
+      { type: 'text', value: '.' },
+    ])
+  })
+})

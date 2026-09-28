@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
+import { AskCard } from '../components/AskCard'
 import { Icon } from '../components/Icon'
 import { RecordRow } from '../components/RecordRow'
 import { Empty, ErrorState, Loading } from '../components/States'
@@ -14,7 +15,13 @@ const FILTERS: { key: RecordType | 'all'; label: string }[] = [
   { key: 'decision', label: 'Decisions' },
 ]
 
-const SUGGESTIONS = ['pgbouncer', 'redis', 'flaky ci', 'pool size']
+const SUGGESTIONS = ['Has connection pool saturation happened before?', 'pgbouncer', 'redis', 'flaky ci']
+
+/** Questions and multi-word queries get a written answer above the results. */
+function wantsAnswer(q: string): boolean {
+  const t = q.trim()
+  return t.endsWith('?') || t.split(/\s+/).length >= 3
+}
 
 export function SearchScreen() {
   const api = useApi()
@@ -58,7 +65,7 @@ export function SearchScreen() {
       <header className="page-head">
         <div>
           <h1 className="page-title">Search</h1>
-          <p className="page-sub">Search by symptom, error, service or tool — the words you’d use mid-incident.</p>
+          <p className="page-sub">Search by symptom, error or service, or ask a question in plain words.</p>
         </div>
       </header>
 
@@ -71,7 +78,7 @@ export function SearchScreen() {
           id="search-q"
           type="search"
           autoComplete="off"
-          placeholder="e.g. connection pool, 502, redis eviction"
+          placeholder="Search, or ask “has this happened before?”"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
         />
@@ -98,6 +105,8 @@ export function SearchScreen() {
           ))}
         </div>
       )}
+
+      {debounced && wantsAnswer(debounced) && <AskCard question={debounced} />}
 
       {results.error && <ErrorState error={results.error} onRetry={results.reload} />}
       {results.loading && !results.data && <Loading label="Searching" />}

@@ -7,6 +7,7 @@ import { Avatar, AvatarStack } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { SourceList } from '../components/SourceList'
+import { DraftedFrom } from '../components/SourceExcerpt'
 import { ErrorState, FieldError, Loading } from '../components/States'
 import { TypeTag } from '../components/Tags'
 import { relativeTime, shortDate } from '../lib/format'
@@ -201,7 +202,7 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
             </div>
           )}
 
-          {tab === 'sources' && <SourceList sources={record.sources} />}
+          {tab === 'sources' && <SourceList sources={record.sources} showExcerpts />}
 
           {tab === 'history' && (
             <ol className="history">
@@ -221,7 +222,8 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
           )}
         </article>
 
-        <aside className="split__side" aria-label="Questions and related records">
+        <aside className="split__side" aria-label="Evidence, questions and related records">
+          <DraftedFrom sources={record.sources} />
           <QuestionsPanel record={record} users={users} isAuthor={isAuthor} onChange={onChange} />
           <Related ids={record.relatedIds} />
         </aside>
@@ -264,7 +266,7 @@ function QuestionsPanel({
   }
 
   return (
-    <section className="stack gap-12" aria-labelledby="qa-title">
+    <section className="stack gap-12 side-section" aria-labelledby="qa-title">
       <div className="side-head">
         <h2 id="qa-title" className="side-title">
           Ask the authors

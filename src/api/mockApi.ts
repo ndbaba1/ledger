@@ -1,6 +1,7 @@
 import { NotFoundError, type LedgerApi } from './client'
 import * as seed from './fixtures'
 import type {
+  AskAnswer,
   Badge,
   Draft,
   Gap,
@@ -13,7 +14,7 @@ import type {
   TeamRecord,
 } from './types'
 import { isValidUrl, sourceFromUrl } from '../lib/sources'
-import { stripInline } from '../lib/inline'
+import { removeCitations, stripInline } from '../lib/inline'
 import { monthYear } from '../lib/format'
 import { buildPost, publishableTexts } from '../lib/publicPost'
 
@@ -232,7 +233,13 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
 
     search: (query, type) =>
       run(() => {
-        const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+        const raw = query.toLowerCase().split(/\s+/).filter(Boolean)
+        // Questions search on their meaningful words; short queries use every word.
+        const keys = keywordsOf(query)
+        const questionMode = raw.length > 2 && keys.length > 0
+        const words = questionMode ? keys : raw
+        // Short queries need every word; questions need at least half their meaningful words.
+        const needed = questionMode ? Math.max(1, Math.ceil(words.length / 2)) : words.length
         const pool = db.records.filter((r) => !type || r.type === type)
         if (!words.length) {
           return pool.map<SearchHit>((record) => ({ record, excerpt: stripInline(record.symptom) }))
@@ -241,18 +248,56 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         for (const record of pool) {
           const fields = [record.title, record.tags.join(' '), ...recordText(record)].map(stripInline)
           const haystack = fields.join('\n').toLowerCase()
-          if (!words.every((w) => haystack.includes(w))) continue
+          if (words.filter((w) => haystack.includes(w)).length < needed) continue
           const title = record.title.toLowerCase()
           const score = words.reduce(
             (sum, w) => sum + (title.includes(w) ? 2 : 0) + (record.tags.some((t) => t.includes(w)) ? 1 : 0),
             0,
           )
-          const field = fields.slice(2).find((f) => f.toLowerCase().includes(words[0])) ?? stripInline(record.symptom)
-          hits.push({ record, excerpt: excerptAround(field, words[0]), score })
+          const hitWord = words.find((w) => haystack.includes(w)) ?? words[0]
+          const field = fields.slice(2).find((f) => f.toLowerCase().includes(hitWord)) ?? stripInline(record.symptom)
+          hits.push({ record, excerpt: excerptAround(field, hitWord), score })
         }
         return hits
           .sort((a, b) => b.score - a.score || b.record.publishedAt.localeCompare(a.record.publishedAt))
           .map(({ record, excerpt }) => ({ record, excerpt }))
+      }),
+
+    ask: (question) =>
+      run<AskAnswer>(() => {
+        const q = question.trim()
+        if (!q) throw new Error('Ask a question first.')
+        const keywords = keywordsOf(q)
+        const scored = db.records
+          .map((record) => {
+            const title = record.title.toLowerCase()
+            const tags = record.tags.join(' ').toLowerCase()
+            const body = recordText(record).map(stripInline).join(' ').toLowerCase()
+            let score = 0
+            let matched = 0
+            for (const k of keywords) {
+              const s = (title.includes(k) ? 3 : 0) + (tags.includes(k) ? 2 : 0) + (body.includes(k) ? 1 : 0)
+              score += s
+              if (s) matched++
+            }
+            return { record, score, matched }
+          })
+          // A record must cover at least half of what was asked, not one incidental word.
+          .filter((x) => x.matched >= Math.max(1, Math.ceil(keywords.length / 2)))
+          .sort((a, b) => b.score - a.score || b.record.publishedAt.localeCompare(a.record.publishedAt))
+          .slice(0, 3)
+
+        if (!scored.length) return { question: q, answer: null, citations: [] }
+
+        const citations = scored.map(({ record }, i) => ({ n: i + 1, recordId: record.id, title: record.title }))
+        const times = scored.length === 1 ? 'once' : `${scored.length} times`
+        const parts = [`Yes — this has come up ${times} before.`]
+        scored.forEach(({ record }, i) => {
+          parts.push(`In [${i + 1}], ${lowerFirst(sentence(removeCitations(record.rootCause)))}`)
+        })
+        const lesson = scored.find((x) => x.record.lesson)?.record.lesson
+        if (lesson) parts.push(`What stuck: ${lowerFirst(sentence(lesson))}`)
+        return { question: q, answer: parts.join(' '), citations }
       }),
 
     getPromotionPlan: (recordId) =>
@@ -322,4 +367,34 @@ function excerptAround(text: string, word: string, radius = 70): string {
   const start = Math.max(0, at - radius)
   const end = Math.min(text.length, at + word.length + radius)
   return `${start > 0 ? '…' : ''}${text.slice(start, end).trim()}${end < text.length ? '…' : ''}`
+}
+
+const STOPWORDS = new Set(
+  'a an and are as at be before been but by can did do does for from had has have how i if in is it its of on or our so that the this to was we were what when where which who why with you your usually fixed fix happen happened happening again ever'.split(
+    ' ',
+  ),
+)
+
+/** Meaningful words from a question, for matching against records. */
+export function keywordsOf(question: string): string[] {
+  return [
+    ...new Set(
+      question
+        .toLowerCase()
+        .replace(/[^a-z0-9_\-\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !STOPWORDS.has(w)),
+    ),
+  ]
+}
+
+function sentence(text: string): string {
+  const t = text.trim()
+  return /[.!?]$/.test(t) ? t : `${t}.`
+}
+
+function lowerFirst(text: string): string {
+  // Lowercase an ordinary first word ("A", "The", "Parallel"); keep names like "PgBouncer" or "MR".
+  const first = text.match(/^\S+/)?.[0] ?? ''
+  return /^[A-Z][a-z]*[,.:]?$/.test(first) ? text.charAt(0).toLowerCase() + text.slice(1) : text
 }

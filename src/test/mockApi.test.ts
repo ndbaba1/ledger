@@ -106,3 +106,33 @@ describe('mock API: promote to public', () => {
     expect((await api.getProfile('engineernamzy')).posts).toHaveLength(2)
   })
 })
+
+describe('mock API: ask', () => {
+  it('answers from records and cites each one it used', async () => {
+    const res = await newApi().ask('Has connection pool saturation happened before?')
+    expect(res.answer).toMatch(/^Yes — this has come up \d times? before\./)
+    expect(res.citations.length).toBeGreaterThan(0)
+    for (const c of res.citations) expect(res.answer).toContain(`[${c.n}]`)
+    expect(res.citations[0].recordId).toBe('LR-212')
+  })
+
+  it('says so when no record covers the question', async () => {
+    const res = await newApi().ask('Why did the kafka consumer lag spike?')
+    expect(res.answer).toBeNull()
+    expect(res.citations).toEqual([])
+  })
+
+  it('lets question-shaped searches match on meaningful words', async () => {
+    const hits = await newApi().search('has redis eviction happened before?')
+    expect(hits.map((h) => h.record.id)).toEqual(['LR-190'])
+  })
+
+  it('lists the same records a question answer cites', async () => {
+    const api = newApi()
+    const q = 'Has connection pool saturation happened before?'
+    const [hits, answer] = await Promise.all([api.search(q), api.ask(q)])
+    const ids = hits.map((h) => h.record.id)
+    for (const c of answer.citations) expect(ids).toContain(c.recordId)
+    expect(answer.answer).toContain('In [1], a cost-cleanup MR')
+  })
+})
