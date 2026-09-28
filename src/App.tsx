@@ -1,0 +1,95 @@
+import { Component, useEffect, type ReactNode } from 'react'
+import { HashRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { ApiProvider } from './api/ApiContext'
+import type { LedgerApi } from './api/client'
+import { AppShell } from './app/AppShell'
+import { SessionProvider } from './app/session'
+import { Loading } from './components/States'
+import { CasesScreen } from './screens/CasesScreen'
+import { DraftScreen } from './screens/DraftScreen'
+import { InboxScreen } from './screens/InboxScreen'
+import { PostScreen } from './screens/PostScreen'
+import { ProfileScreen } from './screens/ProfileScreen'
+import { PromoteScreen } from './screens/PromoteScreen'
+import { RecordScreen } from './screens/RecordScreen'
+import { RecordsScreen } from './screens/RecordsScreen'
+import { SearchScreen } from './screens/SearchScreen'
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<Navigate to="/inbox" replace />} />
+        <Route path="inbox" element={<InboxScreen />} />
+        <Route path="drafts/:id" element={<DraftScreen />} />
+        <Route path="cases" element={<CasesScreen />} />
+        <Route path="records" element={<RecordsScreen />} />
+        <Route path="records/:id" element={<RecordScreen />} />
+        <Route path="records/:id/promote" element={<PromoteScreen />} />
+        <Route path="search" element={<SearchScreen />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+      <Route path="u/:handle" element={<ProfileScreen />} />
+      <Route path="u/:handle/:slug" element={<PostScreen />} />
+    </Routes>
+  )
+}
+
+function NotFound() {
+  return (
+    <div className="state">
+      <strong>Page not found</strong>
+      <Link to="/inbox" className="btn">
+        Back to inbox
+      </Link>
+    </div>
+  )
+}
+
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }> {
+  state: { error?: Error } = {}
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="state state--error" role="alert">
+          <strong>Ledger hit an unexpected error</strong>
+          <span className="muted">{this.state.error.message}</span>
+          <button type="button" className="btn" onClick={() => window.location.reload()}>
+            Reload
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+/**
+ * Hash routing keeps deep links working on any static host. Switch to
+ * BrowserRouter once the app is served by a backend with a catch-all route.
+ */
+export default function App({ api }: { api: LedgerApi }) {
+  return (
+    <ErrorBoundary>
+      <ApiProvider api={api}>
+        <HashRouter>
+          <ScrollToTop />
+          <SessionProvider fallback={<Loading label="Starting Ledger" />}>
+            <AppRoutes />
+          </SessionProvider>
+        </HashRouter>
+      </ApiProvider>
+    </ErrorBoundary>
+  )
+}

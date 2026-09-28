@@ -1,0 +1,218 @@
+// Domain types shared by every screen. These mirror the shapes the backend
+// API is expected to return, so swapping the mock client for an HTTP client
+// should not require screen changes.
+
+export type ID = string
+
+export interface User {
+  id: ID
+  name: string
+  handle: string
+  initials: string
+  /** Avatar background; foreground is derived for contrast. */
+  avatarHue: number
+  headline?: string
+  location?: string
+  stack?: string[]
+  previously?: { org: string; summary: string }[]
+}
+
+export interface Workspace {
+  id: ID
+  name: string
+  slug: string
+  connections: { provider: 'gitlab' | 'github' | 'slack'; label: string }[]
+}
+
+export type RecordType = 'incident' | 'investigation' | 'decision'
+
+export type SourceKind =
+  | 'slack'
+  | 'gitlab_issue'
+  | 'gitlab_mr'
+  | 'github_issue'
+  | 'github_pr'
+  | 'doc'
+  | 'link'
+
+export type SourceStatus = 'fetched' | 'linked' | 'pasted' | 'failed'
+
+export interface Source {
+  /** Citation key used inline in text, e.g. "S3". */
+  key: string
+  kind: SourceKind
+  title: string
+  detail: string
+  status: SourceStatus
+  url?: string
+  /** Links followed from the anchor to reach this source. 0 = the anchor. */
+  hops: number
+  /** The current user authored this artifact (used for verification badges). */
+  authoredByMe?: boolean
+}
+
+export type TimelineKind = 'step' | 'dead_end' | 'fix'
+
+export interface TimelineEntry {
+  at: string
+  kind: TimelineKind
+  /** May contain `code` spans and [S1] citations. */
+  text: string
+}
+
+export type GapKind = 'missing_context' | 'unsupported_claim'
+export type GapStatus = 'open' | 'answered' | 'kept_unverified' | 'removed'
+
+export interface Gap {
+  id: ID
+  kind: GapKind
+  prompt: string
+  status: GapStatus
+  answer?: string
+}
+
+export interface Redaction {
+  label: string
+  count: number
+}
+
+export type DraftStatus = 'needs_review' | 'published'
+
+export interface Draft {
+  id: ID
+  slug: string
+  type: RecordType
+  title: string
+  service: string
+  severity?: string
+  resolvedIn?: string
+  anchor: string
+  trigger: string
+  createdAt: string
+  summary: string
+  rootCause: string
+  fix: string
+  timeline: TimelineEntry[]
+  gaps: Gap[]
+  sources: Source[]
+  redactions: Redaction[]
+  coAuthorIds: ID[]
+  status: DraftStatus
+  publishedRecordId?: ID
+}
+
+export interface Answer {
+  authorId: ID
+  body: string
+  at: string
+}
+
+export interface Question {
+  id: ID
+  authorId: ID
+  authorRole: string
+  body: string
+  at: string
+  answer?: Answer
+  folded?: boolean
+}
+
+export interface HistoryEntry {
+  at: string
+  byId: ID
+  summary: string
+}
+
+export interface TeamRecord {
+  id: ID
+  type: RecordType
+  title: string
+  tags: string[]
+  authorIds: ID[]
+  publishedAt: string
+  symptom: string
+  rootCause: string
+  ruledOut: string[]
+  detection?: { language: string; code: string }
+  fix: string
+  lesson: string
+  /** Answers folded in from Q&A threads. */
+  notes: string[]
+  sources: Source[]
+  questions: Question[]
+  history: HistoryEntry[]
+  relatedIds: ID[]
+  promotedPostSlug?: string
+}
+
+export interface OpenCase {
+  id: ID
+  title: string
+  anchor: string
+  openedVia: string
+  openedAt: string
+  sourceCount: number
+  ownerId: ID
+}
+
+export interface Badge {
+  label: string
+  detail?: string
+  verified: boolean
+  url?: string
+}
+
+export interface PostSection {
+  heading: string
+  body: string
+}
+
+export interface PublicPost {
+  slug: string
+  authorId: ID
+  type: RecordType
+  title: string
+  tags: string[]
+  summary: string
+  sections: PostSection[]
+  badges: Badge[]
+  publishedAt: string
+  /** Employer line shown on the post, if the author chose to show one. */
+  employerLine?: string
+  promotedFromRecordId?: ID
+}
+
+export interface RedactionRule {
+  id: ID
+  label: string
+  /** Exact strings to find and what to put instead. Empty replacement = removed. */
+  replacements: { match: string; with: string }[]
+  enabled: boolean
+}
+
+export type EmployerMode = 'hidden' | 'industry' | 'named'
+
+export interface PromotionPlan {
+  recordId: ID
+  slug: string
+  rules: RedactionRule[]
+  industryLabel: string
+  workspaceName: string
+  evidence: { source: Source; becomes: Badge | null }[]
+}
+
+export interface PublishOptions {
+  enabledRuleIds: ID[]
+  employerMode: EmployerMode
+}
+
+export interface SearchHit {
+  record: TeamRecord
+  /** Short excerpt around the match. */
+  excerpt: string
+}
+
+export interface Profile {
+  user: User
+  posts: PublicPost[]
+}

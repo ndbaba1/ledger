@@ -1,0 +1,125 @@
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useApi } from '../api/ApiContext'
+import type { RecordType } from '../api/types'
+import { Icon } from '../components/Icon'
+import { RecordRow } from '../components/RecordRow'
+import { Empty, ErrorState, Loading } from '../components/States'
+import { useQuery } from '../lib/useAsync'
+
+const FILTERS: { key: RecordType | 'all'; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'incident', label: 'Incidents' },
+  { key: 'investigation', label: 'Investigations' },
+  { key: 'decision', label: 'Decisions' },
+]
+
+const SUGGESTIONS = ['pgbouncer', 'redis', 'flaky ci', 'pool size']
+
+export function SearchScreen() {
+  const api = useApi()
+  const [params, setParams] = useSearchParams()
+  const q = params.get('q') ?? ''
+  const type = (params.get('type') as RecordType | null) ?? undefined
+  const [draft, setDraft] = useState(q)
+  const [debounced, setDebounced] = useState(q)
+
+  // Keep the input in sync when the URL changes (e.g. from the top-bar search).
+  useEffect(() => {
+    setDraft(q)
+    setDebounced(q)
+  }, [q])
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(draft), 200)
+    return () => clearTimeout(t)
+  }, [draft])
+
+  useEffect(() => {
+    if (debounced === q) return
+    const next = new URLSearchParams(params)
+    if (debounced) next.set('q', debounced)
+    else next.delete('q')
+    setParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced])
+
+  const results = useQuery(() => api.search(debounced, type), [api, debounced, type])
+
+  const setType = (key: RecordType | 'all') => {
+    const next = new URLSearchParams(params)
+    if (key === 'all') next.delete('type')
+    else next.set('type', key)
+    setParams(next, { replace: true })
+  }
+
+  return (
+    <div className="page page--narrow">
+      <header className="page-head">
+        <div>
+          <h1 className="page-title">Search</h1>
+          <p className="page-sub">Search by symptom, error, service or tool — the words you’d use mid-incident.</p>
+        </div>
+      </header>
+
+      <form className="search-box" role="search" onSubmit={(e) => e.preventDefault()}>
+        <Icon name="search" size={18} />
+        <label htmlFor="search-q" className="sr-only">
+          Search records
+        </label>
+        <input
+          id="search-q"
+          type="search"
+          autoComplete="off"
+          placeholder="e.g. connection pool, 502, redis eviction"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+      </form>
+
+      <div className="row gap-8 wrap" role="group" aria-label="Filter by type">
+        {FILTERS.map((f) => {
+          const active = (type ?? 'all') === f.key
+          return (
+            <button key={f.key} type="button" className={`filter${active ? ' filter--on' : ''}`} aria-pressed={active} onClick={() => setType(f.key)}>
+              {f.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {!debounced && (
+        <div className="row gap-8 wrap small muted">
+          <span>Try</span>
+          {SUGGESTIONS.map((s) => (
+            <button key={s} type="button" className="chip chip--btn" onClick={() => setDraft(s)}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {results.error && <ErrorState error={results.error} onRetry={results.reload} />}
+      {results.loading && !results.data && <Loading label="Searching" />}
+      {results.data && (
+        <p className="small muted" aria-live="polite">
+          {debounced
+            ? `${results.data.length} record${results.data.length === 1 ? '' : 's'} matching “${debounced}”`
+            : `${results.data.length} records`}
+        </p>
+      )}
+      {results.data?.length === 0 && (
+        <Empty title="Nothing yet">
+          No record covers this. If you’re solving it now, open a case so the next person finds it.
+        </Empty>
+      )}
+      <ul className="card-list">
+        {results.data?.map((hit) => (
+          <li key={hit.record.id}>
+            <RecordRow record={hit.record} excerpt={hit.excerpt} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

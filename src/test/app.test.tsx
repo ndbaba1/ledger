@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import App from '../App'
+import { createMockApi } from '../api/mockApi'
+
+function renderAt(hash: string) {
+  window.location.hash = hash
+  const user = userEvent.setup()
+  render(<App api={createMockApi({ latencyMs: 0 })} />)
+  return user
+}
+
+describe('Ledger app', () => {
+  it('shows the review inbox with its drafts', async () => {
+    renderAt('#/inbox')
+    expect(await screen.findByRole('heading', { name: 'Review inbox' })).toBeInTheDocument()
+    expect(await screen.findByText('Checkout p99 latency hit 4.2s after the PgBouncer pool was halved')).toBeInTheDocument()
+    expect(screen.getByText('Stripe webhooks processed twice after the Sidekiq retry change')).toBeInTheDocument()
+  })
+
+  it('resolves gaps and publishes a draft to the team', async () => {
+    const user = renderAt('#/drafts/inc-4821')
+    const approve = await screen.findByRole('button', { name: 'Approve & publish to team' })
+    expect(approve).toBeDisabled()
+
+    await user.type(screen.getByLabelText('Your answer, or paste a link'), 'Cost review')
+    await user.click(screen.getByRole('button', { name: 'Save answer' }))
+    expect(await screen.findByText('Answered')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Keep, mark unverified' }))
+    expect(await screen.findByText('Kept, marked unverified')).toBeInTheDocument()
+
+    expect(approve).toBeEnabled()
+    await user.click(approve)
+
+    expect(await screen.findByText(/Published to Platform Eng/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Checkout p99 latency')
+  })
+
+  it('highlights a cited source when its citation is pressed', async () => {
+    const user = renderAt('#/drafts/inc-4821')
+    const summary = (await screen.findByRole('heading', { name: 'Summary' })).parentElement!
+    await user.click(within(summary).getByRole('button', { name: 'Show source S5' }))
+    expect(document.getElementById('source-S5')).toHaveClass('source--active')
+  })
+
+  it('asks a question on a record', async () => {
+    const user = renderAt('#/records/LR-212')
+    await user.type(await screen.findByLabelText('Ask a question'), 'Does this apply to the jobs cluster?')
+    await user.click(screen.getByRole('button', { name: 'Ask' }))
+    expect(await screen.findByText('Does this apply to the jobs cluster?')).toBeInTheDocument()
+  })
+
+  it('previews redactions live and publishes to the public profile', async () => {
+    const user = renderAt('#/records/LR-212/promote')
+    const preview = await screen.findByRole('region', { name: 'Public post preview' })
+    expect(within(preview).getAllByText('the checkout service').length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('checkbox', { name: /Service names/ }))
+    expect(within(preview).queryByText('the checkout service')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: /Service names/ }))
+
+    await user.click(screen.getByRole('button', { name: 'Publish post' }))
+    expect(await screen.findByText(/Your post is live/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Checkout p99 latency')
+    expect(screen.queryByText(/checkout-api/)).not.toBeInTheDocument()
+  })
+
+  it('searches records from the search screen', async () => {
+    const user = renderAt('#/search')
+    await user.type(await screen.findByLabelText('Search records', { selector: '#search-q' }), 'redis')
+    expect(await screen.findByText('1 record matching “redis”')).toBeInTheDocument()
+    expect(screen.getByText('Redis eviction dropped rate-limit keys during a traffic spike')).toBeInTheDocument()
+  })
+
+  it('shows a not-found state for unknown records', async () => {
+    renderAt('#/records/LR-999')
+    expect(await screen.findByText('Not found')).toBeInTheDocument()
+  })
+})
