@@ -14,7 +14,7 @@ import { relativeTime, shortDate } from '../lib/format'
 import { SECTION_LABELS } from '../lib/labels'
 import { useMutation, useQuery } from '../lib/useAsync'
 
-type Tab = 'record' | 'sources' | 'history'
+type Tab = 'record' | 'sources'
 
 export function RecordScreen() {
   const { id = '' } = useParams()
@@ -128,7 +128,6 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
               [
                 ['record', 'Record', null],
                 ['sources', 'Sources', record.sources.length],
-                ['history', 'History', record.history.length],
               ] as const
             ).map(([key, label, count]) => (
               <button
@@ -204,27 +203,12 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
 
           {tab === 'sources' && <SourceList sources={record.sources} showExcerpts />}
 
-          {tab === 'history' && (
-            <ol className="history">
-              {[...record.history].reverse().map((h, i) => {
-                const by = users.get(h.byId)
-                return (
-                  <li key={i} className="history__row">
-                    {by && <Avatar user={by} size="xs" />}
-                    <span>
-                      <strong>{by?.name ?? 'Someone'}</strong> {h.summary.charAt(0).toLowerCase() + h.summary.slice(1)}
-                    </span>
-                    <span className="mono muted small push-right">{shortDate(h.at)}</span>
-                  </li>
-                )
-              })}
-            </ol>
-          )}
+          <EditHistory record={record} users={users} />
+          <QuestionsPanel record={record} users={users} isAuthor={isAuthor} onChange={onChange} />
         </article>
 
-        <aside className="split__side" aria-label="Evidence, questions and related records">
+        <aside className="split__side" aria-label="Evidence and related records">
           <DraftedFrom sources={record.sources} />
-          <QuestionsPanel record={record} users={users} isAuthor={isAuthor} onChange={onChange} />
           <Related ids={record.relatedIds} />
         </aside>
       </div>
@@ -241,6 +225,38 @@ function Callout({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+function afterPublish(at: string, publishedAt: string): string {
+  // Count calendar days, so an edit the next morning reads as "1 day after".
+  const day = (iso: string) => {
+    const d = new Date(iso)
+    return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  }
+  const days = Math.round((day(at) - day(publishedAt)) / 86_400_000)
+  if (days <= 0) return 'same day as publish'
+  return `${days} day${days === 1 ? '' : 's'} after publish`
+}
+
+function EditHistory({ record, users }: { record: TeamRecord; users: Map<ID, User> }) {
+  // The first entry is the publish itself; the rest are edits.
+  const edits = record.history.slice(1)
+  if (!edits.length) return null
+  return (
+    <section className="stack gap-10 record-section" aria-labelledby="history-title">
+      <h2 id="history-title" className="eyebrow eyebrow--lg">
+        Edit history
+      </h2>
+      <ul className="edit-history">
+        {edits.map((h, i) => (
+          <li key={i}>
+            <strong>{users.get(h.byId)?.name ?? 'Someone'}</strong> {h.summary.charAt(0).toLowerCase() + h.summary.slice(1)}
+            <span className="muted"> — {afterPublish(h.at, record.publishedAt)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function QuestionsPanel({
   record,
   users,
@@ -252,9 +268,14 @@ function QuestionsPanel({
   isAuthor: boolean
   onChange: (r: TeamRecord) => void
 }) {
+  const { me } = useSession()
   const api = useApi()
   const [body, setBody] = useState('')
   const ask = useMutation((text: string) => api.askQuestion(record.id, text))
+  // Questions go to the first author who isn't you.
+  const respondent = record.authorIds.filter((id) => id !== me.id).map((id) => users.get(id))[0]
+  const respondentFirst = respondent?.name.split(' ')[0]
+  const plural = record.authorIds.length > 1
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -266,36 +287,47 @@ function QuestionsPanel({
   }
 
   return (
-    <section className="stack gap-12 side-section" aria-labelledby="qa-title">
-      <div className="side-head">
-        <h2 id="qa-title" className="side-title">
-          Ask the authors
-        </h2>
-        <span className="mono muted small">
-          {record.questions.length} thread{record.questions.length === 1 ? '' : 's'}
-        </span>
-      </div>
-      {record.questions.map((q) => (
-        <QuestionThread key={q.id} q={q} record={record} users={users} isAuthor={isAuthor} onChange={onChange} />
-      ))}
-      <form className="stack gap-6" onSubmit={submit}>
-        <label htmlFor="ask" className="label">
+    <section className="qa record-section" aria-labelledby="qa-title">
+      <h2 id="qa-title" className="eyebrow eyebrow--lg">
+        {plural ? 'Ask the authors' : 'Ask the author'}
+      </h2>
+      {record.questions.length === 0 && (
+        <p className="small muted">No questions yet. Anything unclear about how this was found or fixed? Ask here.</p>
+      )}
+      <ol className="qa__list">
+        {record.questions.map((q) => (
+          <QuestionThread
+            key={q.id}
+            q={q}
+            record={record}
+            users={users}
+            isAuthor={isAuthor}
+            waitingOn={respondentFirst}
+            onChange={onChange}
+          />
+        ))}
+      </ol>
+      <form className="qa__ask" onSubmit={submit}>
+        <label htmlFor="ask" className="sr-only">
           Ask a question
         </label>
-        <textarea
+        <input
           id="ask"
-          className="input"
-          rows={2}
-          placeholder="Authors get notified in Slack"
+          className="input qa__input"
+          type="text"
+          autoComplete="off"
+          placeholder={`Ask ${respondentFirst ?? 'the authors'} a question…`}
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value)
+            ask.clearError()
+          }}
         />
-        <FieldError message={ask.error} />
-        <button type="submit" className="btn align-start" disabled={!body.trim() || ask.pending}>
-          <Icon name="message" size={14} />
+        <button type="submit" className="btn btn--ask" disabled={!body.trim() || ask.pending}>
           Ask
         </button>
       </form>
+      <FieldError message={ask.error} />
     </section>
   )
 }
@@ -305,12 +337,14 @@ function QuestionThread({
   record,
   users,
   isAuthor,
+  waitingOn,
   onChange,
 }: {
   q: Question
   record: TeamRecord
   users: Map<ID, User>
   isAuthor: boolean
+  waitingOn?: string
   onChange: (r: TeamRecord) => void
 }) {
   const api = useApi()
@@ -333,76 +367,78 @@ function QuestionThread({
   }
 
   return (
-    <div className="thread">
-      <div className="thread__msg">
-        <span className="small muted">
-          <strong className="text">{asker?.name ?? '…'}</strong> · {q.authorRole} · {relativeTime(q.at)}
-        </span>
-        <p className="thread__body">{q.body}</p>
-      </div>
-      {q.answer ? (
-        <div className="thread__msg thread__msg--answer">
-          <span className="small muted">
-            <strong className="text">{answerer?.name ?? '…'}</strong> · author · {relativeTime(q.answer.at)}
+    <li className="qa__thread">
+      <div className="qa__msg">
+        {asker ? <Avatar user={asker} size="sm" /> : <span className="avatar avatar--sm" />}
+        <div className="stack gap-4">
+          <span className="qa__who">
+            {asker?.name ?? '…'} <span className="qa__meta">{q.authorRole} · {relativeTime(q.at)}</span>
           </span>
-          <p className="thread__body">{q.answer.body}</p>
-          {q.folded ? (
-            <span className="row gap-6 small text-green">
-              <Icon name="check" size={12} /> Folded into the record
+          <p className="qa__q">{q.body}</p>
+        </div>
+      </div>
+
+      {q.answer ? (
+        <div className="qa__answer">
+          <div className="row gap-10 wrap">
+            {answerer && <Avatar user={answerer} size="xs" />}
+            <span className="qa__who">
+              {answerer?.name ?? '…'} <span className="qa__meta">{relativeTime(q.answer.at)}</span>
             </span>
-          ) : (
-            isAuthor && (
-              <div className="row gap-8 wrap">
-                <button
-                  type="button"
-                  className="btn btn--amber btn--sm"
-                  disabled={fold.pending}
-                  onClick={async () => {
-                    const next = await fold.run()
-                    if (next) onChange(next)
-                  }}
-                >
-                  Fold into record
-                </button>
-                <span className="small muted">adds it under “From Q&amp;A”</span>
-              </div>
-            )
-          )}
+            <span className="push-right">
+              {q.folded ? (
+                <span className="folded">
+                  <Icon name="check" size={12} strokeWidth={2.5} />
+                  folded into record
+                </span>
+              ) : (
+                isAuthor && (
+                  <button
+                    type="button"
+                    className="fold-btn"
+                    disabled={fold.pending}
+                    title="Adds this answer to the record under “From Q&A”"
+                    onClick={async () => {
+                      const next = await fold.run()
+                      if (next) onChange(next)
+                    }}
+                  >
+                    Fold into record
+                  </button>
+                )
+              )}
+            </span>
+          </div>
+          <p className="qa__a">{q.answer.body}</p>
           <FieldError message={fold.error} />
         </div>
-      ) : isAuthor ? (
-        replying ? (
-          <form className="thread__msg stack gap-6" onSubmit={submitReply}>
-            <label htmlFor={replyId} className="sr-only">
-              Your answer
-            </label>
-            <textarea id={replyId} className="input" rows={2} value={reply} onChange={(e) => setReply(e.target.value)} autoFocus />
-            <FieldError message={answer.error} />
-            <div className="row gap-8">
-              <button type="submit" className="btn btn--sm" disabled={!reply.trim() || answer.pending}>
-                Post answer
-              </button>
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setReplying(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="thread__msg">
-            <div className="row gap-8">
-              <span className="small text-amber">Awaiting an author</span>
-              <button type="button" className="btn-link push-right" onClick={() => setReplying(true)}>
-                Answer
-              </button>
-            </div>
+      ) : isAuthor && replying ? (
+        <form className="qa__answer stack gap-8" onSubmit={submitReply}>
+          <label htmlFor={replyId} className="sr-only">
+            Your answer
+          </label>
+          <textarea id={replyId} className="input" rows={3} value={reply} onChange={(e) => setReply(e.target.value)} autoFocus />
+          <FieldError message={answer.error} />
+          <div className="row gap-8">
+            <button type="submit" className="btn btn--sm" disabled={!reply.trim() || answer.pending}>
+              Post answer
+            </button>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setReplying(false)}>
+              Cancel
+            </button>
           </div>
-        )
+        </form>
       ) : (
-        <div className="thread__msg">
-          <span className="small text-amber">Awaiting an author</span>
+        <div className="qa__waiting row gap-12">
+          <span>{isAuthor ? 'Waiting on you…' : `Waiting on ${waitingOn ?? 'the authors'}…`}</span>
+          {isAuthor && (
+            <button type="button" className="btn-link" onClick={() => setReplying(true)}>
+              Answer
+            </button>
+          )}
         </div>
       )}
-    </div>
+    </li>
   )
 }
 
