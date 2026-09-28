@@ -810,7 +810,8 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         const posts = db.posts
           .filter((p) => p.authorId === user.id)
           .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
-        return { user, posts }
+        const hitByViewer = posts.filter((p) => db.hitsByMe.has(`${handle}/${p.slug}`)).map((p) => p.slug)
+        return { user, posts, hitByViewer }
       }),
 
     getPost: (handle, slug) =>

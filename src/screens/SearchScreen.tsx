@@ -5,6 +5,7 @@ import type { RecordType } from '../api/types'
 import { AskCard } from '../components/AskCard'
 import { SignalMatcher } from '../components/SignalMatcher'
 import { Icon } from '../components/Icon'
+import { ListBox, ListHeader } from '../components/ListBox'
 import { RecordRow } from '../components/RecordRow'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { useQuery } from '../lib/useAsync'
@@ -133,25 +134,32 @@ export function SearchScreen() {
 
       {results.error && <ErrorState error={results.error} onRetry={results.reload} />}
       {results.loading && !results.data && <Loading label="Searching" />}
-      {results.data && (
-        <p className="small muted" aria-live="polite">
-          {debounced
-            ? `${results.data.length} record${results.data.length === 1 ? '' : 's'} matching “${debounced}”`
-            : `${results.data.length} records`}
-        </p>
-      )}
       {results.data?.length === 0 && (
         <Empty title="Nothing yet">
           No record covers this. If you’re solving it now, open a case so the next person finds it.
         </Empty>
       )}
-      <ul className="card-list">
-        {results.data?.map((hit) => (
-          <li key={hit.record.id}>
-            <RecordRow record={hit.record} excerpt={hit.excerpt} />
-          </li>
-        ))}
-      </ul>
+      {results.data && results.data.length > 0 && (
+        <ListBox
+          labelledBy="results-title"
+          header={
+            <ListHeader
+              id="results-title"
+              icon={<Icon name={debounced ? 'search' : 'book'} size={16} />}
+              title={debounced ? 'Results' : 'All records'}
+              count={
+                debounced
+                  ? `${results.data.length} record${results.data.length === 1 ? '' : 's'} matching “${debounced}”`
+                  : `${results.data.length} records`
+              }
+            />
+          }
+        >
+          {results.data.map((hit) => (
+            <RecordRow key={hit.record.id} record={hit.record} excerpt={hit.excerpt} />
+          ))}
+        </ListBox>
+      )}
       </>
       )}
     </div>

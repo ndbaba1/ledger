@@ -70,7 +70,7 @@ describe('Ledger app', () => {
   it('searches records from the search screen', async () => {
     const user = renderAt('#/search')
     await user.type(await screen.findByLabelText('Search records', { selector: '#search-q' }), 'eviction')
-    expect(await screen.findByText('1 record matching “eviction”')).toBeInTheDocument()
+    expect(await screen.findByText(/1 record matching “eviction”/)).toBeInTheDocument()
     expect(screen.getByText('Redis eviction dropped rate-limit keys during a traffic spike')).toBeInTheDocument()
   })
 

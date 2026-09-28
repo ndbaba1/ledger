@@ -3,6 +3,7 @@ import { useApi } from '../api/ApiContext'
 import { useUsers } from '../app/session'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { ListBox, ListHeader, ListRow } from '../components/ListBox'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { relativeTime } from '../lib/format'
 import { useQuery } from '../lib/useAsync'
@@ -42,36 +43,39 @@ export function CasesScreen() {
       {cases.error && <ErrorState error={cases.error} onRetry={cases.reload} />}
       {cases.data?.length === 0 && <Empty title="No open cases" />}
 
-      <ul className="card-list">
-        {cases.data?.map((c) => {
-          const owner = users.get(c.ownerId)
-          return (
-            <li key={c.id} className="card stack gap-8">
-              <div className="row gap-8 small muted wrap">
-                <span className="dot dot--live" aria-hidden="true" />
-                <span>collecting</span>
-                <span aria-hidden="true">·</span>
-                <span>{c.openedVia}</span>
-                <span className="push-right mono">{relativeTime(c.openedAt)}</span>
-              </div>
-              <h2 className="card-title">{c.title}</h2>
-              <div className="row gap-12 small muted wrap">
-                <span className="mono">{c.anchor}</span>
-                <span className="row gap-4">
-                  <Icon name="link" size={13} />
-                  {c.sourceCount} sources so far
-                </span>
-                {owner && (
-                  <span className="row gap-6 push-right">
-                    <Avatar user={owner} size="xs" />
-                    {owner.name}
-                  </span>
-                )}
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+      {cases.data && cases.data.length > 0 && (
+        <ListBox
+          labelledBy="cases-title"
+          header={<ListHeader id="cases-title" icon={<Icon name="folder" size={16} />} title="Collecting evidence" count={cases.data.length} />}
+        >
+          {cases.data.map((c) => {
+            const owner = users.get(c.ownerId)
+            return (
+              <ListRow
+                key={c.id}
+                title={c.title}
+                lead={owner && <Avatar user={owner} size="xs" />}
+                meta={
+                  <>
+                    <span className="feed-row__kind">
+                      <span className="dot dot--live" aria-hidden="true" />
+                      collecting
+                    </span>
+                    <span className="mono">{c.anchor}</span>
+                    <span className="feed-row__people">
+                      <Icon name="link" size={12} />
+                      {c.sourceCount} sources so far
+                    </span>
+                    <span>{c.openedVia}</span>
+                    {owner && <span>{owner.name}</span>}
+                    <span>{relativeTime(c.openedAt)}</span>
+                  </>
+                }
+              />
+            )
+          })}
+        </ListBox>
+      )}
       <p className="small muted">
         Cases become drafts in your <Link to="/inbox">review inbox</Link> when the anchor issue closes.
       </p>

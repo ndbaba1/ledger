@@ -289,6 +289,8 @@ export interface SearchHit {
 export interface Profile {
   user: User
   posts: PublicPost[]
+  /** Slugs of this person's posts the viewer said they hit too. */
+  hitByViewer?: string[]
 }
 
 /** A synthesized answer to a question, citing team records as [1], [2]… */

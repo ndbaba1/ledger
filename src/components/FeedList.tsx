@@ -1,20 +1,14 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
-import type { FeedItem, RecordType } from '../api/types'
+import type { FeedItem } from '../api/types'
 import { useSession } from '../app/session'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
+import { KindMeta, ListBox, ListRow } from './ListBox'
 import { stripInline } from '../lib/inline'
 import { shortDate } from '../lib/format'
 import { useMutation } from '../lib/useAsync'
-
-const KIND_NAME: Record<RecordType, string> = {
-  incident: 'Incident',
-  investigation: 'Investigation',
-  decision: 'Decision',
-  design: 'Design',
-}
 
 /** Code the author wrote is the strongest proof, so it goes first. */
 function strongestProof(item: FeedItem) {
@@ -23,15 +17,13 @@ function strongestProof(item: FeedItem) {
     .sort((a, b) => Number(/^(Authored|Maintainer)/.test(b.label)) - Number(/^(Authored|Maintainer)/.test(a.label)))[0]
 }
 
-/**
- * One bordered list of write-ups with divider rows: a header line, then rows
- * with the title, a one-line summary and a metadata line.
- */
+/** A list of published write-ups in the shared list style. */
 export function FeedList({
   header,
   labelledBy,
   items,
   summary = 'summary',
+  showAuthor = true,
   footer,
 }: {
   header: ReactNode
@@ -39,65 +31,55 @@ export function FeedList({
   items: FeedItem[]
   /** Which line to show under the title. Topic pages lead with the lesson. */
   summary?: 'summary' | 'lesson'
+  /** Off on a profile, where every post is by the same person. */
+  showAuthor?: boolean
   footer?: ReactNode
 }) {
   return (
-    <section className="feed" aria-labelledby={labelledBy}>
-      <div className="feed__head">{header}</div>
-      {items.length > 0 && (
-        <ul className="feed__list">
-          {items.map((item) => (
-            <li key={`${item.author.handle}/${item.post.slug}`}>
-              <FeedRow item={item} summary={summary} />
-            </li>
-          ))}
-        </ul>
-      )}
-      {footer}
-    </section>
-  )
-}
-
-function FeedRow({ item, summary }: { item: FeedItem; summary: 'summary' | 'lesson' }) {
-  const { post, author } = item
-  const proof = strongestProof(item)
-  const text = summary === 'lesson' ? (post.lesson ?? post.summary) : post.summary
-  return (
-    <article className="feed-row">
-      <div className="feed-row__main">
-        <div className="feed-row__title">
-          <Link to={`/u/${author.handle}`} className="feed-row__avatar" aria-label={author.name} tabIndex={-1}>
-            <Avatar user={author} size="xs" />
-          </Link>
-          <h3>
-            <Link to={`/u/${author.handle}/${post.slug}`}>{post.title}</Link>
-          </h3>
-        </div>
-        <p className="feed-row__summary">{stripInline(text)}</p>
-        <div className="feed-row__meta">
-          <span className="feed-row__kind">
-            <span className={`kind-dot kind-dot--${post.type}`} aria-hidden="true" />
-            {KIND_NAME[post.type]}
-          </span>
-          <Link to={`/u/${author.handle}`} className="feed-row__author">
-            {author.name}
-          </Link>
-          <span>{shortDate(post.publishedAt)}</span>
-          {post.result && (
-            <span className="feed-row__result" title={post.result.label}>
-              {post.result.before} → {post.result.after}
-            </span>
-          )}
-          {proof && (
-            <span className="feed-row__proof" title={proof.detail}>
-              <Icon name="check" size={12} strokeWidth={3} />
-              {proof.label}
-            </span>
-          )}
-        </div>
-      </div>
-      <HitToggle item={item} />
-    </article>
+    <ListBox labelledBy={labelledBy} header={header} footer={footer}>
+      {items.map((item) => {
+        const { post, author } = item
+        const proof = strongestProof(item)
+        return (
+          <ListRow
+            key={`${author.handle}/${post.slug}`}
+            to={`/u/${author.handle}/${post.slug}`}
+            title={post.title}
+            lead={
+              showAuthor && (
+                <Link to={`/u/${author.handle}`} className="feed-row__avatar" aria-label={author.name} tabIndex={-1}>
+                  <Avatar user={author} size="xs" />
+                </Link>
+              )
+            }
+            summary={stripInline(summary === 'lesson' ? (post.lesson ?? post.summary) : post.summary)}
+            meta={
+              <>
+                <KindMeta type={post.type} />
+                {showAuthor && (
+                  <Link to={`/u/${author.handle}`} className="feed-row__author">
+                    {author.name}
+                  </Link>
+                )}
+                <span>{shortDate(post.publishedAt)}</span>
+                {post.result && (
+                  <span className="feed-row__result" title={post.result.label}>
+                    {post.result.before} → {post.result.after}
+                  </span>
+                )}
+                {proof && (
+                  <span className="feed-row__proof" title={proof.detail}>
+                    <Icon name="check" size={12} strokeWidth={3} />
+                    {proof.label}
+                  </span>
+                )}
+              </>
+            }
+            aside={<HitToggle item={item} />}
+          />
+        )
+      })}
+    </ListBox>
   )
 }
 

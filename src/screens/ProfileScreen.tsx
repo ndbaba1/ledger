@@ -7,13 +7,12 @@ import { useSession } from '../app/session'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/States'
-import { TypeTag, VerifiedBadge } from '../components/Tags'
-import { stripInline } from '../lib/inline'
-import { postMinutes } from '../lib/publicPost'
+import { FeedList, FilterMenu } from '../components/FeedList'
+import { ListHeader } from '../components/ListBox'
 import { useQuery } from '../lib/useAsync'
 
 const TABS: { key: RecordType | 'all'; label: string }[] = [
-  { key: 'all', label: 'All' },
+  { key: 'all', label: 'Everything' },
   { key: 'incident', label: 'Incidents' },
   { key: 'investigation', label: 'Investigations' },
   { key: 'decision', label: 'Decisions' },
@@ -40,7 +39,7 @@ export function ProfileScreen() {
       </PublicLayout>
     )
 
-  const { user, posts } = profile.data
+  const { user, posts, hitByViewer = [] } = profile.data
   const visible = posts.filter((p) => tab === 'all' || p.type === tab)
   const verified = posts.flatMap((p) => p.badges).filter((b) => b.verified).length
   const isMe = user.id === me.id
@@ -71,60 +70,45 @@ export function ProfileScreen() {
             </div>
           </section>
 
-          <div className="tabs" role="tablist" aria-label="Filter write-ups">
-            {TABS.map((t) => {
-              const n = t.key === 'all' ? posts.length : posts.filter((p) => p.type === t.key).length
-              if (t.key !== 'all' && n === 0) return null
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t.key}
-                  className="tabs__tab"
-                  onClick={() => setTab(t.key)}
-                >
-                  {t.label} <span className="mono muted">{n}</span>
-                </button>
+          <FeedList
+            labelledBy="profile-posts"
+            showAuthor={false}
+            items={visible.map((post) => ({ post, author: user, hitByMe: hitByViewer.includes(post.slug) }))}
+            header={
+              <ListHeader
+                id="profile-posts"
+                icon={<Icon name="book" size={16} />}
+                title="Write-ups"
+                count={tab === 'all' ? posts.length : `${visible.length} of ${posts.length}`}
+              >
+                {posts.length > 0 && (
+                  <span className="push-right">
+                    <FilterMenu
+                      options={TABS.flatMap((t) => {
+                        const n = t.key === 'all' ? posts.length : posts.filter((p) => p.type === t.key).length
+                        return t.key !== 'all' && n === 0 ? [] : [{ key: t.key, label: `${t.label} · ${n}` }]
+                      })}
+                      value={tab}
+                      onChange={setTab}
+                    />
+                  </span>
+                )}
+              </ListHeader>
+            }
+            footer={
+              visible.length === 0 && (
+                <div className="feed__empty">
+                  <Empty title="No write-ups yet">
+                    {isMe ? (
+                      <>
+                        Promote a <Link to="/records">team record</Link> to publish your first one.
+                      </>
+                    ) : null}
+                  </Empty>
+                </div>
               )
-            })}
-          </div>
-
-          {visible.length === 0 && (
-            <Empty title="No write-ups yet">
-              {isMe ? (
-                <>
-                  Promote a <Link to="/records">team record</Link> to publish your first one.
-                </>
-              ) : null}
-            </Empty>
-          )}
-
-          <ul className="card-list">
-            {visible.map((p) => (
-              <li key={p.slug}>
-                <article className="post-card">
-                  <div className="row gap-8 wrap">
-                    <TypeTag type={p.type} />
-                    <span className="mono muted small">{p.tags.join(' · ')}</span>
-                    <span className="mono muted small push-right">{postMinutes(p)} min read</span>
-                  </div>
-                  <h2 className="card-title card-title--lg">
-                    <Link to={`/u/${user.handle}/${p.slug}`} className="stretched">
-                      {p.title}
-                    </Link>
-                  </h2>
-                  <p className="card-excerpt">{stripInline(p.summary)}</p>
-                  <div className="row gap-8 wrap">
-                    {p.badges.map((b) => (
-                      <VerifiedBadge key={b.label + b.detail} label={b.label} detail={b.detail} />
-                    ))}
-                    {p.promotedFromRecordId && <span className="pill small">promoted from a team record</span>}
-                  </div>
-                </article>
-              </li>
-            ))}
-          </ul>
+            }
+          />
         </div>
 
         <aside className="profile__side stack gap-16" aria-label="Verified activity">

@@ -1,4 +1,6 @@
 import { useApi } from '../api/ApiContext'
+import { Icon } from '../components/Icon'
+import { ListBox, ListHeader } from '../components/ListBox'
 import { RecordRow } from '../components/RecordRow'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { stripInline } from '../lib/inline'
@@ -21,13 +23,16 @@ export function RecordsScreen() {
       {records.loading && !records.data && <Loading label="Loading records" />}
       {records.error && <ErrorState error={records.error} onRetry={records.reload} />}
       {records.data?.length === 0 && <Empty title="No records yet">Approve a draft from your inbox to publish the first one.</Empty>}
-      <ul className="card-list">
-        {records.data?.map((r) => (
-          <li key={r.id}>
-            <RecordRow record={r} excerpt={stripInline(r.lesson || r.symptom)} />
-          </li>
-        ))}
-      </ul>
+      {records.data && records.data.length > 0 && (
+        <ListBox
+          labelledBy="records-title"
+          header={<ListHeader id="records-title" icon={<Icon name="book" size={16} />} title="Newest first" count={`${records.data.length} records`} />}
+        >
+          {records.data.map((r) => (
+            <RecordRow key={r.id} record={r} excerpt={stripInline(r.lesson || r.symptom)} />
+          ))}
+        </ListBox>
+      )}
     </div>
   )
 }
