@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { SourceList } from '../components/SourceList'
 import { DraftedFrom } from '../components/SourceExcerpt'
+import { SignalsPanel } from '../components/Signals'
 import { ErrorState, FieldError, Loading } from '../components/States'
 import { KindPill, PostContent } from '../components/PostContent'
 import { sectionsFor } from '../lib/publicPost'
@@ -173,6 +174,7 @@ function RecordView({ record, onChange }: { record: TeamRecord; onChange: (r: Te
         </article>
 
         <aside className="split__side" aria-label="Evidence and related records">
+          <SignalsPanel signals={record.signals ?? []} />
           <DraftedFrom sources={record.sources} />
           <Related ids={record.relatedIds} />
         </aside>

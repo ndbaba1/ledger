@@ -106,6 +106,10 @@ export const drafts: Draft[] = [
     ],
     coAuthorIds: [ME_ID, 'u_amara', 'u_jordan'],
     status: 'needs_review',
+    signals: [
+      { kind: 'alert', value: 'CheckoutP99LatencyHigh', foundIn: 'S1' },
+      { kind: 'metric', value: 'pgbouncer_pools_client_waiting_connections', foundIn: 'S2' },
+    ],
   },
   {
     id: 'd_912',
@@ -237,6 +241,10 @@ export const records: TeamRecord[] = [
     fix: 'Sent from both the old and new paths behind a flag for a week, compared delivery logs per endpoint, then moved customers over in 10% cohorts [S4]. Jordan R. built the replay screen in the final week.',
     lesson: 'The outbox pattern gives you transactional delivery without a new broker. Start there before reaching for Kafka.',
     context: 'Postgres 16 · Redis 7 streams · ~2k events/s at peak',
+    signals: [
+      { kind: 'alert', value: 'WebhookDeliveryFailureRateHigh' },
+      { kind: 'metric', value: 'webhook_dlq_depth' },
+    ],
     result: { label: 'Webhooks delivered on the first attempt', before: '92.1%', after: '99.7%' },
     notes: [],
     sources: [
@@ -285,6 +293,11 @@ export const records: TeamRecord[] = [
     fix: 'Reverted the pool size, then changed the Helm chart so pool size is derived from worker count. Platform Eng added an alert on waiting clients. Tracked in platform/checkout#4821.',
     lesson: 'Derive pool size from worker count, and alert on waiting clients — not on DB CPU.',
     context: 'PostgreSQL 16 · PgBouncer in session mode · checkout-api at lunchtime peak',
+    signals: [
+      { kind: 'alert', value: 'CheckoutP99LatencyHigh', foundIn: 'S1' },
+      { kind: 'metric', value: 'pgbouncer_pools_client_waiting_connections', foundIn: 'S2' },
+      { kind: 'error', value: 'context deadline exceeded while acquiring connection', foundIn: 'S1' },
+    ],
     result: { label: 'Checkout p99', before: '4.2s', after: '310ms' },
     notes: [],
     sources: [
@@ -335,6 +348,10 @@ export const records: TeamRecord[] = [
     ruledOut: ['Lock contention — `pg_locks` showed no blocked writers.'],
     fix: 'Moved the batch to its own pool with a separate user, and chunked transactions to 500 invoices.',
     lesson: 'Give batch jobs their own pool so they can’t starve interactive traffic.',
+    signals: [
+      { kind: 'alert', value: 'BillingApiTimeouts', foundIn: 'S1' },
+      { kind: 'error', value: 'query_wait_timeout', foundIn: 'S1' },
+    ],
     notes: [],
     sources: [
       { key: 'S1', kind: 'gitlab_issue', title: 'Issue #3310', detail: '14 comments', status: 'fetched', hops: 0 },
@@ -360,6 +377,7 @@ export const records: TeamRecord[] = [
     fix: 'All services on the shared chart pick this up on their next deploy.',
     lesson: 'Configuration that depends on other configuration should be computed, not copied.',
     context: 'Shared Helm chart · PgBouncer in front of every service',
+    signals: [{ kind: 'metric', value: 'pgbouncer_pools_client_waiting_connections' }],
     notes: [],
     sources: [
       { key: 'S1', kind: 'gitlab_mr', title: 'MR !1940 · Computed pool size', detail: 'merged', status: 'fetched', hops: 0, authoredByMe: true },
@@ -380,6 +398,7 @@ export const records: TeamRecord[] = [
     ruledOut: ['Leaked connections in a specific spec — failures moved around between runs.'],
     fix: 'Set the pool to 2 per test worker and raised `max_connections` on the CI image.',
     lesson: 'Random failures that move between tests usually mean shared resource limits, not test bugs.',
+    signals: [{ kind: 'error', value: 'FATAL: sorry, too many clients already', foundIn: 'S1' }],
     result: { label: 'CI failure rate', before: '1 in 8 runs', after: '0 in 200 runs' },
     notes: [],
     sources: [{ key: 'S1', kind: 'gitlab_mr', title: 'MR !1711', detail: 'merged', status: 'fetched', hops: 0 }],
@@ -399,6 +418,11 @@ export const records: TeamRecord[] = [
     ruledOut: ['A limiter bug — counters were correct until they disappeared.'],
     fix: 'Moved rate limiting to its own Redis with `noeviction`.',
     lesson: 'Never share an evicting Redis between cache and correctness-critical keys.',
+    signals: [
+      { kind: 'alert', value: 'ApiRateLimitBypassed', foundIn: 'S1' },
+      { kind: 'metric', value: 'redis_evicted_keys_total', foundIn: 'S1' },
+      { kind: 'log', value: 'OOM command not allowed when used memory > maxmemory', foundIn: 'S1' },
+    ],
     notes: [],
     sources: [{ key: 'S1', kind: 'slack', title: '#inc-api thread', detail: '28 messages', status: 'fetched', hops: 0 }],
     questions: [],
@@ -510,6 +534,7 @@ export const writeups: Writeup[] = [
     ],
     fix: '',
     lesson: '',
+    signals: [{ kind: 'alert', value: 'ApiTenantRequestRateHigh' }],
     evidence: [
       {
         key: 'S1',

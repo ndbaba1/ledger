@@ -185,6 +185,7 @@ export const EMPTY_FIELDS: WriteupFields = {
   ruledOut: [],
   fix: '',
   lesson: '',
+  signals: [],
 }
 
 /** Evidence that the work happened: code changes or the tracked issue. */
@@ -260,6 +261,7 @@ export function writeupToRecord(
     ...(w.result && w.result.label && w.result.before && w.result.after ? { result: w.result } : {}),
     ...(w.constraints.length ? { constraints: w.constraints } : {}),
     ...(w.flow.length ? { flow: w.flow } : {}),
+    ...(w.signals.length ? { signals: w.signals } : {}),
     notes: [],
     sources: evidence,
     questions: [],

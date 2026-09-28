@@ -33,7 +33,7 @@ export function AppShell() {
     { to: '/search', label: 'Search', short: 'Search', icon: 'search' },
     { to: `/u/${me.handle}`, label: 'My public profile', short: 'Profile', icon: 'globe' },
   ]
-  const explore: NavItem = { to: '/', label: 'Explore public write-ups', short: 'Explore', icon: 'compass' }
+  const explore: NavItem = { to: '/', label: 'Explore', short: 'Explore', icon: 'compass' }
 
   return (
     <div className="shell">

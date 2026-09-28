@@ -9,6 +9,7 @@ import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { PaneTabs } from '../components/PaneTabs'
 import { SourceList } from '../components/SourceList'
+import { SignalsPanel } from '../components/Signals'
 import { ErrorState, FieldError, Loading } from '../components/States'
 import { Tag, TypeTag } from '../components/Tags'
 import { relativeTime } from '../lib/format'
@@ -217,6 +218,11 @@ function DraftView({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => 
               <span className="small muted">Fetched with your own permissions. Raw source text is discarded after drafting.</span>
             </div>
           )}
+          <SignalsPanel
+            signals={draft.signals ?? []}
+            title="Signals detected"
+            note="Found in the case file. They’re saved with the record so Ledger can point here when they fire again."
+          />
           <div className="row gap-8 small muted">
             <span>Co-authors from sources</span>
             <AvatarStack users={draft.coAuthorIds.map((uid) => users.get(uid)).filter((u) => u !== undefined)} />

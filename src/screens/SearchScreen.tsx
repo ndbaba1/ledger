@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { AskCard } from '../components/AskCard'
+import { SignalMatcher } from '../components/SignalMatcher'
 import { Icon } from '../components/Icon'
 import { RecordRow } from '../components/RecordRow'
 import { Empty, ErrorState, Loading } from '../components/States'
@@ -54,6 +55,14 @@ export function SearchScreen() {
 
   const results = useQuery(() => api.search(debounced, type), [api, debounced, type])
 
+  const mode = params.get('mode') === 'match' ? 'match' : 'search'
+  const setMode = (m: 'search' | 'match') => {
+    const next = new URLSearchParams(params)
+    if (m === 'match') next.set('mode', 'match')
+    else next.delete('mode')
+    setParams(next, { replace: true })
+  }
+
   const setType = (key: RecordType | 'all') => {
     const next = new URLSearchParams(params)
     if (key === 'all') next.delete('type')
@@ -70,6 +79,19 @@ export function SearchScreen() {
         </div>
       </header>
 
+      <div className="tabs" role="tablist" aria-label="Search mode">
+        <button type="button" role="tab" aria-selected={mode === 'search'} className="tabs__tab" onClick={() => setMode('search')}>
+          Search records
+        </button>
+        <button type="button" role="tab" aria-selected={mode === 'match'} className="tabs__tab" onClick={() => setMode('match')}>
+          Match an alert or error
+        </button>
+      </div>
+
+      {mode === 'match' ? (
+        <SignalMatcher />
+      ) : (
+      <>
       <form className="search-box" role="search" onSubmit={(e) => e.preventDefault()}>
         <Icon name="search" size={18} />
         <label htmlFor="search-q" className="sr-only">
@@ -130,6 +152,8 @@ export function SearchScreen() {
           </li>
         ))}
       </ul>
+      </>
+      )}
     </div>
   )
 }

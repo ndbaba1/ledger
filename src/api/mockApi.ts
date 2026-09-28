@@ -22,6 +22,7 @@ import { removeCitations, stripInline } from '../lib/inline'
 import { monthYear } from '../lib/format'
 import { buildPost, publishableTexts } from '../lib/publicPost'
 import { EMPTY_FIELDS, publishBlockers, toLines, writeupToRecord } from '../lib/writeups'
+import { matchRecords } from '../lib/signals'
 
 export interface MockApiOptions {
   /** Artificial latency so loading states are visible. Use 0 in tests. */
@@ -268,6 +269,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
           lesson: '',
           notes: d.gaps.filter((g) => g.status === 'answered' && g.answer).map((g) => g.answer!),
           sources: d.sources,
+          ...(d.signals?.length ? { signals: d.signals } : {}),
           questions: [],
           history: [{ at, byId: seed.ME_ID, summary: `Published from draft ${d.slug}` }],
           relatedIds: [],
@@ -315,6 +317,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         for (const k of ['constraints', 'flow', 'ruledOut'] as const) {
           if (clean[k]) clean[k] = toLines(clean[k]!.join('\n'))
         }
+        if (clean.signals) clean.signals = clean.signals.map((x) => ({ ...x, value: x.value.trim() })).filter((x) => x.value)
         Object.assign(w, clean, { updatedAt: now().toISOString() })
         return w
       }),
@@ -465,6 +468,12 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         const lesson = scored.find((x) => x.record.lesson)?.record.lesson
         if (lesson) parts.push(`What stuck: ${lowerFirst(sentence(lesson))}`)
         return { question: q, answer: parts.join(' '), citations }
+      }),
+
+    matchSignal: (text) =>
+      run(() => {
+        if (!text.trim()) throw new Error('Paste an alert, metric or error message.')
+        return matchRecords(text, db.records).slice(0, 5)
       }),
 
     getPromotionPlan: (recordId) =>

@@ -9,6 +9,7 @@ import type {
   SearchHit,
   AskAnswer,
   Writeup,
+  SignalMatch,
   PostThread,
   TopicPage,
   ExploreParams,
@@ -62,6 +63,8 @@ export interface LedgerApi {
   search(query: string, type?: RecordType): Promise<SearchHit[]>
   /** Answer a question from team records only, citing each record used. */
   ask(question: string): Promise<AskAnswer>
+  /** Records whose alerts, metrics or errors match a pasted alert or error. */
+  matchSignal(text: string): Promise<SignalMatch[]>
 
   getPromotionPlan(recordId: ID): Promise<PromotionPlan>
   publishPost(recordId: ID, options: PublishOptions): Promise<PublicPost>

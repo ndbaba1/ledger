@@ -3582,3 +3582,240 @@ a.evidence-list__body:hover .evidence-list__label {
     gap: 10px;
   }
 }
+
+/* ---------- signals ---------- */
+
+.signal {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: var(--inset);
+}
+.signal--hit {
+  border-color: var(--amber-line);
+  background: #17140b;
+}
+.signal__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.signal--alert .signal__kind { color: var(--red); }
+.signal--metric .signal__kind { color: var(--blue); }
+.signal--error .signal__kind { color: #f5b567; }
+.signal__value {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.signal__src {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+}
+.signal-list {
+  gap: 6px;
+}
+.pill--xs {
+  font-size: 11px;
+  padding: 1px 8px;
+  gap: 4px;
+}
+
+.signal-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 4px 4px 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.signal-row:focus-within {
+  border-color: var(--amber);
+}
+.signal-row__kind {
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+}
+.signal-row__value {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.matcher {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.match {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.match__title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+}
+.match__title:hover {
+  color: var(--amber);
+}
+.match__strength {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.match__strength--exact { color: var(--green); background: var(--green-bg); border: 1px solid var(--green-line); }
+.match__strength--strong { color: var(--amber); background: var(--amber-bg); border: 1px solid var(--amber-line); }
+.match__strength--partial { color: var(--text-3); border: 1px solid var(--line-2); }
+
+.slack-preview {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #1a1d21;
+  border: 1px solid #2c2f34;
+  font-family: -apple-system, 'Segoe UI', var(--sans);
+}
+.slack__alert,
+.slack__reply {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+}
+.slack__reply {
+  padding-left: 18px;
+  border-left: 2px solid #3a3d42;
+}
+.slack__bot {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-family: var(--mono);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slack__bot--alerts {
+  background: #c0392b;
+  color: #fff;
+}
+.slack__name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #f8f8f8;
+}
+.slack__app {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #3a3d42;
+  font-size: 10px;
+  font-weight: 700;
+  color: #c9cbcd;
+}
+.slack__text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #d1d2d3;
+  overflow-wrap: anywhere;
+}
+code.slack__text {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.slack__text--muted {
+  color: #a8aaab;
+}
+.slack__button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
+  border: 1px solid #50535a;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e8e8e8;
+}
+.slack__button--quiet {
+  font-weight: 500;
+  color: #a8aaab;
+}
+
+@media (max-width: 767px) {
+  .signal-row {
+    grid-template-columns: 90px minmax(0, 1fr) auto;
+  }
+  .matcher {
+    padding: 14px;
+  }
+  .slack__reply {
+    padding-left: 10px;
+  }
+}
+
+/* In the narrow side panel every signal is a full-width block: kind and source on top, value below. */
+.signal-list .signal {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  width: 100%;
+  row-gap: 4px;
+}
+.signal-list .signal__value {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.signal-list .signal__src {
+  grid-column: 2;
+  grid-row: 1;
+}

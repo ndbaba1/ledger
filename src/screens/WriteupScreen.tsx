@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
-import type { Writeup, WriteupFields, WriteupStatus } from '../api/types'
+import type { Signal, Writeup, WriteupFields, WriteupStatus } from '../api/types'
 import { useSession } from '../app/session'
 import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
@@ -9,6 +9,7 @@ import { PaneTabs } from '../components/PaneTabs'
 import { KindPill, PostContent } from '../components/PostContent'
 import { ListEditor } from '../components/ListEditor'
 import { RichEditor } from '../components/RichEditor'
+import { SignalsEditor } from '../components/Signals'
 import { SourceIcon } from '../components/Tags'
 import { ErrorState, FieldError, Loading } from '../components/States'
 import { relativeTime } from '../lib/format'
@@ -32,6 +33,7 @@ interface FormState {
   resultLabel: string
   resultBefore: string
   resultAfter: string
+  signals: Signal[]
 }
 
 function toForm(w: Writeup): FormState {
@@ -48,6 +50,7 @@ function toForm(w: Writeup): FormState {
     resultLabel: w.result?.label ?? '',
     resultBefore: w.result?.before ?? '',
     resultAfter: w.result?.after ?? '',
+    signals: w.signals.map((x) => ({ ...x })),
   }
 }
 
@@ -67,6 +70,7 @@ function toFields(f: FormState): WriteupFields {
     result: hasResult
       ? { label: f.resultLabel.trim(), before: f.resultBefore.trim(), after: f.resultAfter.trim() }
       : undefined,
+    signals: f.signals.filter((x) => x.value.trim()),
   }
 }
 
@@ -272,6 +276,18 @@ function Editor({ initial }: { initial: Writeup }) {
                     <input className="input" value={form.resultAfter} onChange={(e) => set('resultAfter', e.target.value)} placeholder="310ms" />
                   </label>
                 </div>
+              </SectionCard>
+              <SectionCard
+                def={{
+                  key: 'signals' as never,
+                  label: 'Signals',
+                  help: 'The alert that fired, the metric that moved, the error people saw. Ledger uses these to recognise the problem next time. Team only — never published.',
+                  kind: 'short',
+                }}
+                step={info.fields.length + 2}
+                filled={fields.signals.length > 0}
+              >
+                <SignalsEditor id="w-signals" signals={form.signals} onChange={(sig) => set('signals', sig)} labelledBy="w-signals-label" />
               </SectionCard>
             </form>
           )}

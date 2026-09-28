@@ -103,6 +103,8 @@ export interface Draft {
   sources: Source[]
   redactions: Redaction[]
   coAuthorIds: ID[]
+  /** Alerts and errors Ledger found in the case file. */
+  signals?: Signal[]
   status: DraftStatus
   publishedRecordId?: ID
 }
@@ -149,6 +151,8 @@ export interface TeamRecord {
   constraints?: string[]
   /** Designs: the main path through the system, one component per step. */
   flow?: string[]
+  /** Alerts, metrics and errors this record is about. Team-only. */
+  signals?: Signal[]
   /** Answers folded in from Q&A threads. */
   notes: string[]
   sources: Source[]
@@ -308,6 +312,7 @@ export interface WriteupFields {
   fix: string
   lesson: string
   result?: ResultMetric
+  signals: Signal[]
 }
 
 /** A record written in Ledger rather than drafted from sources. Private until published. */
@@ -340,4 +345,25 @@ export interface ExploreResult {
   tags: { tag: string; count: number }[]
   /** Public posts in total, before filters. */
   total: number
+}
+
+export type SignalKind = 'alert' | 'metric' | 'error' | 'log'
+
+/**
+ * How a problem shows up from the outside: the alert that fired, the metric
+ * that moved, the error people saw. Used to recognise the problem next time.
+ * Team-only — never published.
+ */
+export interface Signal {
+  kind: SignalKind
+  value: string
+  /** Where Ledger found it, e.g. "S1" for a source in the case file. */
+  foundIn?: string
+}
+
+export interface SignalMatch {
+  record: TeamRecord
+  signal: Signal
+  score: number
+  strength: 'exact' | 'strong' | 'partial'
 }
