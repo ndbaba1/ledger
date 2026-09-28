@@ -9,6 +9,12 @@ import type {
   SearchHit,
   AskAnswer,
   Writeup,
+  WorkspaceSettings,
+  WorkspaceRole,
+  InviteResult,
+  IntegrationProvider,
+  WorkspacePolicy,
+  InvitePreview,
   SignalMatch,
   PostThread,
   TopicPage,
@@ -71,6 +77,21 @@ export interface LedgerApi {
 
   /** Every public post from every engineer, searchable and filterable. No sign-in needed. */
   explore(params: ExploreParams): Promise<ExploreResult>
+
+  /** Workspace admin. Owners and admins can change things; members can only read. */
+  getWorkspaceSettings(): Promise<WorkspaceSettings>
+  inviteMembers(emails: string[], role: WorkspaceRole): Promise<InviteResult>
+  resendInvite(inviteId: ID): Promise<WorkspaceSettings>
+  revokeInvite(inviteId: ID): Promise<WorkspaceSettings>
+  changeRole(userId: ID, role: WorkspaceRole): Promise<WorkspaceSettings>
+  removeMember(userId: ID): Promise<WorkspaceSettings>
+  setInviteLink(enabled: boolean, reset?: boolean): Promise<WorkspaceSettings>
+  setAutoJoinDomain(domain: string | null): Promise<WorkspaceSettings>
+  setIntegration(provider: IntegrationProvider, connected: boolean): Promise<WorkspaceSettings>
+  updatePolicy(patch: Partial<WorkspacePolicy>): Promise<WorkspaceSettings>
+  /** Public: what an invite link leads to. */
+  previewInvite(token: string): Promise<InvitePreview>
+  acceptInvite(token: string): Promise<Workspace>
 
   getProfile(handle: string): Promise<Profile>
   getPost(handle: string, slug: string): Promise<{ post: PublicPost; author: User }>

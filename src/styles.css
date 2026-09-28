@@ -394,6 +394,9 @@ textarea {
   font-size: 13px;
   color: var(--muted);
 }
+.topbar__workspace:hover {
+  color: var(--text);
+}
 
 .global-search {
   margin-left: auto;
@@ -3818,4 +3821,229 @@ code.slack__text {
 .signal-list .signal__src {
   grid-column: 2;
   grid-row: 1;
+}
+
+/* ---------- workspace admin ---------- */
+
+.page--wide {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+}
+.select {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  max-width: 100%;
+}
+.select--sm {
+  min-height: 32px;
+  font-size: 13px;
+}
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.member {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.member:last-child {
+  border-bottom: none;
+}
+.member__who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.member__name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.member__stat {
+  font-variant-numeric: tabular-nums;
+}
+.member__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.member__error,
+.member__note {
+  grid-column: 2 / -1;
+}
+.member__pending {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+.role-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  color: var(--text-3);
+}
+.role-pill--owner {
+  color: var(--amber);
+  border-color: var(--amber-line);
+}
+.role-pill--admin {
+  color: var(--blue);
+  border-color: var(--blue-line);
+}
+.domain-input {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.domain-input:focus-within {
+  border-color: var(--amber);
+}
+.domain-input__field {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+}
+.integration {
+  gap: 10px;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--amber);
+}
+.how-list {
+  padding-left: 18px;
+  list-style: disc;
+  gap: 6px;
+}
+
+.join {
+  display: flex;
+  justify-content: center;
+  padding: 64px 16px;
+}
+.join__card {
+  width: 100%;
+  max-width: 520px;
+  padding: 28px;
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.join__title {
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.join__points {
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-3);
+}
+.join__points li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.join__points svg {
+  margin-top: 3px;
+  color: var(--amber);
+}
+.join__cta {
+  min-height: 46px;
+  font-size: 15px;
+}
+.join__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.join__icon--warn {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+@media (max-width: 1023px) {
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  .member {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    padding: 12px;
+  }
+  .member__stat {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .member__actions {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+  .join {
+    padding: 28px 16px;
+  }
+  .join__card {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 767px) {
+  .member--invite {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+  .member--invite .member__actions {
+    grid-column: 2;
+    grid-row: auto;
+    justify-content: flex-start;
+  }
 }

@@ -20,12 +20,15 @@ type Pane = 'redactions' | 'preview'
 export function PromoteScreen() {
   const { id = '' } = useParams()
   const api = useApi()
-  const data = useQuery(() => Promise.all([api.getRecord(id), api.getPromotionPlan(id)]), [api, id])
+  const data = useQuery(
+    () => Promise.all([api.getRecord(id), api.getPromotionPlan(id), api.getWorkspaceSettings()]),
+    [api, id],
+  )
 
   if (data.error) return <ErrorState error={data.error} onRetry={data.reload} />
   if (!data.data) return <Loading label="Preparing the public version" />
-  const [record, plan] = data.data
-  return <PromoteView record={record} plan={plan} />
+  const [record, plan, settings] = data.data
+  return <PromoteView record={record} plan={plan} allowed={settings.policy.publicPromotion === 'allowed'} />
 }
 
 const EMPLOYER_OPTIONS: { key: EmployerMode; label: (p: PromotionPlan) => string }[] = [
@@ -34,7 +37,7 @@ const EMPLOYER_OPTIONS: { key: EmployerMode; label: (p: PromotionPlan) => string
   { key: 'named', label: (p) => p.workspaceName },
 ]
 
-function PromoteView({ record, plan }: { record: TeamRecord; plan: PromotionPlan }) {
+function PromoteView({ record, plan, allowed }: { record: TeamRecord; plan: PromotionPlan; allowed: boolean }) {
   const api = useApi()
   const navigate = useNavigate()
   const { me } = useSession()
@@ -83,6 +86,16 @@ function PromoteView({ record, plan }: { record: TeamRecord; plan: PromotionPlan
           { key: 'preview', label: 'Preview' },
         ]}
       />
+
+      {!allowed && (
+        <div className="banner banner--amber" role="status">
+          <Icon name="lock" size={16} />
+          <span>Your workspace has turned off publishing to public profiles. You can preview, but not publish.</span>
+          <Link to="/settings?tab=publishing" className="banner__action">
+            Workspace policy
+          </Link>
+        </div>
+      )}
 
       <div className="split split--promote" data-pane={pane}>
         <section className="split__side split__side--left stack gap-20" aria-label="Redactions">
@@ -210,7 +223,7 @@ function PromoteView({ record, plan }: { record: TeamRecord; plan: PromotionPlan
         <div className="action-bar__inner">
           <span className="action-bar__hint small muted">Publishes to your public profile. You can update or unpublish it later.</span>
           <FieldError message={publish.error} />
-          <button type="button" className="btn btn--primary" onClick={onPublish} disabled={publish.pending}>
+          <button type="button" className="btn btn--primary" onClick={onPublish} disabled={publish.pending || !allowed}>
             {publish.pending ? 'Publishing…' : record.promotedPostSlug ? 'Update post' : 'Publish post'}
           </button>
         </div>

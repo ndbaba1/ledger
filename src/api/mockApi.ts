@@ -1,6 +1,10 @@
 import { NotFoundError, type LedgerApi } from './client'
 import * as seed from './fixtures'
 import type {
+  Integration,
+  Invite,
+  WorkspaceRole,
+  WorkspaceSettings,
   PostThread,
   TopicPage,
   ExploreResult,
@@ -63,6 +67,12 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     writeups: clone(seed.writeups),
     publicQuestions: clone(seed.publicQuestions),
     hitsByMe: new Set(seed.hitsByMe),
+    members: clone(seed.members),
+    invites: clone(seed.invites),
+    integrations: clone(seed.integrations),
+    policy: clone(seed.policy),
+    inviteLink: { token: seed.inviteLinkToken, enabled: true },
+    autoJoinDomain: seed.autoJoinDomain as string | null,
   }
 
   const respond = <T,>(value: T): Promise<T> =>
@@ -113,6 +123,41 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     if (!q) throw new NotFoundError('Question')
     return q
   }
+
+
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const DAY = 86_400_000
+  const PROVIDER_NAME: Record<Integration['provider'], string> = { gitlab: 'GitLab', github: 'GitHub', slack: 'Slack' }
+
+  const myRole = (): WorkspaceRole => db.members.find((m) => m.userId === seed.ME_ID)?.role ?? 'member'
+  const requireAdmin = () => {
+    if (myRole() === 'member') throw new Error('Only workspace owners and admins can change this.')
+  }
+  const syncConnections = () => {
+    db.workspace.connections = db.integrations
+      .filter((i) => i.connected)
+      .map((i) => ({ provider: i.provider, label: i.detail }))
+  }
+
+  const settings = (): WorkspaceSettings => {
+    const users = new Map(db.users.map((u) => [u.id, u]))
+    const order: Record<WorkspaceRole, number> = { owner: 0, admin: 1, member: 2 }
+    return {
+      workspace: db.workspace,
+      myRole: myRole(),
+      members: db.members
+        .map(({ userId, ...m }) => ({ ...m, user: users.get(userId)! }))
+        .filter((m) => m.user)
+        .sort((a, b) => order[a.role] - order[b.role] || a.user.name.localeCompare(b.user.name)),
+      invites: [...db.invites].sort((a, b) => b.sentAt.localeCompare(a.sentAt)),
+      inviteLink: db.inviteLink,
+      autoJoinDomain: db.autoJoinDomain,
+      integrations: db.integrations,
+      policy: db.policy,
+    }
+  }
+
+  const ownerCount = () => db.members.filter((m) => m.role === 'owner').length
 
   const writeupById = (id: ID): Writeup => {
     const w = db.writeups.find((x) => x.id === id)
@@ -491,6 +536,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
 
     publishPost: (recordId, opts) =>
       run(() => {
+        if (db.policy.publicPromotion === 'off') throw new Error('Your workspace has turned off publishing records to public profiles.')
         const r = recordById(recordId)
         const rules = plannedRules(r).map((rule) => ({ ...rule, enabled: opts.enabledRuleIds.includes(rule.id) }))
         const post = buildPost(r, rules, {
@@ -563,6 +609,147 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         }
 
         return { items, tags, total: all.length }
+      }),
+
+    getWorkspaceSettings: () => run(settings),
+
+    inviteMembers: (emails, role) =>
+      run(() => {
+        requireAdmin()
+        if (role === 'owner' && myRole() !== 'owner') throw new Error('Only owners can invite other owners.')
+        const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))]
+        if (!wanted.length) throw new Error('Add at least one email address.')
+        const sent: string[] = []
+        const skipped: { email: string; reason: string }[] = []
+        const at = now()
+        for (const email of wanted) {
+          if (!EMAIL.test(email)) skipped.push({ email, reason: 'not a valid email' })
+          else if (db.members.some((m) => m.email === email)) skipped.push({ email, reason: 'already a member' })
+          else if (db.invites.some((i) => i.email === email)) skipped.push({ email, reason: 'already invited' })
+          else {
+            db.invites.push({
+              id: `inv_${Date.now().toString(36)}${db.invites.length}`,
+              email,
+              role,
+              invitedById: seed.ME_ID,
+              sentAt: at.toISOString(),
+              expiresAt: new Date(at.getTime() + 14 * DAY).toISOString(),
+            })
+            sent.push(email)
+          }
+        }
+        return { settings: settings(), sent, skipped }
+      }),
+
+    resendInvite: (inviteId) =>
+      run(() => {
+        requireAdmin()
+        const inv = db.invites.find((i) => i.id === inviteId)
+        if (!inv) throw new NotFoundError('Invite')
+        const at = now()
+        inv.sentAt = at.toISOString()
+        inv.expiresAt = new Date(at.getTime() + 14 * DAY).toISOString()
+        return settings()
+      }),
+
+    revokeInvite: (inviteId) =>
+      run(() => {
+        requireAdmin()
+        db.invites = db.invites.filter((i: Invite) => i.id !== inviteId)
+        return settings()
+      }),
+
+    changeRole: (userId, role) =>
+      run(() => {
+        requireAdmin()
+        const m = db.members.find((x) => x.userId === userId)
+        if (!m) throw new NotFoundError('Member')
+        if ((role === 'owner' || m.role === 'owner') && myRole() !== 'owner') throw new Error('Only owners can add or remove owners.')
+        if (m.role === 'owner' && role !== 'owner' && ownerCount() === 1) throw new Error('A workspace needs at least one owner. Make someone else an owner first.')
+        m.role = role
+        return settings()
+      }),
+
+    removeMember: (userId) =>
+      run(() => {
+        requireAdmin()
+        if (userId === seed.ME_ID) throw new Error('You can’t remove yourself here.')
+        const m = db.members.find((x) => x.userId === userId)
+        if (!m) throw new NotFoundError('Member')
+        if (m.role === 'owner' && myRole() !== 'owner') throw new Error('Only owners can remove owners.')
+        db.members = db.members.filter((x) => x.userId !== userId)
+        return settings()
+      }),
+
+    setInviteLink: (enabled, reset = false) =>
+      run(() => {
+        requireAdmin()
+        db.inviteLink = {
+          enabled,
+          token: reset ? `nw-${Math.random().toString(36).slice(2, 8)}` : db.inviteLink.token,
+        }
+        return settings()
+      }),
+
+    setAutoJoinDomain: (domain) =>
+      run(() => {
+        requireAdmin()
+        const d = domain?.trim().toLowerCase().replace(/^@/, '') || null
+        if (d && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d)) throw new Error('Enter a domain like northwind.dev.')
+        if (d && ['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'icloud.com', 'proton.me'].includes(d)) {
+          throw new Error('Use your company’s domain, not a personal email provider.')
+        }
+        db.autoJoinDomain = d
+        return settings()
+      }),
+
+    setIntegration: (provider, connected) =>
+      run(() => {
+        requireAdmin()
+        const i = db.integrations.find((x) => x.provider === provider)
+        if (!i) throw new NotFoundError(PROVIDER_NAME[provider])
+        i.connected = connected
+        syncConnections()
+        return settings()
+      }),
+
+    updatePolicy: (patch) =>
+      run(() => {
+        requireAdmin()
+        if (patch.triggerLabel !== undefined) {
+          const label = patch.triggerLabel.trim().replace(/^~/, '')
+          if (!/^[\w.:-]{2,40}$/.test(label)) throw new Error('Labels can use letters, numbers, dots, colons and dashes.')
+          patch = { ...patch, triggerLabel: label }
+        }
+        Object.assign(db.policy, patch)
+        return settings()
+      }),
+
+    previewInvite: (token) =>
+      run(() => {
+        const inv = db.invites.find((i) => i.id === token)
+        if (!inv && !(db.inviteLink.enabled && token === db.inviteLink.token)) {
+          throw new Error('This invite link has expired or was turned off. Ask a workspace admin for a new one.')
+        }
+        if (inv && new Date(inv.expiresAt) < now()) throw new Error('This invite has expired. Ask a workspace admin to resend it.')
+        const inviter = db.users.find((u) => u.id === (inv?.invitedById ?? seed.ME_ID))!
+        return {
+          workspace: { name: db.workspace.name, slug: db.workspace.slug },
+          company: db.workspace.company,
+          invitedBy: inviter,
+          role: inv?.role ?? 'member',
+          memberCount: db.members.length,
+          recordCount: db.records.length,
+          ...(inv ? { email: inv.email } : {}),
+        }
+      }),
+
+    acceptInvite: (token) =>
+      run(() => {
+        const inv = db.invites.find((i) => i.id === token)
+        if (!inv && !(db.inviteLink.enabled && token === db.inviteLink.token)) throw new NotFoundError('Invite')
+        if (inv) db.invites = db.invites.filter((i) => i.id !== inv.id)
+        return db.workspace
       }),
 
     getProfile: (handle) =>

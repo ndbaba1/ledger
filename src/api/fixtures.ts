@@ -1,4 +1,8 @@
 import type {
+  Invite,
+  Member,
+  Integration,
+  WorkspacePolicy,
   PublicQuestion,
   Writeup,
   Draft,
@@ -45,6 +49,7 @@ export const workspace: Workspace = {
   id: 'w_platform',
   name: 'Platform Eng',
   slug: 'platform-eng',
+  company: 'Northwind',
   connections: [
     { provider: 'gitlab', label: '4 projects' },
     { provider: 'slack', label: '6 channels' },
@@ -742,3 +747,54 @@ export const publicQuestions: Record<string, PublicQuestion[]> = {
 
 /** Posts the current user has marked "I hit this too". */
 export const hitsByMe: string[] = ['hannahl/retries-turned-a-blip-into-an-outage']
+
+// ---- workspace admin -------------------------------------------------------
+
+type MemberSeed = Omit<Member, 'user'> & { userId: string }
+
+export const members: MemberSeed[] = [
+  { userId: ME_ID, email: 'nnamdi@northwind.dev', role: 'owner', joinedAt: '2026-06-02T15:00:00Z' },
+  { userId: 'u_amara', email: 'amara@northwind.dev', role: 'admin', joinedAt: '2026-06-03T10:00:00Z' },
+  { userId: 'u_jordan', email: 'jordan@northwind.dev', role: 'member', joinedAt: '2026-06-10T09:30:00Z' },
+  { userId: 'u_priya', email: 'priya@northwind.dev', role: 'member', joinedAt: '2026-07-01T14:20:00Z' },
+  { userId: 'u_leo', email: 'leo@northwind.dev', role: 'member', joinedAt: '2026-07-22T11:05:00Z' },
+]
+
+export const invites: Invite[] = [
+  {
+    id: 'inv_sam',
+    email: 'sam@northwind.dev',
+    role: 'member',
+    invitedById: ME_ID,
+    sentAt: '2026-09-26T16:00:00Z',
+    expiresAt: '2026-10-10T16:00:00Z',
+  },
+  {
+    id: 'inv_kofi',
+    email: 'kofi@northwind.dev',
+    role: 'admin',
+    invitedById: 'u_amara',
+    sentAt: '2026-09-10T09:00:00Z',
+    expiresAt: '2026-09-24T09:00:00Z',
+  },
+]
+
+export const integrations: Integration[] = [
+  { provider: 'gitlab', connected: true, detail: '4 projects' },
+  { provider: 'github', connected: true, detail: '2 repos' },
+  {
+    provider: 'slack',
+    connected: true,
+    detail: '6 channels',
+    channels: ['#inc-checkout', '#inc-api', '#billing-support', '#search-eng', '#webhooks-migration', '#platform'],
+  },
+]
+
+export const policy: WorkspacePolicy = {
+  publicPromotion: 'allowed',
+  requireRedactionReview: true,
+  triggerLabel: 'ledger',
+}
+
+export const inviteLinkToken = 'nw-7Qm2xK'
+export const autoJoinDomain: string | null = null

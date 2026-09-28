@@ -34,6 +34,7 @@ export function AppShell() {
     { to: `/u/${me.handle}`, label: 'My public profile', short: 'Profile', icon: 'globe' },
   ]
   const explore: NavItem = { to: '/', label: 'Explore', short: 'Explore', icon: 'compass' }
+  const team: NavItem = { to: '/settings', label: 'Team & settings', short: 'Team', icon: 'users' }
 
   return (
     <div className="shell">
@@ -44,19 +45,19 @@ export function AppShell() {
         <Link to="/inbox" className="sidebar__logo" aria-label="Ledger home">
           <Logo />
         </Link>
-        <button type="button" className="workspace-switch" aria-label={`Workspace: ${workspace.name}`}>
+        <Link to="/settings" className="workspace-switch" aria-label={`${workspace.name} workspace settings`}>
           <span className="workspace-switch__text">
             <span className="workspace-switch__name">{workspace.name}</span>
-            <span className="workspace-switch__kind">team workspace</span>
+            <span className="workspace-switch__kind">{workspace.company} · team workspace</span>
           </span>
-          <Icon name="chevronsUpDown" size={14} />
-        </button>
+          <Icon name="settings" size={14} />
+        </Link>
         <Link to="/new" className="btn btn--primary sidebar__new">
           <Icon name="plus" size={15} strokeWidth={2.5} />
           <span className="sidebar__new-label">New write-up</span>
         </Link>
         <nav className="sidebar__nav" aria-label="Primary">
-          {[...items, explore].map((item) => (
+          {[...items, team, explore].map((item) => (
             <NavLink key={item.to} to={item.to} end={item.to === '/'} className="nav-link" title={item.label}>
               <Icon name={item.icon} size={17} />
               <span className="nav-link__label">{item.label}</span>
@@ -92,7 +93,9 @@ export function AppShell() {
           <Link to="/inbox" className="topbar__logo" aria-label="Ledger home">
             <Logo />
           </Link>
-          <span className="topbar__workspace">{workspace.name}</span>
+          <Link to="/settings" className="topbar__workspace" aria-label={`${workspace.name} team and settings`}>
+            {workspace.name}
+          </Link>
           <GlobalSearch />
           <Link to="/new" className="icon-btn topbar__search-link topbar__new" aria-label="New write-up">
             <Icon name="plus" size={20} />

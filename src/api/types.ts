@@ -21,6 +21,8 @@ export interface Workspace {
   id: ID
   name: string
   slug: string
+  company: string
+  /** Mirrors connected integrations, for the sidebar. */
   connections: { provider: 'gitlab' | 'github' | 'slack'; label: string }[]
 }
 
@@ -366,4 +368,71 @@ export interface SignalMatch {
   signal: Signal
   score: number
   strength: 'exact' | 'strong' | 'partial'
+}
+
+export type WorkspaceRole = 'owner' | 'admin' | 'member'
+export type IntegrationProvider = 'gitlab' | 'github' | 'slack'
+
+export interface Member {
+  user: User
+  email: string
+  role: WorkspaceRole
+  joinedAt: string
+}
+
+export interface Invite {
+  id: ID
+  email: string
+  role: WorkspaceRole
+  invitedById: ID
+  sentAt: string
+  /** Invites expire after 14 days; resending renews them. */
+  expiresAt: string
+}
+
+export interface Integration {
+  provider: IntegrationProvider
+  connected: boolean
+  /** What Ledger can see once connected, e.g. "4 projects". */
+  detail: string
+  /** Slack only: channels Ledger reads threads from and posts matches in. */
+  channels?: string[]
+}
+
+export interface WorkspacePolicy {
+  /** Whether members may promote team records to their public profile. */
+  publicPromotion: 'allowed' | 'off'
+  /** Every promotion must go through the redaction review, with all rules on by default. */
+  requireRedactionReview: boolean
+  /** Issue or PR label that turns a closed issue into a draft. */
+  triggerLabel: string
+}
+
+export interface WorkspaceSettings {
+  workspace: Workspace
+  myRole: WorkspaceRole
+  members: Member[]
+  invites: Invite[]
+  inviteLink: { token: string; enabled: boolean }
+  /** People signing in with an email at this domain can join without an invite. */
+  autoJoinDomain: string | null
+  integrations: Integration[]
+  policy: WorkspacePolicy
+}
+
+/** What someone opening an invite link sees before joining. */
+export interface InvitePreview {
+  workspace: Pick<Workspace, 'name' | 'slug'>
+  company: string
+  invitedBy: User
+  role: WorkspaceRole
+  memberCount: number
+  recordCount: number
+  email?: string
+}
+
+export interface InviteResult {
+  settings: WorkspaceSettings
+  sent: string[]
+  skipped: { email: string; reason: string }[]
 }
