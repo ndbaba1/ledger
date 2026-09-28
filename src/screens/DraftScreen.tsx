@@ -132,9 +132,13 @@ function DraftView({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => 
                 {openGaps} gap{openGaps === 1 ? '' : 's'} to resolve before publishing. Every claim cites a source; uncited
                 claims are flagged.
               </span>
-              <a href="#gaps" className="banner__action">
+              <button
+                type="button"
+                className="btn-link banner__action"
+                onClick={() => document.getElementById('gaps')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              >
                 Jump to gaps
-              </a>
+              </button>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 import { Component, useEffect, type ReactNode } from 'react'
-import { HashRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { HashRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ApiProvider } from './api/ApiContext'
 import type { LedgerApi } from './api/client'
 import { AppShell } from './app/AppShell'
@@ -75,6 +75,15 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }
   }
 }
 
+// Embedded previews (VITE_ROUTER=memory) keep routes in memory instead of the URL.
+function Router({ children }: { children: ReactNode }) {
+  return import.meta.env.VITE_ROUTER === 'memory' ? (
+    <MemoryRouter initialEntries={['/inbox']}>{children}</MemoryRouter>
+  ) : (
+    <HashRouter>{children}</HashRouter>
+  )
+}
+
 /**
  * Hash routing keeps deep links working on any static host. Switch to
  * BrowserRouter once the app is served by a backend with a catch-all route.
@@ -83,12 +92,12 @@ export default function App({ api }: { api: LedgerApi }) {
   return (
     <ErrorBoundary>
       <ApiProvider api={api}>
-        <HashRouter>
+        <Router>
           <ScrollToTop />
           <SessionProvider fallback={<Loading label="Starting Ledger" />}>
             <AppRoutes />
           </SessionProvider>
-        </HashRouter>
+        </Router>
       </ApiProvider>
     </ErrorBoundary>
   )
