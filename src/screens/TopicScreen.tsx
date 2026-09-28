@@ -2,10 +2,9 @@ import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { PublicLayout } from '../app/PublicLayout'
-import { Avatar } from '../components/Avatar'
-import { KindPill } from '../components/PostContent'
+import { FeedList } from '../components/FeedList'
+import { Icon } from '../components/Icon'
 import { ErrorState, Loading } from '../components/States'
-import { stripInline } from '../lib/inline'
 import { useQuery } from '../lib/useAsync'
 
 const TYPE_ORDER: RecordType[] = ['incident', 'investigation', 'decision', 'design']
@@ -54,40 +53,19 @@ export function TopicScreen() {
         </header>
 
         <div className="topic__body">
-          <section aria-labelledby="topic-list" className="stack gap-14">
-            <h2 id="topic-list" className="eyebrow">
-              Most-hit problems first
-            </h2>
-            <ol className="topic__list">
-              {items.map(({ post, author }, i) => (
-                <li key={`${author.handle}/${post.slug}`} className="topic-row">
-                  <span className="topic-row__rank" aria-hidden="true">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <div className="stack gap-8">
-                    <div className="row gap-8 wrap">
-                      <KindPill type={post.type} />
-                      {typeof post.hitCount === 'number' && post.hitCount > 0 && (
-                        <span className="topic-row__hits">
-                          {post.hitCount} hit this
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="feed-card__title">
-                      <Link to={`/u/${author.handle}/${post.slug}`} className="topic-row__link">
-                        {post.title}
-                      </Link>
-                    </h3>
-                    <p className="card-excerpt">{stripInline(post.lesson ?? post.summary)}</p>
-                    <Link to={`/u/${author.handle}`} className="feed-card__author small">
-                      <Avatar user={author} size="xs" />
-                      {author.name}
-                    </Link>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
+          <FeedList
+            labelledBy="topic-list"
+            items={items}
+            summary="lesson"
+            header={
+              <>
+                <Icon name="trend" size={16} />
+                <h2 id="topic-list" className="feed__title">
+                  Most-hit problems first
+                </h2>
+              </>
+            }
+          />
 
           {related.length > 0 && (
             <aside className="stack gap-10" aria-labelledby="related-topics">

@@ -8,6 +8,7 @@ import type {
   PostThread,
   TopicPage,
   ExploreResult,
+  FeedItem,
   Writeup,
   AskAnswer,
   Badge,
@@ -116,6 +117,8 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
       hitByMe: db.hitsByMe.has(key),
     }
   }
+
+  const withHit = (item: FeedItem): FeedItem => ({ ...item, hitByMe: db.hitsByMe.has(`${item.author.handle}/${item.post.slug}`) })
 
   const authorsQuestion = (handle: string, slug: string, questionId: ID) => {
     const { post } = postBy(handle, slug)
@@ -622,7 +625,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
           items = [...items].sort((a, b) => b.post.publishedAt.localeCompare(a.post.publishedAt))
         }
 
-        return { items, tags, total: all.length }
+        return { items: items.map(withHit), tags, total: all.length }
       }),
 
     getWorkspaceSettings: () => run(settings),
@@ -891,7 +894,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
           .map(([name, count]) => ({ tag: name, count }))
           .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
           .slice(0, 8)
-        return { tag: t, items, related, totalHits: items.reduce((n, i) => n + (i.post.hitCount ?? 0), 0) }
+        return { tag: t, items: items.map(withHit), related, totalHits: items.reduce((n, i) => n + (i.post.hitCount ?? 0), 0) }
       }),
   }
 

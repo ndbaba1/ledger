@@ -333,6 +333,8 @@ export interface Writeup extends WriteupFields {
 export interface FeedItem {
   post: PublicPost
   author: User
+  /** The viewer said they hit this same problem. */
+  hitByMe?: boolean
 }
 
 export interface ExploreParams {

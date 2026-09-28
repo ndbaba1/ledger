@@ -1,16 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
-import type { FeedItem, RecordType } from '../api/types'
+import type { RecordType } from '../api/types'
 import { PublicLayout } from '../app/PublicLayout'
-import { Avatar } from '../components/Avatar'
+import { FeedList, FilterMenu } from '../components/FeedList'
 import { Icon } from '../components/Icon'
-import { KindPill } from '../components/PostContent'
 import { Empty, ErrorState, Loading } from '../components/States'
-import { VerifiedBadge } from '../components/Tags'
-import { shortDate } from '../lib/format'
-import { stripInline } from '../lib/inline'
-import { postMinutes } from '../lib/publicPost'
 import { useQuery } from '../lib/useAsync'
 
 const TYPES: { key: RecordType | 'all'; label: string }[] = [
@@ -105,66 +100,54 @@ export function LandingScreen() {
         </section>
 
         <div className="explore__body">
-          <section className="explore__feed" aria-labelledby="feed-title">
-            <div className="explore__bar">
-              <div className="row gap-8 wrap" role="group" aria-label="Filter by type">
-                {TYPES.map((t) => {
-                  const on = (type ?? 'all') === t.key
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      className={`filter${on ? ' filter--on' : ''}`}
-                      aria-pressed={on}
-                      onClick={() => update({ type: t.key === 'all' ? null : t.key })}
-                    >
-                      {t.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="row gap-10 wrap explore__status">
-              <h2 id="feed-title" className="eyebrow">
-                {q ? 'Results' : 'Latest write-ups'}
-              </h2>
-              {result.data && (
-                <span className="small muted" aria-live="polite">
-                  {filtering
-                    ? `${result.data.items.length} of ${result.data.total} write-ups${q ? ` matching “${q}”` : ''}${tag ? ` tagged ${tag}` : ''}`
-                    : `${result.data.total} write-ups`}
-                </span>
-              )}
-              {filtering && (
-                <button
-                  type="button"
-                  className="btn-link push-right"
-                  onClick={() => {
-                    setDraft('')
-                    setParams(new URLSearchParams(), { replace: true })
-                  }}
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-
+          <div className="explore__feed">
             {result.error && <ErrorState error={result.error} onRetry={result.reload} />}
             {result.loading && !result.data && <Loading label="Loading write-ups" />}
-            {result.data?.items.length === 0 && (
-              <Empty title="No write-ups match yet">
-                Solved something like this? <Link to="/new">Write it up</Link> — yours could be the first.
-              </Empty>
+            {result.data && (
+              <FeedList
+                labelledBy="feed-title"
+                items={result.data.items}
+                header={
+                  <>
+                    <Icon name={q ? 'search' : 'trend'} size={16} />
+                    <h2 id="feed-title" className="feed__title">
+                      {q ? 'Results' : 'Latest write-ups'}
+                    </h2>
+                    <span className="feed__count small muted" aria-live="polite">
+                      ·{' '}
+                      {filtering
+                        ? `${result.data.items.length} of ${result.data.total}${q ? ` matching “${q}”` : ''}${tag ? ` tagged ${tag}` : ''}`
+                        : `${result.data.total} write-ups`}
+                    </span>
+                    {filtering && (
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => {
+                          setDraft('')
+                          setParams(new URLSearchParams(), { replace: true })
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                    <span className="push-right">
+                      <FilterMenu options={TYPES} value={type ?? 'all'} onChange={(k) => update({ type: k === 'all' ? null : k })} />
+                    </span>
+                  </>
+                }
+                footer={
+                  result.data.items.length === 0 && (
+                    <div className="feed__empty">
+                      <Empty title="No write-ups match yet">
+                        Solved something like this? <Link to="/new">Write it up</Link> — yours could be the first.
+                      </Empty>
+                    </div>
+                  )
+                }
+              />
             )}
-            <ul className="card-list">
-              {result.data?.items.map((item) => (
-                <li key={`${item.author.handle}/${item.post.slug}`}>
-                  <FeedCard item={item} />
-                </li>
-              ))}
-            </ul>
-          </section>
+          </div>
 
           <aside className="explore__rail" aria-label="Browse and contribute">
             {result.data && result.data.tags.length > 0 && (
@@ -206,51 +189,5 @@ export function LandingScreen() {
         </div>
       </div>
     </PublicLayout>
-  )
-}
-
-function FeedCard({ item }: { item: FeedItem }) {
-  const { post, author } = item
-  // Show the strongest proof first: code the author wrote, then everything else.
-  const verified = post.badges
-    .filter((b) => b.verified)
-    .sort((a, b) => Number(/^(Authored|Maintainer)/.test(b.label)) - Number(/^(Authored|Maintainer)/.test(a.label)))
-  return (
-    <article className="feed-card">
-      <div className="row gap-8 wrap">
-        <KindPill type={post.type} />
-        {post.tags.map((t) => (
-          <Link key={t} to={`/t/${t}`} className="feed-card__tag">
-            #{t}
-          </Link>
-        ))}
-      </div>
-      <h3 className="feed-card__title">
-        <Link to={`/u/${author.handle}/${post.slug}`} className="stretched">
-          {post.title}
-        </Link>
-      </h3>
-      <p className="card-excerpt">{stripInline(post.summary)}</p>
-      {post.result && (
-        <p className="feed-card__result">
-          <span className="muted">{post.result.label}:</span> {post.result.before} → {post.result.after}
-        </p>
-      )}
-      <div className="feed-card__foot">
-        <Link to={`/u/${author.handle}`} className="feed-card__author">
-          <Avatar user={author} size="xs" />
-          <span>{author.name}</span>
-        </Link>
-        <span className="muted small">
-          {shortDate(post.publishedAt)} · {postMinutes(post)} min read
-          {post.hitCount ? ` · ${post.hitCount} hit this` : ''}
-        </span>
-        {verified[0] && (
-          <span className="push-right">
-            <VerifiedBadge label={verified[0].label} />
-          </span>
-        )}
-      </div>
-    </article>
   )
 }

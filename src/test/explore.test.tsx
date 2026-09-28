@@ -39,7 +39,7 @@ describe('public landing page', () => {
     window.location.hash = '#/'
     render(<App api={newApi()} />)
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('with the proof attached')
-    const feed = screen.getByRole('region', { name: 'Latest write-ups' })
+    const feed = await screen.findByRole('region', { name: 'Latest write-ups' })
     expect(await within(feed).findByText('Kafka consumer lag that only appeared on Monday mornings')).toBeInTheDocument()
     expect(within(feed).getByText('Offline-first delivery tracking for drivers with patchy signal')).toBeInTheDocument()
   })
@@ -58,10 +58,12 @@ describe('public landing page', () => {
     ])
 
     await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await user.click(await screen.findByRole('button', { name: 'Filter' }))
     await user.click(await screen.findByRole('button', { name: 'Designs' }))
+    expect(screen.getByRole('button', { name: /Designs/, expanded: false })).toBeInTheDocument()
     const designs = await screen.findByRole('region', { name: 'Latest write-ups' })
-    expect(within(designs).getAllByText('System design').length).toBeGreaterThan(0)
-    expect(within(designs).queryByText('Production incident')).not.toBeInTheDocument()
+    expect(within(designs).getAllByText('Design').length).toBeGreaterThan(0)
+    expect(within(designs).queryByText('Incident')).not.toBeInTheDocument()
 
     await user.click(within(designs).getByRole('link', { name: /Offline-first delivery tracking/ }))
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Offline-first delivery tracking')

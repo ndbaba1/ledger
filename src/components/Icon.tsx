@@ -147,6 +147,20 @@ const PATHS = {
       <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
     </>
   ),
+  trend: (
+    <>
+      <polyline points="3 3 3 21 21 21" />
+      <polyline points="7 15 11 10 14 13 20 6" />
+    </>
+  ),
+  filter: (
+    <>
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="6" y1="12" x2="18" y2="12" />
+      <line x1="10" y1="18" x2="14" y2="18" />
+    </>
+  ),
+  chevronDown: <polyline points="6 9 12 15 18 9" />,
 } as const
 
 export type IconName = keyof typeof PATHS
