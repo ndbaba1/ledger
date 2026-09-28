@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import { PublicLayout } from '../app/PublicLayout'
@@ -7,6 +7,8 @@ import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { KindPill, PostContent } from '../components/PostContent'
+import { HitButton, PublicQA } from '../components/PublicQA'
+import type { PostThread, PublicPost } from '../api/types'
 import { ErrorState, Loading } from '../components/States'
 import { shortDate } from '../lib/format'
 import { postMinutes } from '../lib/publicPost'
@@ -17,7 +19,16 @@ export function PostScreen() {
   const api = useApi()
   const location = useLocation()
   const { me } = useSession()
-  const data = useQuery(() => Promise.all([api.getPost(handle, slug), api.getProfile(handle)]), [api, handle, slug])
+  const data = useQuery(
+    () => Promise.all([api.getPost(handle, slug), api.getProfile(handle), api.getThread(handle, slug)]),
+    [api, handle, slug],
+  )
+  const [thread, setThread] = useState<PostThread>()
+  const [postOverride, setPostOverride] = useState<PublicPost>()
+  useEffect(() => {
+    setThread(data.data?.[2])
+    setPostOverride(undefined)
+  }, [data.data])
   const [banner, setBanner] = useState(Boolean((location.state as { justPublished?: boolean } | null)?.justPublished))
 
   if (data.error)
@@ -33,7 +44,9 @@ export function PostScreen() {
       </PublicLayout>
     )
 
-  const [{ post, author }, profile] = data.data
+  const [{ post: loadedPost, author }, profile, loadedThread] = data.data
+  const post = postOverride ?? loadedPost
+  const currentThread = thread ?? loadedThread
   const isMe = author.id === me.id
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
 
@@ -60,9 +73,13 @@ export function PostScreen() {
           )}
 
           <header className="post-head">
-            <div className="row gap-12 wrap">
+            <div className="row gap-10 wrap">
               <KindPill type={post.type} />
-              {post.tags.length > 0 && <span className="post-head__tags">{post.tags.join(' · ')}</span>}
+              {post.tags.map((t) => (
+                <Link key={t} to={`/t/${t}`} className="post-head__tag">
+                  #{t}
+                </Link>
+              ))}
             </div>
             <h1 className="post-head__title">{post.title}</h1>
             <div className="post-head__meta">
@@ -78,10 +95,31 @@ export function PostScreen() {
 
           <PostContent
             decision={post.decision}
-            sections={post.sections}
+            sections={
+              post.followUps?.length
+                ? [...post.sections, { heading: 'Follow-ups', kind: 'list' as const, body: post.followUps.map((f) => `- ${f}`).join('\n') }]
+                : post.sections
+            }
             result={post.result}
             lesson={post.lesson}
             render={(text) => <Inline text={text} />}
+          />
+
+          <div className="hit-row">
+            <HitButton handle={handle} slug={slug} isAuthor={isMe} thread={currentThread} onThread={setThread} />
+            <span className="small muted">
+              {isMe ? 'Engineers who ran into the same problem.' : 'Ran into the same problem? Let the author know it’s not just them.'}
+            </span>
+          </div>
+
+          <PublicQA
+            handle={handle}
+            slug={slug}
+            author={author}
+            isAuthor={isMe}
+            thread={currentThread}
+            onThread={setThread}
+            onPost={setPostOverride}
           />
 
           {isMe && post.promotedFromRecordId && (

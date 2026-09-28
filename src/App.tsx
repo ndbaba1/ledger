@@ -16,6 +16,7 @@ import { PromoteScreen } from './screens/PromoteScreen'
 import { RecordScreen } from './screens/RecordScreen'
 import { RecordsScreen } from './screens/RecordsScreen'
 import { SearchScreen } from './screens/SearchScreen'
+import { TopicScreen } from './screens/TopicScreen'
 
 // The editor pulls in TipTap; load it only when someone opens a write-up.
 const WriteupScreen = lazy(() => import('./screens/WriteupScreen').then((m) => ({ default: m.WriteupScreen })))
@@ -43,6 +44,7 @@ export function AppRoutes() {
         <Route path="search" element={<SearchScreen />} />
         <Route path="*" element={<NotFound />} />
       </Route>
+      <Route path="t/:tag" element={<TopicScreen />} />
       <Route path="u/:handle" element={<ProfileScreen />} />
       <Route path="u/:handle/:slug" element={<PostScreen />} />
     </Routes>

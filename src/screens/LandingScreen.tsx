@@ -160,7 +160,7 @@ export function LandingScreen() {
             <ul className="card-list">
               {result.data?.items.map((item) => (
                 <li key={`${item.author.handle}/${item.post.slug}`}>
-                  <FeedCard item={item} onTag={(t) => update({ tag: t })} />
+                  <FeedCard item={item} />
                 </li>
               ))}
             </ul>
@@ -174,16 +174,10 @@ export function LandingScreen() {
                 </h2>
                 <div className="row gap-6 wrap">
                   {result.data.tags.map((t) => (
-                    <button
-                      key={t.tag}
-                      type="button"
-                      className={`chip chip--btn${tag === t.tag ? ' chip--on' : ''}`}
-                      aria-pressed={tag === t.tag}
-                      onClick={() => update({ tag: tag === t.tag ? null : t.tag })}
-                    >
-                      {t.tag}
+                    <Link key={t.tag} to={`/t/${t.tag}`} className="chip chip--btn">
+                      #{t.tag}
                       <span className="muted chip__count">{t.count}</span>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               </section>
@@ -215,7 +209,7 @@ export function LandingScreen() {
   )
 }
 
-function FeedCard({ item, onTag }: { item: FeedItem; onTag: (tag: string) => void }) {
+function FeedCard({ item }: { item: FeedItem }) {
   const { post, author } = item
   // Show the strongest proof first: code the author wrote, then everything else.
   const verified = post.badges
@@ -226,9 +220,9 @@ function FeedCard({ item, onTag }: { item: FeedItem; onTag: (tag: string) => voi
       <div className="row gap-8 wrap">
         <KindPill type={post.type} />
         {post.tags.map((t) => (
-          <button key={t} type="button" className="feed-card__tag" onClick={() => onTag(t)}>
+          <Link key={t} to={`/t/${t}`} className="feed-card__tag">
             #{t}
-          </button>
+          </Link>
         ))}
       </div>
       <h3 className="feed-card__title">
@@ -249,6 +243,7 @@ function FeedCard({ item, onTag }: { item: FeedItem; onTag: (tag: string) => voi
         </Link>
         <span className="muted small">
           {shortDate(post.publishedAt)} · {postMinutes(post)} min read
+          {post.hitCount ? ` · ${post.hitCount} hit this` : ''}
         </span>
         {verified[0] && (
           <span className="push-right">

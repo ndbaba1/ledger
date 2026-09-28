@@ -1,6 +1,8 @@
 import { NotFoundError, type LedgerApi } from './client'
 import * as seed from './fixtures'
 import type {
+  PostThread,
+  TopicPage,
   ExploreResult,
   Writeup,
   AskAnswer,
@@ -58,6 +60,8 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     posts: clone([...seed.posts, ...seed.communityPosts]),
     rules: clone(seed.promotionRules),
     writeups: clone(seed.writeups),
+    publicQuestions: clone(seed.publicQuestions),
+    hitsByMe: new Set(seed.hitsByMe),
   }
 
   const respond = <T,>(value: T): Promise<T> =>
@@ -76,6 +80,39 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
     if (!r) throw new NotFoundError(`Record ${id}`)
     return r
   }
+  const postBy = (handle: string, slug: string) => {
+    const author = db.users.find((u) => u.handle === handle)
+    const post = author && db.posts.find((p) => p.authorId === author.id && p.slug === slug)
+    if (!author || !post) throw new NotFoundError('Post')
+    return { post, author }
+  }
+
+  /** Readers see answered questions; the author also sees pending ones to act on. */
+  const thread = (handle: string, slug: string): PostThread => {
+    const { post } = postBy(handle, slug)
+    const key = `${handle}/${slug}`
+    const all = db.publicQuestions[key] ?? []
+    const isAuthor = post.authorId === seed.ME_ID
+    const questions = all.filter((q) => q.status === 'answered' || (isAuthor && q.status === 'pending'))
+    const mine = isAuthor ? [] : all.filter((q) => q.askerId === seed.ME_ID && q.status === 'pending')
+    const askerIds = new Set([...questions, ...mine].map((q) => q.askerId))
+    return {
+      questions,
+      askers: db.users.filter((u) => askerIds.has(u.id)),
+      mine,
+      hitCount: post.hitCount ?? 0,
+      hitByMe: db.hitsByMe.has(key),
+    }
+  }
+
+  const authorsQuestion = (handle: string, slug: string, questionId: ID) => {
+    const { post } = postBy(handle, slug)
+    if (post.authorId !== seed.ME_ID) throw new Error('Only the author can do that.')
+    const q = (db.publicQuestions[`${handle}/${slug}`] ?? []).find((x) => x.id === questionId)
+    if (!q) throw new NotFoundError('Question')
+    return q
+  }
+
   const writeupById = (id: ID): Writeup => {
     const w = db.writeups.find((x) => x.id === id)
     if (!w) throw new NotFoundError(`Write-up ${id}`)
@@ -535,6 +572,82 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         const post = author && db.posts.find((p) => p.authorId === author.id && p.slug === slug)
         if (!author || !post) throw new NotFoundError('Post')
         return { post, author }
+      }),
+
+    getThread: (handle, slug) => run(() => thread(handle, slug)),
+
+    askPublic: (handle, slug, body) =>
+      run(() => {
+        const { post } = postBy(handle, slug)
+        const text = body.trim()
+        if (!text) throw new Error('Write a question first.')
+        if (text.length > 600) throw new Error('Keep questions under 600 characters.')
+        if (post.authorId === seed.ME_ID) throw new Error('You can’t ask a question on your own post.')
+        const key = `${handle}/${slug}`
+        const list = (db.publicQuestions[key] ??= [])
+        list.push({ id: `pq_${Date.now().toString(36)}${list.length}`, askerId: seed.ME_ID, body: text, at: now().toISOString(), status: 'pending' })
+        return thread(handle, slug)
+      }),
+
+    answerPublic: (handle, slug, questionId, body) =>
+      run(() => {
+        const q = authorsQuestion(handle, slug, questionId)
+        if (!body.trim()) throw new Error('Write an answer first.')
+        q.status = 'answered'
+        q.answer = { body: body.trim(), at: now().toISOString() }
+        return thread(handle, slug)
+      }),
+
+    dismissPublic: (handle, slug, questionId) =>
+      run(() => {
+        authorsQuestion(handle, slug, questionId).status = 'dismissed'
+        return thread(handle, slug)
+      }),
+
+    foldPublic: (handle, slug, questionId) =>
+      run(() => {
+        const q = authorsQuestion(handle, slug, questionId)
+        if (q.status !== 'answered' || !q.answer) throw new Error('Answer the question before folding it in.')
+        const { post } = postBy(handle, slug)
+        if (!q.folded) {
+          q.folded = true
+          post.followUps = [...(post.followUps ?? []), q.answer.body]
+        }
+        return { thread: thread(handle, slug), post }
+      }),
+
+    toggleHit: (handle, slug) =>
+      run(() => {
+        const { post } = postBy(handle, slug)
+        if (post.authorId === seed.ME_ID) throw new Error('You wrote this one.')
+        const key = `${handle}/${slug}`
+        if (db.hitsByMe.has(key)) {
+          db.hitsByMe.delete(key)
+          post.hitCount = Math.max(0, (post.hitCount ?? 1) - 1)
+        } else {
+          db.hitsByMe.add(key)
+          post.hitCount = (post.hitCount ?? 0) + 1
+        }
+        return thread(handle, slug)
+      }),
+
+    getTopic: (tag) =>
+      run<TopicPage>(() => {
+        const t = tag.toLowerCase()
+        const authors = new Map(db.users.map((u) => [u.id, u]))
+        const items = db.posts
+          .filter((p) => p.tags.includes(t))
+          .map((post) => ({ post, author: authors.get(post.authorId)! }))
+          .filter((x) => x.author)
+          .sort((a, b) => (b.post.hitCount ?? 0) - (a.post.hitCount ?? 0) || b.post.publishedAt.localeCompare(a.post.publishedAt))
+        if (!items.length) throw new NotFoundError(`Topic “${tag}”`)
+        const co = new Map<string, number>()
+        for (const { post } of items) for (const other of post.tags) if (other !== t) co.set(other, (co.get(other) ?? 0) + 1)
+        const related = [...co.entries()]
+          .map(([name, count]) => ({ tag: name, count }))
+          .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+          .slice(0, 8)
+        return { tag: t, items, related, totalHits: items.reduce((n, i) => n + (i.post.hitCount ?? 0), 0) }
       }),
   }
 

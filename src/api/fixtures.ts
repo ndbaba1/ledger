@@ -1,4 +1,5 @@
 import type {
+  PublicQuestion,
   Writeup,
   Draft,
   OpenCase,
@@ -441,6 +442,7 @@ export const posts: PublicPost[] = [
   {
     slug: 'read-only-postgres-login-delete',
     authorId: ME_ID,
+    hitCount: 23,
     type: 'investigation',
     title: 'My agent’s “read-only” Postgres login tried to DELETE rows. Here’s how the grants allowed it.',
     tags: ['postgres', 'security', 'ai-agents'],
@@ -529,6 +531,7 @@ export const writeups: Writeup[] = [
 export const communityPosts: PublicPost[] = [
   {
     slug: 'retries-turned-a-blip-into-an-outage',
+    hitCount: 41,
     authorId: 'u_hannah',
     type: 'incident',
     title: 'Retries turned a 30-second payment provider blip into a 40-minute outage',
@@ -559,11 +562,13 @@ export const communityPosts: PublicPost[] = [
     ],
     result: { label: 'Time to recover from a provider blip', before: '40 min', after: '45 s' },
     lesson: 'Count your retries end to end. Retries at every layer multiply, and without jitter they arrive together.',
+    followUps: ['Keep retries in the layer that knows whether the operation is idempotent — here, the job queue, since charges carry an idempotency key there.'],
     badges: [{ label: 'Authored & merged the fix', detail: 'private GitHub project · Aug 2026', verified: true }],
     publishedAt: '2026-08-19T14:00:00Z',
   },
   {
     slug: 'kafka-lag-only-on-mondays',
+    hitCount: 17,
     authorId: 'u_tomas',
     type: 'investigation',
     title: 'Kafka consumer lag that only appeared on Monday mornings',
@@ -599,6 +604,7 @@ export const communityPosts: PublicPost[] = [
   },
   {
     slug: 'partition-events-by-day-not-tenant',
+    hitCount: 12,
     authorId: 'u_mei',
     type: 'decision',
     title: 'Partition event tables by day, not by tenant',
@@ -629,6 +635,7 @@ export const communityPosts: PublicPost[] = [
   },
   {
     slug: 'offline-first-delivery-tracking',
+    hitCount: 8,
     authorId: 'u_ade',
     type: 'design',
     title: 'Offline-first delivery tracking for drivers with patchy signal',
@@ -669,3 +676,44 @@ export const communityPosts: PublicPost[] = [
     publishedAt: '2026-09-15T16:20:00Z',
   },
 ]
+
+/** Public questions on posts, keyed by "handle/slug". */
+export const publicQuestions: Record<string, PublicQuestion[]> = {
+  'engineernamzy/read-only-postgres-login-delete': [
+    {
+      id: 'pq1',
+      askerId: 'u_hannah',
+      body: 'Does NOINHERIT break anything if the login still needs a group role for connection limits?',
+      at: '2026-09-24T09:10:00Z',
+      status: 'answered',
+      answer: {
+        body: 'Connection limits and `CONNECT` still work. The login just has to `SET ROLE` explicitly to use a group’s table privileges, which is what we wanted.',
+        at: '2026-09-24T13:40:00Z',
+      },
+    },
+    {
+      id: 'pq2',
+      askerId: 'u_mei',
+      body: 'Does agent-db-scan check privileges granted through `PUBLIC` on schemas, or only tables?',
+      at: '2026-09-27T18:05:00Z',
+      status: 'pending',
+    },
+  ],
+  'hannahl/retries-turned-a-blip-into-an-outage': [
+    {
+      id: 'pq3',
+      askerId: 'u_tomas',
+      body: 'How did you decide which layer keeps the retries?',
+      at: '2026-08-21T10:00:00Z',
+      status: 'answered',
+      answer: {
+        body: 'The layer that knows whether the operation is idempotent. For us that was the job queue, since charges carry an idempotency key there.',
+        at: '2026-08-21T15:30:00Z',
+      },
+      folded: true,
+    },
+  ],
+}
+
+/** Posts the current user has marked "I hit this too". */
+export const hitsByMe: string[] = ['hannahl/retries-turned-a-blip-into-an-outage']

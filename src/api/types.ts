@@ -213,6 +213,41 @@ export interface PublicPost {
   /** Employer line shown on the post, if the author chose to show one. */
   employerLine?: string
   promotedFromRecordId?: ID
+  /** How many engineers said they hit this same problem. */
+  hitCount?: number
+  /** Answers the author folded into the post from public questions. */
+  followUps?: string[]
+}
+
+export type PublicQuestionStatus = 'pending' | 'answered' | 'dismissed'
+
+/** A question a reader asked on a public post. Shown publicly only once answered. */
+export interface PublicQuestion {
+  id: ID
+  askerId: ID
+  body: string
+  at: string
+  status: PublicQuestionStatus
+  answer?: { body: string; at: string }
+  folded?: boolean
+}
+
+/** What a reader sees of a post's Q&A; the author also sees pending questions. */
+export interface PostThread {
+  questions: PublicQuestion[]
+  askers: User[]
+  /** The viewer's own questions still waiting for the author. */
+  mine: PublicQuestion[]
+  hitCount: number
+  hitByMe: boolean
+}
+
+export interface TopicPage {
+  tag: string
+  items: FeedItem[]
+  /** Tags that often appear with this one. */
+  related: { tag: string; count: number }[]
+  totalHits: number
 }
 
 export interface RedactionRule {

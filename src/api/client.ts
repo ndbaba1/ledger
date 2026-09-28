@@ -9,6 +9,8 @@ import type {
   SearchHit,
   AskAnswer,
   Writeup,
+  PostThread,
+  TopicPage,
   ExploreParams,
   ExploreResult,
   WriteupFields,
@@ -69,6 +71,18 @@ export interface LedgerApi {
 
   getProfile(handle: string): Promise<Profile>
   getPost(handle: string, slug: string): Promise<{ post: PublicPost; author: User }>
+
+  /** Public Q&A and "I hit this too" for a post, as the current viewer sees them. */
+  getThread(handle: string, slug: string): Promise<PostThread>
+  askPublic(handle: string, slug: string, body: string): Promise<PostThread>
+  /** Author only: answer, dismiss, or fold an answer into the post. */
+  answerPublic(handle: string, slug: string, questionId: ID, body: string): Promise<PostThread>
+  dismissPublic(handle: string, slug: string, questionId: ID): Promise<PostThread>
+  foldPublic(handle: string, slug: string, questionId: ID): Promise<{ thread: PostThread; post: PublicPost }>
+  /** Toggles the viewer's "I hit this too". */
+  toggleHit(handle: string, slug: string): Promise<PostThread>
+
+  getTopic(tag: string): Promise<TopicPage>
 }
 
 export class NotFoundError extends Error {
