@@ -4,11 +4,11 @@ import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { PublicLayout } from '../app/PublicLayout'
 import { useMe } from '../app/session'
-import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { FeedList, FilterMenu } from '../components/FeedList'
 import { ListBox, ListHeader } from '../components/ListBox'
+import { ProfileHeader } from '../components/ProfileHeader'
 import { ProjectSummary } from '../components/ProjectSummary'
 import { features } from '../lib/features'
 import { useQuery } from '../lib/useAsync'
@@ -41,36 +41,32 @@ export function ProfileScreen() {
       </PublicLayout>
     )
 
-  const { user, posts, projects = [], hitByViewer = [] } = profile.data
+  const { user, posts, projects = [], hitByViewer = [], verifiedPRs, repos } = profile.data
   const visible = posts.filter((p) => tab === 'all' || p.type === tab)
-  const verified = posts.flatMap((p) => p.badges).filter((b) => b.verified).length
+  const verifiedFallback = posts.flatMap((p) => p.badges).filter((b) => b.verified).length
   const isMe = user.id === me?.id
+  const needsProfileContent = isMe && !user.headline && (user.stack?.length ?? 0) === 0
 
   return (
     <PublicLayout>
       <div className="profile">
         <div className="profile__main stack gap-24">
-          <section className="profile-head" aria-label="Profile">
-            <Avatar user={user} size="xl" />
-            <div className="stack gap-8">
-              <div className="row gap-12 wrap baseline">
-                <h1 className="page-title">{user.name}</h1>
-                <span className="mono muted">@{user.handle}</span>
-              </div>
-              {(user.headline || user.location) && (
-                <p className="text">{[user.headline, user.location].filter(Boolean).join(' · ')}</p>
-              )}
-              {user.stack && (
-                <div className="row gap-6 wrap">
-                  {user.stack.map((s) => (
-                    <span key={s} className="chip">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              )}
+          <div className="row gap-16 wrap" style={{ alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <ProfileHeader user={user} />
             </div>
-          </section>
+            {isMe && (
+              <Link to="/me/profile" className="btn btn--ghost btn--sm">
+                Edit profile
+              </Link>
+            )}
+          </div>
+
+          {needsProfileContent && (
+            <p className="small muted">
+              Add a headline and your stack so readers know what you work on — <Link to="/me/profile">edit your profile</Link>.
+            </p>
+          )}
 
           {features.projects && projects.length > 0 && (
             <ListBox
@@ -143,19 +139,26 @@ export function ProfileScreen() {
         <aside className="profile__side stack gap-16" aria-label="Verified activity">
           <div className="card stack gap-14">
             <h2 className="side-title">Proof of work</h2>
-            <div className="grid-2 grid-2--tight">
+            <div className={repos !== undefined ? 'grid-3 grid-3--tight' : 'grid-2 grid-2--tight'}>
               <div className="stat">
                 <span className="stat__n">{posts.length}</span>
                 <span className="small muted">write-ups</span>
               </div>
               <div className="stat">
-                <span className="stat__n text-green">{verified}</span>
-                <span className="small muted">verified sources</span>
+                <span className="stat__n text-green">{verifiedPRs ?? verifiedFallback}</span>
+                <span className="small muted">verified PRs</span>
               </div>
+              {repos !== undefined && (
+                <div className="stat">
+                  <span className="stat__n">{repos}</span>
+                  <span className="small muted">{repos === 1 ? 'repo' : 'repos'}</span>
+                </div>
+              )}
             </div>
             <p className="small muted">
-              Badges are checked against the source when a post is published. Private work shows as verified without revealing code
-              or company.
+              {features.workspace
+                ? 'Badges are checked against the source when a post is published. Private work shows as verified without revealing code or company.'
+                : 'Each badge is checked with GitHub when the post is published.'}
             </p>
           </div>
           {user.previously && user.previously.length > 0 && (

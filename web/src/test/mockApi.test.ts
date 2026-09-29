@@ -177,3 +177,27 @@ describe('mock API: design records', () => {
     expect(post.result?.after).toBe('99.7%')
   })
 })
+
+describe('mock API: updateMe', () => {
+  it('updates name, headline, location and stack', async () => {
+    const api = newApi()
+    const updated = await api.updateMe({ name: 'N. K.', headline: 'Backend engineer', location: 'Toronto', stack: ['go', 'ruby'] })
+    expect(updated.name).toBe('N. K.')
+    expect(updated.headline).toBe('Backend engineer')
+    expect(updated.location).toBe('Toronto')
+    expect(updated.stack).toEqual(['go', 'ruby'])
+    expect((await api.me()).name).toBe('N. K.')
+  })
+
+  it('always keeps a github link and lets you set website/linkedin', async () => {
+    const api = newApi()
+    const me = await api.me()
+    const updated = await api.updateMe({ links: { website: 'https://nnamdi.example' } })
+    expect(updated.links).toEqual({ github: `https://github.com/${me.handle}`, website: 'https://nnamdi.example' })
+  })
+
+  it('rejects more than 12 stack tags' , async () => {
+    const api = newApi()
+    await expect(api.updateMe({ stack: Array.from({ length: 13 }, (_, i) => `tag${i}`) })).rejects.toThrow()
+  })
+})

@@ -27,6 +27,7 @@ import type {
   SearchHit,
   Source,
   TeamRecord,
+  User,
 } from './types'
 import { isValidUrl, sourceFromUrl } from '../lib/sources'
 import { removeCitations, stripInline } from '../lib/inline'
@@ -128,6 +129,9 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
   }
 
   const withHit = (item: FeedItem): FeedItem => ({ ...item, hitByMe: db.hitsByMe.has(`${item.author.handle}/${item.post.slug}`) })
+
+  /** GitHub always shows on a profile, computed from the handle — not stored. */
+  const withGithubLink = (user: User): User => ({ ...user, links: { github: `https://github.com/${user.handle}`, ...user.links } })
 
   const authorsQuestion = (handle: string, slug: string, questionId: ID) => {
     const { post } = postBy(handle, slug)
@@ -319,7 +323,18 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
   }
 
   const api: LedgerApi = {
-    me: () => run(() => db.users.find((u) => u.id === seed.ME_ID)!),
+    me: () => run(() => withGithubLink(db.users.find((u) => u.id === seed.ME_ID)!)),
+    updateMe: (patch) =>
+      run(() => {
+        const me = db.users.find((u) => u.id === seed.ME_ID)!
+        if (patch.stack && patch.stack.length > 12) throw new Error('Stack can have at most 12 tags.')
+        if (patch.name !== undefined) me.name = patch.name
+        if (patch.headline !== undefined) me.headline = patch.headline
+        if (patch.location !== undefined) me.location = patch.location
+        if (patch.stack !== undefined) me.stack = patch.stack
+        if (patch.links) me.links = { ...me.links, ...patch.links }
+        return withGithubLink(me)
+      }),
     workspace: () => respond(db.workspace),
     users: (ids) => respond(db.users.filter((u) => ids.includes(u.id))),
 
@@ -876,7 +891,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         const projects = db.projects
           .filter((p) => p.authorId === user.id)
           .sort((a, b) => b.period.to.localeCompare(a.period.to))
-        return { user, posts, hitByViewer, projects }
+        return { user: withGithubLink(user), posts, hitByViewer, projects }
       }),
 
     getPost: (handle, slug) =>

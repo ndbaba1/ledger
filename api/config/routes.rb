@@ -22,6 +22,7 @@ Rails.application.routes.draw do
       resource :session, only: [:destroy]
       resource :csrf_token, only: [:show]
       get 'me', to: 'me#show'
+      patch 'me', to: 'me#update'
       get 'explore', to: 'explore#index'
 
       resources :writeups, only: %i[index create show update] do

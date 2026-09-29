@@ -1,5 +1,5 @@
 import { NotFoundError, UnauthorizedError, type LedgerApi } from './client'
-import type { ExploreParams, ID, PublicPost, WriteupFields, WriteupStatus } from './types'
+import type { ExploreParams, ID, ProfileEdit, PublicPost, WriteupFields, WriteupStatus } from './types'
 
 export interface HttpApiOptions {
   /** e.g. '/api/v1' */
@@ -54,6 +54,7 @@ export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
 
   const v1 = {
     me: () => get('/me'),
+    updateMe: (profileEdit: ProfileEdit) => patch('/me', profileEdit),
 
     explore: (params: ExploreParams) => get(`/explore${query({ query: params.query, type: params.type, tag: params.tag })}`),
 

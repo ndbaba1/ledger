@@ -12,6 +12,7 @@ import { CasesScreen } from './screens/CasesScreen'
 import { DraftScreen } from './screens/DraftScreen'
 import { InboxScreen } from './screens/InboxScreen'
 import { LandingScreen } from './screens/LandingScreen'
+import { MyProfileEditScreen } from './screens/MyProfileEditScreen'
 import { MyWriteupsScreen } from './screens/MyWriteupsScreen'
 import { NewWriteupScreen } from './screens/NewWriteupScreen'
 import { PostScreen } from './screens/PostScreen'
@@ -38,6 +39,7 @@ const editorRoutes = (
         </Suspense>
       }
     />
+    <Route path="me/profile" element={<MyProfileEditScreen />} />
   </>
 )
 

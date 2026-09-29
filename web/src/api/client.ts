@@ -29,6 +29,7 @@ import type {
   ProjectOptions,
   ProjectPage,
   ProjectPlan,
+  ProfileEdit,
   PublicProject,
   Workspace,
 } from './types'
@@ -40,6 +41,8 @@ import type {
  */
 export interface LedgerApi {
   me(): Promise<User>
+  /** Updates the signed-in user's own editable profile fields. */
+  updateMe(patch: ProfileEdit): Promise<User>
   workspace(): Promise<Workspace>
   users(ids: ID[]): Promise<User[]>
 

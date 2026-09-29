@@ -9,6 +9,8 @@ import { signInWithGithub, takeReturnTo } from './githubAuth'
 /** Who's looking, whether or not they're signed in. Every public screen can read this. */
 interface Viewer {
   me: User | null
+  /** Updates the cached viewer after editing your own profile. */
+  setMe: (me: User) => void
 }
 
 /** `workspace` is null in live mode, where there's no team workspace at all. */
@@ -36,15 +38,17 @@ export function SessionProvider({ children, fallback }: { children: ReactNode; f
   const [inboxCount, setInboxCount] = useState(0)
   const [error, setError] = useState<Error>()
 
+  const setMe = useCallback((me: User) => setViewer((v) => (v ? { ...v, me } : v)), [])
+
   useEffect(() => {
     api
       .me()
-      .then((me) => setViewer({ me }))
+      .then((me) => setViewer({ me, setMe }))
       .catch((e: unknown) => {
-        if (e instanceof UnauthorizedError) setViewer({ me: null })
+        if (e instanceof UnauthorizedError) setViewer({ me: null, setMe })
         else setError(e instanceof Error ? e : new Error(String(e)))
       })
-  }, [api])
+  }, [api, setMe])
 
   useEffect(() => {
     if (!features.workspace) return
@@ -84,6 +88,13 @@ export function useMe(): User | null {
   const viewer = useContext(ViewerContext)
   if (!viewer) throw new Error('useMe must be used inside <SessionProvider>')
   return viewer.me
+}
+
+/** Updates the cached signed-in user, e.g. after saving profile edits. */
+export function useSetMe(): (me: User) => void {
+  const viewer = useContext(ViewerContext)
+  if (!viewer) throw new Error('useSetMe must be used inside <SessionProvider>')
+  return viewer.setMe
 }
 
 /** The team workspace, or null in live mode / while it's loading. Never throws. */
