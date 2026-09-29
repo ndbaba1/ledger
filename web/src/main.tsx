@@ -3,14 +3,13 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { createHttpApi } from './api/httpApi'
 import { createMockApi } from './api/mockApi'
+import { isLive } from './lib/features'
 import './styles.css'
 
-// VITE_API=http talks to the real Rails backend; anything else (the default)
-// keeps the app on the in-memory mock, so tests and the preview keep working.
-const api =
-  import.meta.env.VITE_API === 'http'
-    ? createHttpApi({ base: '/api/v1', fallback: createMockApi() })
-    : createMockApi()
+// VITE_API=http is live mode: talk to the real Rails backend only, with no
+// mock fallback. Anything else (the default) runs entirely on the mock, so
+// tests and the preview keep working without a backend.
+const api = isLive ? createHttpApi({ base: '/api/v1' }) : createMockApi()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

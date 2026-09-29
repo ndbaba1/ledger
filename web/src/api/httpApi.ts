@@ -4,8 +4,6 @@ import type { ExploreParams, ID, PublicPost, WriteupFields, WriteupStatus } from
 export interface HttpApiOptions {
   /** e.g. '/api/v1' */
   base: string
-  /** Every LedgerApi method not implemented over HTTP yet falls back to this. */
-  fallback: LedgerApi
 }
 
 async function request<T>(base: string, path: string, init: RequestInit = {}): Promise<T> {
@@ -36,12 +34,17 @@ function query(params: Record<string, string | undefined>): string {
   return qs ? `?${qs}` : ''
 }
 
+const notAvailable = () => {
+  throw new Error('Not available yet')
+}
+
 /**
- * Implements the version-1 slice of LedgerApi over the Rails backend; every
+ * Implements the version-1 slice of LedgerApi over the Rails backend. Every
  * other method (the team workspace, drafts, cases, projects, public Q&A…)
- * delegates to `fallback` so those screens keep working against the mock.
+ * throws rather than falling back to the mock — nothing from fixtures.ts is
+ * reachable from a live build.
  */
-export function createHttpApi({ base, fallback }: HttpApiOptions): LedgerApi {
+export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
   const get = <T,>(path: string) => request<T>(base, path)
   const post = <T,>(path: string, body?: unknown) =>
     request<T>(base, path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
@@ -49,26 +52,31 @@ export function createHttpApi({ base, fallback }: HttpApiOptions): LedgerApi {
     request<T>(base, path, { method: 'PATCH', body: body === undefined ? undefined : JSON.stringify(body) })
   const del = <T,>(path: string) => request<T>(base, path, { method: 'DELETE' })
 
-  return {
-    ...fallback,
-
+  const v1 = {
     me: () => get('/me'),
 
     explore: (params: ExploreParams) => get(`/explore${query({ query: params.query, type: params.type, tag: params.tag })}`),
 
-    getProfile: (handle) => get(`/users/${encodeURIComponent(handle)}`),
-    getPost: (handle, slug) => get(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}`),
-    getThread: (handle, slug) => get(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/thread`),
-    toggleHit: (handle, slug) => post(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/hit`),
-    getTopic: (tag) => get(`/topics/${encodeURIComponent(tag)}`),
+    getProfile: (handle: string) => get(`/users/${encodeURIComponent(handle)}`),
+    getPost: (handle: string, slug: string) => get(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}`),
+    getThread: (handle: string, slug: string) => get(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/thread`),
+    toggleHit: (handle: string, slug: string) => post(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/hit`),
+    getTopic: (tag: string) => get(`/topics/${encodeURIComponent(tag)}`),
 
     listWriteups: () => get('/writeups'),
-    createWriteup: (type) => post('/writeups', { type }),
-    getWriteup: (id) => get(`/writeups/${id}`),
+    createWriteup: (type: string) => post('/writeups', { type }),
+    getWriteup: (id: ID) => get(`/writeups/${id}`),
     saveWriteup: (id: ID, fields: Partial<WriteupFields>) => patch(`/writeups/${id}`, fields),
-    addWriteupEvidence: (id, url) => post(`/writeups/${id}/evidence`, { url }),
-    removeWriteupEvidence: (id, key) => del(`/writeups/${id}/evidence/${encodeURIComponent(key)}`),
-    setWriteupStatus: (id, status: WriteupStatus) => patch(`/writeups/${id}/status`, { status }),
-    publishWriteupToProfile: (id) => post<PublicPost>(`/writeups/${id}/publish`),
+    addWriteupEvidence: (id: ID, url: string) => post(`/writeups/${id}/evidence`, { url }),
+    removeWriteupEvidence: (id: ID, key: string) => del(`/writeups/${id}/evidence/${encodeURIComponent(key)}`),
+    setWriteupStatus: (id: ID, status: WriteupStatus) => patch(`/writeups/${id}/status`, { status }),
+    publishWriteupToProfile: (id: ID) => post<PublicPost>(`/writeups/${id}/publish`),
   }
+
+  return new Proxy(v1 as unknown as LedgerApi, {
+    get(target, prop: string | symbol, receiver) {
+      if (typeof prop === 'string' && !(prop in target)) return notAvailable
+      return Reflect.get(target, prop, receiver)
+    },
+  })
 }
