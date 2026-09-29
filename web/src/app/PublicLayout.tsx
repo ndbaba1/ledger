@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { Logo } from './AppShell'
-import { useSession } from './session'
+import { signInWithGithub, signOut } from './githubAuth'
+import { useMe } from './session'
 
 /** Chrome for public pages — explore, profiles and posts — as a visitor sees them. */
 export function PublicLayout({ children }: { children: ReactNode }) {
-  const { me } = useSession()
+  const me = useMe()
+  const location = useLocation()
+
   return (
     <div className="public">
       <header className="public__head">
@@ -16,17 +19,34 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           <NavLink to="/" end className="public__link">
             Explore
           </NavLink>
-          <NavLink to={`/u/${me.handle}`} className="public__link">
-            My profile
-          </NavLink>
+          {me && (
+            <NavLink to={`/u/${me.handle}`} className="public__link">
+              My profile
+            </NavLink>
+          )}
         </nav>
         <div className="row gap-8 push-right">
-          <Link to="/inbox" className="btn btn--ghost btn--sm public__workspace">
-            Open workspace
-          </Link>
-          <Link to="/new" className="btn btn--primary btn--sm">
-            Write
-          </Link>
+          {me ? (
+            <>
+              <Link to="/inbox" className="btn btn--ghost btn--sm public__workspace">
+                Open workspace
+              </Link>
+              <Link to="/new" className="btn btn--primary btn--sm">
+                Write
+              </Link>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => signOut().then(() => window.location.reload())}>
+                Sign out
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={() => signInWithGithub(location.pathname + location.search)}
+            >
+              Sign in with GitHub
+            </button>
+          )}
         </div>
       </header>
       <main id="main" className="public__main">

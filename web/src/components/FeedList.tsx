@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { FeedItem } from '../api/types'
-import { useSession } from '../app/session'
+import { signInWithGithub } from '../app/githubAuth'
+import { useMe } from '../app/session'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { KindMeta, ListBox, ListRow } from './ListBox'
@@ -86,12 +87,13 @@ export function FeedList({
 /** The feed's “star”: tell the author you ran into the same problem. */
 function HitToggle({ item }: { item: FeedItem }) {
   const api = useApi()
-  const { me } = useSession()
+  const me = useMe()
+  const location = useLocation()
   const [state, setState] = useState({ n: item.post.hitCount ?? 0, on: Boolean(item.hitByMe) })
   const toggle = useMutation(() => api.toggleHit(item.author.handle, item.post.slug))
   const label = `${state.n} engineer${state.n === 1 ? '' : 's'} hit this`
 
-  if (item.author.id === me.id) {
+  if (item.author.id === me?.id) {
     if (!state.n) return null
     return (
       <span className="hit-toggle hit-toggle--static" title={label}>
@@ -109,6 +111,7 @@ function HitToggle({ item }: { item: FeedItem }) {
       title="Ran into the same problem? Let the author know."
       disabled={toggle.pending}
       onClick={async () => {
+        if (!me) return void signInWithGithub(location.pathname + location.search)
         const next = await toggle.run()
         if (next) setState({ n: next.hitCount, on: next.hitByMe })
       }}

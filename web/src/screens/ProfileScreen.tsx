@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { PublicLayout } from '../app/PublicLayout'
-import { useSession } from '../app/session'
+import { useMe } from '../app/session'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/States'
@@ -23,7 +23,7 @@ const TABS: { key: RecordType | 'all'; label: string }[] = [
 export function ProfileScreen() {
   const { handle = '' } = useParams()
   const api = useApi()
-  const { me } = useSession()
+  const me = useMe()
   const profile = useQuery(() => api.getProfile(handle), [api, handle])
   const [tab, setTab] = useState<RecordType | 'all'>('all')
 
@@ -43,7 +43,7 @@ export function ProfileScreen() {
   const { user, posts, projects = [], hitByViewer = [] } = profile.data
   const visible = posts.filter((p) => tab === 'all' || p.type === tab)
   const verified = posts.flatMap((p) => p.badges).filter((b) => b.verified).length
-  const isMe = user.id === me.id
+  const isMe = user.id === me?.id
 
   return (
     <PublicLayout>

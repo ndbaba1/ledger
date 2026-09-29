@@ -5,7 +5,7 @@ import { HashRouter, Link, MemoryRouter, Route, Routes, useLocation } from 'reac
 import { ApiProvider } from './api/ApiContext'
 import type { LedgerApi } from './api/client'
 import { AppShell } from './app/AppShell'
-import { SessionProvider } from './app/session'
+import { RequireAuth, ReturnToAfterSignIn, SessionProvider } from './app/session'
 import { Loading } from './components/States'
 import { CasesScreen } from './screens/CasesScreen'
 import { DraftScreen } from './screens/DraftScreen'
@@ -29,7 +29,13 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route index element={<LandingScreen />} />
-      <Route element={<AppShell />}>
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
         <Route path="inbox" element={<InboxScreen />} />
         <Route path="drafts/:id" element={<DraftScreen />} />
         <Route path="new" element={<NewWriteupScreen />} />
@@ -119,6 +125,7 @@ export default function App({ api }: { api: LedgerApi }) {
         <Router>
           <ScrollToTop />
           <SessionProvider fallback={<Loading label="Starting Ledger" />}>
+            <ReturnToAfterSignIn />
             <AppRoutes />
           </SessionProvider>
         </Router>

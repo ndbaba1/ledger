@@ -460,6 +460,31 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         return record
       }),
 
+    publishWriteupToProfile: (id) =>
+      run(() => {
+        const w = writeupById(id)
+        if (w.publishedRecordId) {
+          const record = recordById(w.publishedRecordId)
+          const existing = db.posts.find((p) => p.slug === record.promotedPostSlug)
+          if (existing) return existing
+        }
+        const missing = publishBlockers(w)
+        if (missing.length) throw new Error(`Not ready to publish. Still needed: ${missing.join(', ')}.`)
+        const record = writeupToRecord(w, { id: nextRecordId(), publishedAt: now().toISOString(), authorId: seed.ME_ID })
+        db.records.unshift(record)
+        w.publishedRecordId = record.id
+        const post = buildPost(record, plannedRules(record), {
+          authorId: seed.ME_ID,
+          slug: slugify(record.title),
+          publishedAt: record.publishedAt,
+          employerLine: undefined,
+          badges: record.sources.map((s) => badgeFor(s, record)).filter((b): b is Badge => b !== null),
+        })
+        db.posts = [post, ...db.posts.filter((p) => p.slug !== post.slug)]
+        record.promotedPostSlug = post.slug
+        return post
+      }),
+
     listRecords: () => respond([...db.records].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))),
     getRecord: (id) => run(() => recordById(id)),
 

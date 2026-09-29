@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { ID, PostThread, PublicPost, PublicQuestion, User } from '../api/types'
+import { signInWithGithub } from '../app/githubAuth'
+import { useMe } from '../app/session'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Inline } from './Inline'
@@ -21,6 +24,8 @@ interface Props {
 /** "I hit this too": a count of engineers who ran into the same problem. */
 export function HitButton({ handle, slug, isAuthor, thread, onThread }: Omit<Props, 'author' | 'onPost'>) {
   const api = useApi()
+  const me = useMe()
+  const location = useLocation()
   const toggle = useMutation(() => api.toggleHit(handle, slug))
   const n = thread.hitCount
   const label = `${n} engineer${n === 1 ? '' : 's'} hit this`
@@ -30,6 +35,17 @@ export function HitButton({ handle, slug, isAuthor, thread, onThread }: Omit<Pro
         <Icon name="check" size={14} strokeWidth={2.5} />
         {label}
       </span>
+    )
+  }
+  if (!me) {
+    return (
+      <button type="button" className="hit" onClick={() => signInWithGithub(location.pathname + location.search)}>
+        <Icon name="plus" size={14} strokeWidth={2.5} />
+        <span>I hit this too</span>
+        <span className="hit__count" aria-label={label}>
+          {n}
+        </span>
+      </button>
     )
   }
   return (
@@ -55,6 +71,8 @@ export function HitButton({ handle, slug, isAuthor, thread, onThread }: Omit<Pro
 /** Ask-the-author on a public post. Only answered questions are public; the author sees and handles the rest. */
 export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onPost }: Props) {
   const api = useApi()
+  const me = useMe()
+  const location = useLocation()
   const [body, setBody] = useState('')
   const ask = useMutation((text: string) => api.askPublic(handle, slug, text))
   const askers = new Map(thread.askers.map((u) => [u.id, u]))
@@ -126,7 +144,17 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
         </div>
       )}
 
-      {!isAuthor && (
+      {!isAuthor && !me && (
+        <button
+          type="button"
+          className="btn btn--ask"
+          onClick={() => signInWithGithub(location.pathname + location.search)}
+        >
+          Sign in to ask
+        </button>
+      )}
+
+      {!isAuthor && me && (
         <form className="stack gap-6" onSubmit={submit}>
           <div className="qa__ask">
             <label htmlFor="pqa-ask" className="sr-only">

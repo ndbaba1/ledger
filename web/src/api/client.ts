@@ -64,6 +64,8 @@ export interface LedgerApi {
   setWriteupStatus(id: ID, status: WriteupStatus): Promise<Writeup>
   /** Fails with the list of what's missing when the write-up isn't ready. */
   publishWriteup(id: ID): Promise<TeamRecord>
+  /** Publishes straight to the author's public profile. Fails the same way as `publishWriteup`. */
+  publishWriteupToProfile(id: ID): Promise<PublicPost>
 
   listRecords(): Promise<TeamRecord[]>
   getRecord(id: ID): Promise<TeamRecord>
@@ -127,5 +129,13 @@ export class NotFoundError extends Error {
   constructor(what: string) {
     super(`${what} not found`)
     this.name = 'NotFoundError'
+  }
+}
+
+/** Thrown by `me()` when the visitor is signed out. The frontend treats this as expected, not fatal. */
+export class UnauthorizedError extends Error {
+  constructor(message = 'Sign in to continue.') {
+    super(message)
+    this.name = 'UnauthorizedError'
   }
 }

@@ -8,6 +8,12 @@ export default defineConfig({
   base: './',
   // The single-file preview build (VITE_ROUTER=memory) must be one script, so it skips code splitting.
   build: process.env.VITE_ROUTER === 'memory' ? { rolldownOptions: { output: { inlineDynamicImports: true } } } : {},
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/auth': 'http://localhost:3000',
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

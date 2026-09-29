@@ -123,15 +123,20 @@ function Editor({ initial }: { initial: Writeup }) {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
+  // Version 1 of the backend publishes straight to the profile; unbuilt
+  // screens (team records) stay on the mock.
+  const isHttp = import.meta.env.VITE_API === 'http'
   const status = useMutation((s: WriteupStatus) => api.setWriteupStatus(w.id, s))
   const publish = useMutation(async () => {
     await api.saveWriteup(w.id, fields)
-    return api.publishWriteup(w.id)
+    return isHttp ? api.publishWriteupToProfile(w.id) : api.publishWriteup(w.id)
   })
 
   const onPublish = async () => {
-    const record = await publish.run()
-    if (record) navigate(`/records/${record.id}`, { state: { justPublished: true } })
+    const result = await publish.run()
+    if (!result) return
+    if ('slug' in result) navigate(`/u/${me.handle}/${result.slug}`, { state: { justPublished: true } })
+    else navigate(`/records/${result.id}`, { state: { justPublished: true } })
   }
 
   const previewRecord = writeupToRecord({ ...current }, { id: 'preview', publishedAt: w.updatedAt, authorId: me.id })

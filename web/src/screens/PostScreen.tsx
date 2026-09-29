@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import { PublicLayout } from '../app/PublicLayout'
-import { useSession } from '../app/session'
+import { useMe } from '../app/session'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
@@ -18,7 +18,7 @@ export function PostScreen() {
   const { handle = '', slug = '' } = useParams()
   const api = useApi()
   const location = useLocation()
-  const { me } = useSession()
+  const me = useMe()
   const data = useQuery(
     () => Promise.all([api.getPost(handle, slug), api.getProfile(handle), api.getThread(handle, slug)]),
     [api, handle, slug],
@@ -47,7 +47,7 @@ export function PostScreen() {
   const [{ post: loadedPost, author }, profile, loadedThread] = data.data
   const post = postOverride ?? loadedPost
   const currentThread = thread ?? loadedThread
-  const isMe = author.id === me.id
+  const isMe = me?.id === author.id
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
   const partOf = profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug))
 
