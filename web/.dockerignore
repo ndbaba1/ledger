@@ -1,0 +1,7 @@
+node_modules
+dist
+dist-ssr
+log
+tmp
+*.local
+.git

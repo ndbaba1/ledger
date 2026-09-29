@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Docker compose secrets — copy .env.example instead.
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
