@@ -9,7 +9,8 @@ module EvidenceSerializer
       status: evidence.status,
       url: evidence.url,
       hops: 0,
-      authoredByMe: evidence.authored_by_user
+      authoredByMe: evidence.authored_by_user,
+      failureReason: evidence.failure_reason.presence
     }.compact
   end
 end

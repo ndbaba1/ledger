@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LedgerApi } from '../api/client'
-import type { ExploreResult, Profile, PostThread, PublicPost, User } from '../api/types'
+import type { ExploreResult, Profile, PostThread, PublicPost, User, Writeup } from '../api/types'
 
 // `isLive`/`features` are read from `import.meta.env.VITE_API` once at
 // import time, so each test stubs the env, resets the module cache, and
@@ -106,6 +106,44 @@ describe('live mode', () => {
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(post.title)
     expect(screen.queryByRole('heading', { name: 'Ask the author' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /I hit this too/ })).toBeInTheDocument()
+  })
+
+  it('explains why a piece of evidence did not verify', async () => {
+    const writeup: Writeup = {
+      id: 'w1',
+      type: 'incident',
+      status: 'draft',
+      title: 'Checkout p99 latency spike',
+      context: '',
+      symptom: 'Slow',
+      constraints: [],
+      rootCause: 'Pool halved',
+      flow: [],
+      ruledOut: [],
+      fix: 'Reverted',
+      lesson: '',
+      signals: [],
+      evidence: [
+        {
+          key: 'S1',
+          kind: 'github_pr',
+          title: 'GitHub PR #9',
+          detail: 'acme/checkout',
+          status: 'fetched',
+          url: 'https://github.com/acme/checkout/pull/9',
+          hops: 0,
+          authoredByMe: false,
+          failureReason: "Authored by someone-else — you're signed in as ndbaba1.",
+        },
+      ],
+      authorId: me.id,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    }
+
+    await renderLive('#/write/w1', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(writeup) }))
+
+    expect(await screen.findByText("Authored by someone-else — you're signed in as ndbaba1.")).toBeInTheDocument()
   })
 
   it('"Write" goes to sign-in when signed out', async () => {

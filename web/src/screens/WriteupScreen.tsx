@@ -475,6 +475,11 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
             >
               <Icon name="x" size={14} />
             </button>
+            {e.failureReason && (
+              <span className="evidence-edit__reason">
+                <Icon name="alert" size={11} /> {e.failureReason}
+              </span>
+            )}
           </li>
         ))}
       </ul>

@@ -35,7 +35,8 @@ class GithubEvidenceVerifier
     owner, repo, number = m[:owner], m[:repo], m[:number].to_i
     nwo = "#{owner}/#{repo}"
     pr = client.pull_request(nwo, number)
-    authored = pr.user.login.casecmp?(@user.github_login) && pr.merged_at.present?
+    pr_author = pr.user.login
+    authored = pr_author.casecmp?(@user.github_login) && pr.merged_at.present?
     reviewed = !authored && approved_by_user?(nwo, number)
 
     @writeup.evidence.create!(
@@ -43,6 +44,7 @@ class GithubEvidenceVerifier
       title: "GitHub PR ##{number} · #{pr.title}", detail: "#{nwo} · #{format_month(pr.merged_at || pr.created_at)}",
       status: 'fetched', repo: nwo, number: number,
       authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
+      failure_reason: pr_badge_note(pr_author, pr.merged_at, authored, reviewed),
       snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, additions: pr.additions, deletions: pr.deletions, reviewed: reviewed }
     )
   rescue => e
@@ -53,17 +55,37 @@ class GithubEvidenceVerifier
     owner, repo, number = m[:owner], m[:repo], m[:number].to_i
     nwo = "#{owner}/#{repo}"
     issue = client.issue(nwo, number)
-    participated = issue.user.login.casecmp?(@user.github_login) || commented_by_user?(nwo, number)
+    issue_author = issue.user.login
+    participated = issue_author.casecmp?(@user.github_login) || commented_by_user?(nwo, number)
 
     @writeup.evidence.create!(
       key: next_key, kind: 'github_issue', url: @url,
       title: "GitHub issue ##{number} · #{issue.title}", detail: "#{nwo} · #{format_month(issue.created_at)}",
       status: 'fetched', repo: nwo, number: number,
       authored_by_user: false, verified_at: Time.current,
+      failure_reason: issue_badge_note(issue_author, participated),
       snapshot: { title: issue.title, participated: participated }
     )
   rescue => e
     failed_evidence('github_issue', nwo, number, e)
+  end
+
+  # Why this PR earned no badge, for the editor to show next to it. nil when
+  # it did earn one (authored & merged, or reviewed).
+  def pr_badge_note(pr_author, merged_at, authored, reviewed)
+    return nil if authored || reviewed
+
+    if pr_author.casecmp?(@user.github_login)
+      merged_at.present? ? nil : 'Not merged yet.'
+    else
+      "Authored by #{pr_author} — you're signed in as #{@user.github_login}."
+    end
+  end
+
+  def issue_badge_note(issue_author, participated)
+    return nil if participated
+
+    "Opened by #{issue_author}, with no comments from #{@user.github_login} — Ledger couldn't confirm you worked on this."
   end
 
   def approved_by_user?(nwo, number)
@@ -92,9 +114,9 @@ class GithubEvidenceVerifier
   def failure_reason_for(error)
     case error
     when Octokit::NotFound
-      "Couldn't verify — #{@url} may be a private repo (version 1 only verifies public repos), or the link is wrong."
+      'Private repo — not supported yet.'
     when Octokit::Unauthorized, Octokit::Forbidden, Octokit::TooManyRequests
-      "GitHub rejected the request — try again shortly."
+      'GitHub rejected the request — try again shortly.'
     else
       "Couldn't reach GitHub to verify this link."
     end

@@ -17,6 +17,18 @@ class Evidence < ApplicationRecord
 
   WHAT_BY_TYPE = { 'design' => 'the implementation', 'decision' => 'the change' }.freeze
 
+  # Verified PR evidence behind a user's published posts — for the profile's
+  # "Proof of work" numbers.
+  def self.verified_pull_requests_for(user)
+    writeup_ids = user.writeups.joins(:post).select(:id)
+    where(writeup_id: writeup_ids, kind: 'github_pr').select(&:verified?)
+  end
+
+  def verified?
+    (kind == 'github_pr' && (authored_by_user || snapshot['reviewed'])) ||
+      (kind == 'github_issue' && snapshot['participated'])
+  end
+
   # The verification badge this evidence earns on a published post of the
   # given write-up type, or nil when it's just a plain link.
   def badge(writeup_type)

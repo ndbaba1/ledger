@@ -21,9 +21,10 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(evidence['kind']).to eq('github_pr')
       expect(evidence['status']).to eq('fetched')
       expect(evidence['authoredByMe']).to be true
+      expect(evidence).not_to have_key('failureReason')
     end
 
-    it 'stores a plain link unverified for a private repo (404)' do
+    it 'stores a plain link unverified for a private repo (404), explaining why' do
       stub_request(:get, 'https://api.github.com/repos/acme/private-repo/pulls/7')
         .to_return(status: 404, body: { message: 'Not Found' }.to_json, headers: { 'Content-Type' => 'application/json' })
 
@@ -33,6 +34,39 @@ RSpec.describe 'Writeup evidence API', type: :request do
       evidence = json['evidence'].last
       expect(evidence['status']).to eq('failed')
       expect(evidence['detail']).to eq('acme/private-repo')
+      expect(evidence['failureReason']).to eq('Private repo — not supported yet.')
+    end
+
+    it "explains a merged PR authored by someone else" do
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/50')
+        .to_return(status: 200, body: {
+          title: 'Someone else’s fix', merged_at: '2026-09-20T10:00:00Z',
+          user: { login: 'someone-else' }, additions: 1, deletions: 1
+        }.to_json, headers: { 'Content-Type' => 'application/json' })
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/50/reviews')
+        .to_return(status: 200, body: [].to_json, headers: { 'Content-Type' => 'application/json' })
+
+      post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/50' }
+
+      evidence = json['evidence'].last
+      expect(evidence['authoredByMe']).to be false
+      expect(evidence['failureReason']).to eq("Authored by someone-else — you're signed in as octocat.")
+    end
+
+    it 'explains a PR by the signed-in user that is not merged yet' do
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/51')
+        .to_return(status: 200, body: {
+          title: 'Work in progress', merged_at: nil, created_at: '2026-09-20T10:00:00Z',
+          user: { login: 'octocat' }, additions: 1, deletions: 1
+        }.to_json, headers: { 'Content-Type' => 'application/json' })
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/51/reviews')
+        .to_return(status: 200, body: [].to_json, headers: { 'Content-Type' => 'application/json' })
+
+      post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/51' }
+
+      evidence = json['evidence'].last
+      expect(evidence['authoredByMe']).to be false
+      expect(evidence['failureReason']).to eq('Not merged yet.')
     end
 
     it 'stores a non-github link without attempting to fetch it' do
