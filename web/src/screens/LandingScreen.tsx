@@ -3,10 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { PublicLayout } from '../app/PublicLayout'
+import { useMe } from '../app/session'
 import { FeedList, FilterMenu } from '../components/FeedList'
 import { Icon } from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/States'
-import { features } from '../lib/features'
 import { useQuery } from '../lib/useAsync'
 
 const TYPES: { key: RecordType | 'all'; label: string }[] = [
@@ -22,6 +22,7 @@ const TRY = ['retries', 'kafka lag', 'postgres partitioning', 'how did you fix c
 /** The public front page: every published write-up, searchable by anyone. */
 export function LandingScreen() {
   const api = useApi()
+  const me = useMe()
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const type = (params.get('type') as RecordType | null) ?? undefined
@@ -60,17 +61,10 @@ export function LandingScreen() {
     <PublicLayout>
       <div className="explore">
         <section className="hero" aria-labelledby="hero-title">
-          <span className="hero__eyebrow">
-            <Icon name="check" size={13} strokeWidth={3} />
-            Every write-up links to the work that fixed it
-          </span>
-          <h1 id="hero-title" className="hero__title">
-            How engineers actually solved it — <span className="hero__accent">with the proof attached.</span>
+          <h1 id="hero-title" className="page-title">
+            Explore write-ups
           </h1>
-          <p className="hero__sub">
-            Incidents, investigations, decisions and system designs, written by the engineers who did the work and verified
-            against their merged code.
-          </p>
+          {!me && <p className="small muted">Engineering write-ups, each verified against the PRs that fixed it.</p>}
           <form className="hero__search" role="search" onSubmit={submit}>
             <Icon name="search" size={20} />
             <label htmlFor="explore-q" className="sr-only">
@@ -167,41 +161,27 @@ export function LandingScreen() {
               </section>
             )}
 
-            <section className="how card" aria-labelledby="how-title">
-              <h2 id="how-title" className="side-title">
-                How it works
-              </h2>
-              <ol className="how__steps">
-                {features.workspace ? (
-                  <>
-                    <li>
-                      <strong>Solve it at work.</strong> Ledger drafts the write-up from the issue, MRs and Slack thread.
-                    </li>
-                    <li>
-                      <strong>Remove what’s private.</strong> Names, services and internal links are redacted before anything leaves.
-                    </li>
-                    <li>
-                      <strong>Publish with proof.</strong> Your merged code becomes a verified badge, without showing the code.
-                    </li>
-                  </>
-                ) : (
-                  <>
-                    <li>
-                      <strong>Write up how you solved it.</strong>
-                    </li>
-                    <li>
-                      <strong>Attach the PRs that fixed it.</strong>
-                    </li>
-                    <li>
-                      <strong>Ledger verifies them with GitHub.</strong>
-                    </li>
-                  </>
-                )}
-              </ol>
-              <Link to="/new" className="btn btn--primary">
-                Write your first one
-              </Link>
-            </section>
+            {!me && (
+              <section className="how card" aria-labelledby="how-title">
+                <h2 id="how-title" className="side-title">
+                  How it works
+                </h2>
+                <ol className="how__steps">
+                  <li>
+                    <strong>Write up how you solved it.</strong>
+                  </li>
+                  <li>
+                    <strong>Attach the PRs that fixed it.</strong>
+                  </li>
+                  <li>
+                    <strong>Ledger verifies them with GitHub.</strong>
+                  </li>
+                </ol>
+                <Link to="/new" className="btn btn--primary">
+                  Write your first one
+                </Link>
+              </section>
+            )}
           </aside>
         </div>
       </div>

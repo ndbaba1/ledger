@@ -65,6 +65,8 @@ describe('live mode', () => {
     expect(await screen.findByRole('button', { name: 'Sign in with GitHub' })).toBeInTheDocument()
     expect(screen.queryByText('Open workspace')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Write' })).not.toBeInTheDocument()
+    expect(screen.getByText('Engineering write-ups, each verified against the PRs that fixed it.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'How it works' })).toBeInTheDocument()
   })
 
   it('shows no workspace nav or links, signed in', async () => {
@@ -73,6 +75,8 @@ describe('live mode', () => {
     expect(await screen.findByRole('link', { name: 'My profile' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Write' })).toHaveAttribute('href', '#/new')
     expect(screen.queryByText('Open workspace')).not.toBeInTheDocument()
+    expect(screen.queryByText('Engineering write-ups, each verified against the PRs that fixed it.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'How it works' })).not.toBeInTheDocument()
   })
 
   it('/inbox shows Not found', async () => {

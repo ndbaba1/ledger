@@ -38,7 +38,7 @@ describe('public landing page', () => {
   it('opens at the root with the feed and a search box', async () => {
     window.location.hash = '#/'
     render(<App api={newApi()} />)
-    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('with the proof attached')
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Explore write-ups')
     const feed = await screen.findByRole('region', { name: 'Latest write-ups' })
     expect(await within(feed).findByText('Kafka consumer lag that only appeared on Monday mornings')).toBeInTheDocument()
     expect(within(feed).getByText('Offline-first delivery tracking for drivers with patchy signal')).toBeInTheDocument()

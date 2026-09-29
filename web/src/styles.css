@@ -3189,7 +3189,7 @@ a.evidence-list__body:hover .evidence-list__label {
 }
 
 .explore {
-  max-width: 1180px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 0 40px 72px;
 }
@@ -3197,38 +3197,9 @@ a.evidence-list__body:hover .evidence-list__label {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 18px;
-  padding: 64px 0 40px;
+  gap: 12px;
+  padding: 28px 0 24px;
   border-bottom: 1px solid var(--line);
-}
-.hero__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--green-line);
-  background: var(--green-bg);
-  color: var(--green);
-  font-size: 13px;
-  font-weight: 600;
-}
-.hero__title {
-  max-width: 20ch;
-  font-size: clamp(34px, 5.2vw, 58px);
-  line-height: 1.05;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
-}
-.hero__accent {
-  color: var(--amber);
-}
-.hero__sub {
-  max-width: 60ch;
-  font-size: 18px;
-  line-height: 1.55;
-  color: var(--text-3);
 }
 .hero__search {
   width: 100%;
@@ -3266,14 +3237,19 @@ a.evidence-list__body:hover .evidence-list__label {
 }
 .hero__try {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  overflow-x: auto;
+}
+.hero__try > * {
+  flex-shrink: 0;
 }
 
 .explore__body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 310px;
   gap: 48px;
   padding-top: 28px;
 }
@@ -3290,6 +3266,15 @@ a.evidence-list__body:hover .evidence-list__label {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+@media (min-width: 1024px) {
+  .explore__rail {
+    position: sticky;
+    /* 24px below the sticky public header (56px), not the viewport edge —
+       otherwise the header would cover the top of the rail while scrolling. */
+    top: calc(56px + 24px);
+    align-self: start;
+  }
 }
 .chip--on {
   color: var(--amber);
@@ -3331,13 +3316,6 @@ a.evidence-list__body:hover .evidence-list__label {
 @media (max-width: 767px) {
   .explore {
     padding: 0 16px 48px;
-  }
-  .hero {
-    padding: 36px 0 28px;
-    gap: 14px;
-  }
-  .hero__sub {
-    font-size: 16px;
   }
   .hero__search {
     padding-left: 12px;
