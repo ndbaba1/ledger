@@ -6,6 +6,7 @@ import { PublicLayout } from '../app/PublicLayout'
 import { FeedList, FilterMenu } from '../components/FeedList'
 import { Icon } from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/States'
+import { features } from '../lib/features'
 import { useQuery } from '../lib/useAsync'
 
 const TYPES: { key: RecordType | 'all'; label: string }[] = [
@@ -171,15 +172,31 @@ export function LandingScreen() {
                 How it works
               </h2>
               <ol className="how__steps">
-                <li>
-                  <strong>Solve it at work.</strong> Ledger drafts the write-up from the issue, MRs and Slack thread.
-                </li>
-                <li>
-                  <strong>Remove what’s private.</strong> Names, services and internal links are redacted before anything leaves.
-                </li>
-                <li>
-                  <strong>Publish with proof.</strong> Your merged code becomes a verified badge, without showing the code.
-                </li>
+                {features.workspace ? (
+                  <>
+                    <li>
+                      <strong>Solve it at work.</strong> Ledger drafts the write-up from the issue, MRs and Slack thread.
+                    </li>
+                    <li>
+                      <strong>Remove what’s private.</strong> Names, services and internal links are redacted before anything leaves.
+                    </li>
+                    <li>
+                      <strong>Publish with proof.</strong> Your merged code becomes a verified badge, without showing the code.
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li>
+                      <strong>Write up how you solved it.</strong>
+                    </li>
+                    <li>
+                      <strong>Attach the PRs that fixed it.</strong>
+                    </li>
+                    <li>
+                      <strong>Ledger verifies them with GitHub.</strong>
+                    </li>
+                  </>
+                )}
               </ol>
               <Link to="/new" className="btn btn--primary">
                 Write your first one

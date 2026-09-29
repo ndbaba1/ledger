@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import { UnauthorizedError } from '../api/client'
 import type { ID, User, Workspace } from '../api/types'
+import { features } from '../lib/features'
 import { signInWithGithub, takeReturnTo } from './githubAuth'
 
 /** Who's looking, whether or not they're signed in. Every public screen can read this. */
@@ -10,21 +11,28 @@ interface Viewer {
   me: User | null
 }
 
-interface Session {
-  me: User
-  workspace: Workspace
+/** `workspace` is null in live mode, where there's no team workspace at all. */
+interface WorkspaceState {
+  workspace: Workspace | null
   /** Drafts waiting for review, for the nav badge. */
   inboxCount: number
   refreshInbox: () => void
 }
 
+interface Session {
+  me: User
+  workspace: Workspace
+  inboxCount: number
+  refreshInbox: () => void
+}
+
 const ViewerContext = createContext<Viewer | null>(null)
-const WorkspaceContext = createContext<Omit<Session, 'me'> | null>(null)
+const WorkspaceContext = createContext<WorkspaceState | null>(null)
 
 export function SessionProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   const api = useApi()
   const [viewer, setViewer] = useState<Viewer>()
-  const [workspace, setWorkspace] = useState<Workspace>()
+  const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [inboxCount, setInboxCount] = useState(0)
   const [error, setError] = useState<Error>()
 
@@ -39,10 +47,12 @@ export function SessionProvider({ children, fallback }: { children: ReactNode; f
   }, [api])
 
   useEffect(() => {
+    if (!features.workspace) return
     api.workspace().then(setWorkspace).catch((e: unknown) => setError(e instanceof Error ? e : new Error(String(e))))
   }, [api])
 
   const refreshInbox = useCallback(() => {
+    if (!features.workspace) return
     api
       .listDrafts()
       .then((d) => setInboxCount(d.length))
@@ -53,13 +63,14 @@ export function SessionProvider({ children, fallback }: { children: ReactNode; f
     if (viewer?.me) refreshInbox()
   }, [viewer, refreshInbox])
 
-  const workspaceValue = useMemo(
-    () => (workspace ? { workspace, inboxCount, refreshInbox } : null),
+  const workspaceValue = useMemo<WorkspaceState>(
+    () => ({ workspace, inboxCount, refreshInbox }),
     [workspace, inboxCount, refreshInbox],
   )
 
   if (error) throw error
-  if (!viewer || !workspaceValue) return <>{fallback}</>
+  // Live mode has no workspace to wait for — only the viewer blocks render.
+  if (!viewer) return <>{fallback}</>
 
   return (
     <ViewerContext.Provider value={viewer}>
@@ -75,13 +86,20 @@ export function useMe(): User | null {
   return viewer.me
 }
 
-/** Workspace-only screens: throws if nobody's signed in. Pair with <RequireAuth>. */
+/** The team workspace, or null in live mode / while it's loading. Never throws. */
+export function useMaybeWorkspace(): Workspace | null {
+  const state = useContext(WorkspaceContext)
+  return state?.workspace ?? null
+}
+
+/** Workspace-only screens: throws if nobody's signed in, or there's no workspace. Pair with <RequireAuth>. */
 export function useSession(): Session {
   const viewer = useContext(ViewerContext)
   const rest = useContext(WorkspaceContext)
   if (!viewer || !rest) throw new Error('useSession must be used inside <SessionProvider>')
   if (!viewer.me) throw new Error('Sign in to continue.')
-  return { me: viewer.me, ...rest }
+  if (!rest.workspace) throw new Error('There is no team workspace in this version of Ledger.')
+  return { me: viewer.me, workspace: rest.workspace, inboxCount: rest.inboxCount, refreshInbox: rest.refreshInbox }
 }
 
 /** Resolve user IDs to users. Returns a lookup that is empty until loaded. */

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { features } from '../lib/features'
 import { Logo } from './AppShell'
 import { signInWithGithub, signOut } from './githubAuth'
 import { useMe } from './session'
@@ -28,9 +29,11 @@ export function PublicLayout({ children }: { children: ReactNode }) {
         <div className="row gap-8 push-right">
           {me ? (
             <>
-              <Link to="/inbox" className="btn btn--ghost btn--sm public__workspace">
-                Open workspace
-              </Link>
+              {features.workspace && (
+                <Link to="/inbox" className="btn btn--ghost btn--sm public__workspace">
+                  Open workspace
+                </Link>
+              )}
               <Link to="/new" className="btn btn--primary btn--sm">
                 Write
               </Link>

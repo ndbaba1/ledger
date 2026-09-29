@@ -10,6 +10,7 @@ import { Empty, ErrorState, Loading } from '../components/States'
 import { FeedList, FilterMenu } from '../components/FeedList'
 import { ListBox, ListHeader } from '../components/ListBox'
 import { ProjectSummary } from '../components/ProjectSummary'
+import { features } from '../lib/features'
 import { useQuery } from '../lib/useAsync'
 
 const TABS: { key: RecordType | 'all'; label: string }[] = [
@@ -71,7 +72,7 @@ export function ProfileScreen() {
             </div>
           </section>
 
-          {projects.length > 0 && (
+          {features.projects && projects.length > 0 && (
             <ListBox
               labelledBy="profile-projects"
               header={
@@ -122,9 +123,15 @@ export function ProfileScreen() {
                 <div className="feed__empty">
                   <Empty title="No write-ups yet">
                     {isMe ? (
-                      <>
-                        Promote a <Link to="/records">team record</Link> to publish your first one.
-                      </>
+                      features.workspace ? (
+                        <>
+                          Promote a <Link to="/records">team record</Link> to publish your first one.
+                        </>
+                      ) : (
+                        <>
+                          Solved something like this? <Link to="/new">Write it up</Link> — it could be your first one.
+                        </>
+                      )
                     ) : null}
                   </Empty>
                 </div>
@@ -162,7 +169,7 @@ export function ProfileScreen() {
               ))}
             </div>
           )}
-          {isMe && (
+          {isMe && features.workspace && (
             <Link to="/records" className="card card--link">
               <span className="row gap-10 small">
                 <Icon name="arrowUpRight" size={14} />

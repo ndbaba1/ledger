@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { Signal, Writeup, WriteupFields, WriteupStatus } from '../api/types'
-import { useSession } from '../app/session'
+import { useMaybeWorkspace, useMe } from '../app/session'
 import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { PaneTabs } from '../components/PaneTabs'
@@ -12,6 +12,7 @@ import { RichEditor } from '../components/RichEditor'
 import { SignalsEditor } from '../components/Signals'
 import { SourceIcon } from '../components/Tags'
 import { ErrorState, FieldError, Loading } from '../components/States'
+import { features } from '../lib/features'
 import { relativeTime } from '../lib/format'
 import { sectionsFor } from '../lib/publicPost'
 import { useMutation, useQuery } from '../lib/useAsync'
@@ -89,7 +90,8 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 function Editor({ initial }: { initial: Writeup }) {
   const api = useApi()
   const navigate = useNavigate()
-  const { me, workspace } = useSession()
+  const me = useMe()!
+  const workspace = useMaybeWorkspace()
   const [w, setW] = useState(initial)
   const [form, setForm] = useState<FormState>(() => toForm(initial))
   const [view, setView] = useState<View>('write')
@@ -125,11 +127,10 @@ function Editor({ initial }: { initial: Writeup }) {
 
   // Version 1 of the backend publishes straight to the profile; unbuilt
   // screens (team records) stay on the mock.
-  const isHttp = import.meta.env.VITE_API === 'http'
   const status = useMutation((s: WriteupStatus) => api.setWriteupStatus(w.id, s))
   const publish = useMutation(async () => {
     await api.saveWriteup(w.id, fields)
-    return isHttp ? api.publishWriteupToProfile(w.id) : api.publishWriteup(w.id)
+    return features.workspace ? api.publishWriteup(w.id) : api.publishWriteupToProfile(w.id)
   })
 
   const onPublish = async () => {
@@ -158,7 +159,7 @@ function Editor({ initial }: { initial: Writeup }) {
     <div className="page page--split">
       <div className="row gap-12 wrap page-toolbar">
         <nav className="crumbs" aria-label="Breadcrumb">
-          <Link to="/inbox">inbox</Link>
+          {features.workspace ? <Link to="/inbox">inbox</Link> : <Link to="/me/writeups">your write-ups</Link>}
           <span aria-hidden="true">/</span>
           <span aria-current="page">write-up</span>
         </nav>
@@ -282,18 +283,20 @@ function Editor({ initial }: { initial: Writeup }) {
                   </label>
                 </div>
               </SectionCard>
-              <SectionCard
-                def={{
-                  key: 'signals' as never,
-                  label: 'Signals',
-                  help: 'The alert that fired, the metric that moved, the error people saw. Ledger uses these to recognise the problem next time. Team only — never published.',
-                  kind: 'short',
-                }}
-                step={info.fields.length + 2}
-                filled={fields.signals.length > 0}
-              >
-                <SignalsEditor id="w-signals" signals={form.signals} onChange={(sig) => set('signals', sig)} labelledBy="w-signals-label" />
-              </SectionCard>
+              {features.workspace && (
+                <SectionCard
+                  def={{
+                    key: 'signals' as never,
+                    label: 'Signals',
+                    help: 'The alert that fired, the metric that moved, the error people saw. Ledger uses these to recognise the problem next time. Team only — never published.',
+                    kind: 'short',
+                  }}
+                  step={info.fields.length + 2}
+                  filled={fields.signals.length > 0}
+                >
+                  <SignalsEditor id="w-signals" signals={form.signals} onChange={(sig) => set('signals', sig)} labelledBy="w-signals-label" />
+                </SectionCard>
+              )}
             </form>
           )}
         </section>
@@ -347,12 +350,14 @@ function Editor({ initial }: { initial: Writeup }) {
             </ul>
             <FieldError message={publish.error} />
             <button type="button" className="btn btn--primary" onClick={onPublish} disabled={!canPublish}>
-              {publish.pending ? 'Publishing…' : `Publish to ${workspace.name}`}
+              {publish.pending ? 'Publishing…' : workspace ? `Publish to ${workspace.name}` : 'Publish to your profile'}
             </button>
             <p className="small muted">
               {missing > 0
                 ? `${missing} thing${missing === 1 ? '' : 's'} left. Drafts stay private to you.`
-                : 'Teammates will see it in records and search. You can promote it to public afterwards.'}
+                : workspace
+                  ? 'Teammates will see it in records and search. You can promote it to public afterwards.'
+                  : 'Anyone can find it on your profile and in search.'}
             </p>
           </section>
         </aside>
@@ -447,7 +452,11 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
         Evidence
       </h2>
       {writeup.evidence.length === 0 && (
-        <p className="small muted">Link the MRs, PRs, issues or docs behind this. They become sources on the record.</p>
+        <p className="small muted">
+          {features.workspace
+            ? 'Link the MRs, PRs, issues or docs behind this. They become sources on the record.'
+            : 'Paste the PRs or issues behind this. Ledger verifies them with GitHub and turns them into verified badges.'}
+        </p>
       )}
       <ul className="plain-list evidence-edit">
         {writeup.evidence.map((e) => (

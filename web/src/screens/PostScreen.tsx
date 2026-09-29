@@ -10,6 +10,7 @@ import { KindPill, PostContent } from '../components/PostContent'
 import { HitButton, PublicQA } from '../components/PublicQA'
 import type { PostThread, PublicPost } from '../api/types'
 import { ErrorState, Loading } from '../components/States'
+import { features } from '../lib/features'
 import { shortDate } from '../lib/format'
 import { postMinutes } from '../lib/publicPost'
 import { useQuery } from '../lib/useAsync'
@@ -49,7 +50,7 @@ export function PostScreen() {
   const currentThread = thread ?? loadedThread
   const isMe = me?.id === author.id
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
-  const partOf = profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug))
+  const partOf = features.projects ? profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug)) : undefined
 
   return (
     <PublicLayout>
@@ -119,17 +120,19 @@ export function PostScreen() {
             </span>
           </div>
 
-          <PublicQA
-            handle={handle}
-            slug={slug}
-            author={author}
-            isAuthor={isMe}
-            thread={currentThread}
-            onThread={setThread}
-            onPost={setPostOverride}
-          />
+          {features.publicQA && (
+            <PublicQA
+              handle={handle}
+              slug={slug}
+              author={author}
+              isAuthor={isMe}
+              thread={currentThread}
+              onThread={setThread}
+              onPost={setPostOverride}
+            />
+          )}
 
-          {isMe && post.promotedFromRecordId && (
+          {features.workspace && isMe && post.promotedFromRecordId && (
             <div className="owner-bar">
               <Icon name="lock" size={13} />
               <span>

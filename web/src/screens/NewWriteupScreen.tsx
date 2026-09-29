@@ -4,6 +4,7 @@ import type { RecordType } from '../api/types'
 import { Icon } from '../components/Icon'
 import { KindPill } from '../components/PostContent'
 import { FieldError } from '../components/States'
+import { features } from '../lib/features'
 import { useMutation } from '../lib/useAsync'
 import { TYPE_INFO } from '../lib/writeups'
 
@@ -26,7 +27,7 @@ export function NewWriteupScreen() {
           <h1 className="page-title">New write-up</h1>
           <p className="page-sub">
             Write it yourself from a template. It stays private until you publish it, and every write-up needs evidence — an
-            MR, PR or issue — before it can go to the team.
+            MR, PR or issue — before it can {features.workspace ? 'go to the team' : 'be published'}.
           </p>
         </div>
       </header>

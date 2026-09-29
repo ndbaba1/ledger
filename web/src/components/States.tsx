@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { features } from '../lib/features'
 import { Icon } from './Icon'
 
 export function Loading({ label = 'Loading' }: { label?: string }) {
@@ -24,9 +25,15 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => v
             Try again
           </button>
         )}
-        <Link to="/inbox" className="btn btn--ghost">
-          Back to inbox
-        </Link>
+        {features.workspace ? (
+          <Link to="/inbox" className="btn btn--ghost">
+            Back to inbox
+          </Link>
+        ) : (
+          <Link to="/" className="btn btn--ghost">
+            Back to Explore
+          </Link>
+        )}
       </div>
     </div>
   )
