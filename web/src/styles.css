@@ -199,6 +199,13 @@ textarea {
 }
 .grid-2--tight { gap: 10px; }
 
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-3--tight { gap: 10px; }
+
 /* ---------- logo ---------- */
 
 .logo {
@@ -722,6 +729,13 @@ a.verified:hover {
   font-weight: 600;
   flex-shrink: 0;
   user-select: none;
+  overflow: hidden;
+}
+.avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 .avatar--xs { width: 22px; height: 22px; font-size: 9px; }
 .avatar--sm { width: 30px; height: 30px; font-size: 12px; }
@@ -2750,6 +2764,12 @@ a.evidence-list__body:hover .evidence-list__label {
   color: var(--muted);
 }
 .evidence-edit__title {
+  overflow-wrap: anywhere;
+}
+.evidence-edit__reason {
+  grid-column: 2 / -1;
+  color: var(--muted);
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 

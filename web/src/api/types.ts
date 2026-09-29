@@ -11,10 +11,23 @@ export interface User {
   initials: string
   /** Avatar background; foreground is derived for contrast. */
   avatarHue: number
+  /** GitHub's avatar image, when there is one. Falls back to initials. */
+  avatarUrl?: string
   headline?: string
   location?: string
   stack?: string[]
   previously?: { org: string; summary: string }[]
+  /** GitHub always present; website and linkedin are set by the person. */
+  links?: { github?: string; website?: string; linkedin?: string }
+}
+
+/** Fields a person can edit on their own profile via updateMe(). */
+export interface ProfileEdit {
+  name?: string
+  headline?: string
+  location?: string
+  stack?: string[]
+  links?: { website?: string; linkedin?: string }
 }
 
 export interface Workspace {
@@ -56,6 +69,8 @@ export interface Source {
   hops: number
   /** The current user authored this artifact (used for verification badges). */
   authoredByMe?: boolean
+  /** Why this didn't earn a verification badge, e.g. "Not merged yet." */
+  failureReason?: string
   excerpt?: SourceExcerpt
 }
 
@@ -293,6 +308,9 @@ export interface Profile {
   projects: PublicProject[]
   /** Slugs of this person's posts the viewer said they hit too. */
   hitByViewer?: string[]
+  /** Verified PRs and the distinct repos they came from, behind this person's published posts. */
+  verifiedPRs?: number
+  repos?: number
 }
 
 /** A synthesized answer to a question, citing team records as [1], [2]… */

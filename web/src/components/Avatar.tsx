@@ -1,18 +1,29 @@
+import { useState } from 'react'
 import type { User } from '../api/types'
 
 type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
-export function Avatar({ user, size = 'sm' }: { user: Pick<User, 'initials' | 'avatarHue' | 'name'>; size?: Size }) {
+export function Avatar({
+  user,
+  size = 'sm',
+}: {
+  user: Pick<User, 'initials' | 'avatarHue' | 'name' | 'avatarUrl'>
+  size?: Size
+}) {
+  const [imgFailed, setImgFailed] = useState(false)
+  const showImage = Boolean(user.avatarUrl) && !imgFailed
+
   return (
     <span
       className={`avatar avatar--${size}`}
-      style={{
-        background: `hsl(${user.avatarHue} 32% 26%)`,
-        color: `hsl(${user.avatarHue} 85% 90%)`,
-      }}
+      style={showImage ? undefined : { background: `hsl(${user.avatarHue} 32% 26%)`, color: `hsl(${user.avatarHue} 85% 90%)` }}
       title={user.name}
     >
-      {user.initials}
+      {showImage ? (
+        <img className="avatar__img" src={user.avatarUrl} alt={user.name} loading="lazy" onError={() => setImgFailed(true)} />
+      ) : (
+        user.initials
+      )}
     </span>
   )
 }
