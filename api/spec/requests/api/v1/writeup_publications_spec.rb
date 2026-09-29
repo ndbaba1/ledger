@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
-  let(:user) { create(:user, github_login: 'octocat', github_token: 'gho_test') }
+  let(:user) { create(:user, github_id: 1001, github_login: 'octocat', github_token: 'gho_test') }
 
   before { sign_in_as(user) }
 
@@ -33,7 +33,8 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/9')
       .to_return(status: 200, body: {
         title: 'Revert pool size', merged_at: '2026-09-20T10:00:00Z',
-        user: { login: 'octocat' }, additions: 5, deletions: 5
+        user: { id: 1001, login: 'octocat' }, additions: 5, deletions: 5,
+        base: { repo: { private: false } }
       }.to_json, headers: { 'Content-Type' => 'application/json' })
 
     post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/9' }

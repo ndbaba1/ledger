@@ -74,4 +74,13 @@ RSpec.describe User, type: :model do
       expect(user.github_url).to eq('https://github.com/octocat')
     end
   end
+
+  describe 'github_token' do
+    it 'is encrypted at rest' do
+      user = create(:user, github_token: 'gho_super_secret')
+      raw = ActiveRecord::Base.connection.select_value("select github_token from users where id = #{user.id}")
+      expect(raw).not_to include('gho_super_secret')
+      expect(User.find(user.id).github_token).to eq('gho_super_secret')
+    end
+  end
 end

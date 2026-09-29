@@ -1,10 +1,13 @@
 # Turns a pasted URL into an Evidence record. GitHub PR and issue links are
 # verified live against the GitHub API, using the signed-in user's own OAuth
-# token; everything else (and anything the API can't confirm) is stored as a
-# plain, unverified link so adding evidence never fails outright.
+# token (scoped to `read:user` only — see config/initializers/omniauth.rb —
+# so private repos are never actually readable); everything else (and
+# anything the API can't confirm) is stored as a plain, unverified link so
+# adding evidence never fails outright.
 class GithubEvidenceVerifier
-  PR_URL = %r{\Ahttps?://github\.com/(?<owner>[^/]+)/(?<repo>[^/]+)/pull/(?<number>\d+)/?\z}
-  ISSUE_URL = %r{\Ahttps?://github\.com/(?<owner>[^/]+)/(?<repo>[^/]+)/issues/(?<number>\d+)/?\z}
+  GITHUB_HOST = /\A(?:www\.)?github\.com\z/i
+  PR_PATH = %r{\A/(?<owner>[^/]+)/(?<repo>[^/]+)/pull/(?<number>\d+)(?:/.*)?\z}
+  ISSUE_PATH = %r{\A/(?<owner>[^/]+)/(?<repo>[^/]+)/issues/(?<number>\d+)(?:/.*)?\z}
 
   def initialize(writeup, url, user)
     @writeup = writeup
@@ -13,98 +16,141 @@ class GithubEvidenceVerifier
   end
 
   def call
-    if (m = PR_URL.match(@url))
+    if (m = match(PR_PATH))
       verify_pull_request(m)
-    elsif (m = ISSUE_URL.match(@url))
+    elsif (m = match(ISSUE_PATH))
       verify_issue(m)
     else
-      @writeup.evidence.create!(
-        key: next_key, kind: 'link', url: @url,
-        title: link_title, detail: 'added by you · link only', status: 'linked'
-      )
+      verify_plain_link
     end
   end
 
   private
 
+  # Accepts github.com and www.github.com, and ignores a trailing path
+  # segment (/files, /commits, /checks…), query string and #anchor.
+  def match(path_regex)
+    uri = URI.parse(@url)
+    return nil unless uri.is_a?(URI::HTTP) && uri.host&.match?(GITHUB_HOST)
+
+    m = path_regex.match(uri.path)
+    return nil unless m
+
+    { owner: m[:owner], repo: m[:repo], number: m[:number].to_i }
+  rescue URI::InvalidURIError
+    nil
+  end
+
+  def canonical_url(m, path)
+    "https://github.com/#{m[:owner]}/#{m[:repo]}/#{path}/#{m[:number]}"
+  end
+
   def client
-    @client ||= Octokit::Client.new(access_token: @user.github_token)
+    @client ||= Octokit::Client.new(access_token: @user.github_token, auto_paginate: true)
   end
 
   def verify_pull_request(m)
-    owner, repo, number = m[:owner], m[:repo], m[:number].to_i
-    nwo = "#{owner}/#{repo}"
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    number = m[:number]
+    url = canonical_url(m, 'pull')
     pr = client.pull_request(nwo, number)
-    pr_author = pr.user.login
-    authored = pr_author.casecmp?(@user.github_login) && pr.merged_at.present?
-    reviewed = !authored && approved_by_user?(nwo, number)
+
+    return private_repo_evidence('github_pr', url, nwo, number) if pr.base.repo.private
+
+    pr_author_id = pr.user.id
+    merged = pr.merged_at.present?
+    authored = pr_author_id == @user.github_id && merged
+    reviewed = !authored && merged && approved_by_user?(nwo, number)
 
     @writeup.evidence.create!(
-      key: next_key, kind: 'github_pr', url: @url,
+      key: next_key, kind: 'github_pr', url: url,
       title: "GitHub PR ##{number} · #{pr.title}", detail: "#{nwo} · #{format_month(pr.merged_at || pr.created_at)}",
       status: 'fetched', repo: nwo, number: number,
       authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
-      failure_reason: pr_badge_note(pr_author, pr.merged_at, authored, reviewed),
+      failure_reason: pr_badge_note(pr_author_id, pr.user.login, merged, authored, reviewed),
       snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, additions: pr.additions, deletions: pr.deletions, reviewed: reviewed }
     )
-  rescue => e
-    failed_evidence('github_pr', nwo, number, e)
+  rescue Octokit::Error, Faraday::Error => e
+    failed_evidence('github_pr', url, nwo, number, e)
   end
 
   def verify_issue(m)
-    owner, repo, number = m[:owner], m[:repo], m[:number].to_i
-    nwo = "#{owner}/#{repo}"
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    number = m[:number]
+    url = canonical_url(m, 'issues')
     issue = client.issue(nwo, number)
-    issue_author = issue.user.login
-    participated = issue_author.casecmp?(@user.github_login) || commented_by_user?(nwo, number)
+
+    return private_repo_evidence('github_issue', url, nwo, number) if client.repository(nwo).private
+
+    issue_author_id = issue.user.id
+    participated = issue_author_id == @user.github_id || commented_by_user?(nwo, number)
 
     @writeup.evidence.create!(
-      key: next_key, kind: 'github_issue', url: @url,
+      key: next_key, kind: 'github_issue', url: url,
       title: "GitHub issue ##{number} · #{issue.title}", detail: "#{nwo} · #{format_month(issue.created_at)}",
       status: 'fetched', repo: nwo, number: number,
       authored_by_user: false, verified_at: Time.current,
-      failure_reason: issue_badge_note(issue_author, participated),
+      failure_reason: issue_badge_note(issue.user.login, participated),
       snapshot: { title: issue.title, participated: participated }
     )
-  rescue => e
-    failed_evidence('github_issue', nwo, number, e)
+  rescue Octokit::Error, Faraday::Error => e
+    failed_evidence('github_issue', url, nwo, number, e)
+  end
+
+  def verify_plain_link
+    @writeup.evidence.create!(
+      key: next_key, kind: 'link', url: @url,
+      title: link_title, detail: 'added by you · link only', status: 'linked'
+    )
+  end
+
+  # Fetched fine, but the repo turned out to be private — never store what we
+  # learned from the API (title, description) about a repo the URL alone
+  # doesn't already reveal to whoever's looking at this write-up.
+  def private_repo_evidence(kind, url, nwo, number)
+    @writeup.evidence.create!(
+      key: next_key, kind: kind, url: url,
+      title: "GitHub #{kind == 'github_pr' ? 'PR' : 'issue'} ##{number}", detail: '',
+      status: 'failed', repo: nwo, number: number,
+      failure_reason: 'Private repo — not supported yet.'
+    )
   end
 
   # Why this PR earned no badge, for the editor to show next to it. nil when
   # it did earn one (authored & merged, or reviewed).
-  def pr_badge_note(pr_author, merged_at, authored, reviewed)
+  def pr_badge_note(pr_author_id, pr_author_login, merged, authored, reviewed)
     return nil if authored || reviewed
 
-    if pr_author.casecmp?(@user.github_login)
-      merged_at.present? ? nil : 'Not merged yet.'
+    if pr_author_id == @user.github_id
+      merged ? nil : 'Not merged yet.'
     else
-      "Authored by #{pr_author} — you're signed in as #{@user.github_login}."
+      "Authored by #{pr_author_login} — you're signed in as #{@user.github_login}."
     end
   end
 
-  def issue_badge_note(issue_author, participated)
+  def issue_badge_note(issue_author_login, participated)
     return nil if participated
 
-    "Opened by #{issue_author}, with no comments from #{@user.github_login} — Ledger couldn't confirm you worked on this."
+    "Opened by #{issue_author_login}, with no comments from #{@user.github_login} — Ledger couldn't confirm you worked on this."
   end
 
   def approved_by_user?(nwo, number)
-    client.pull_request_reviews(nwo, number).any? do |review|
-      review.state == 'APPROVED' && review.user.login.casecmp?(@user.github_login)
+    client.pull_request_reviews(nwo, number, per_page: 100).any? do |review|
+      review.state == 'APPROVED' && review.user.id == @user.github_id
     end
-  rescue Octokit::Error
+  rescue Octokit::Error, Faraday::Error
     false
   end
 
   def commented_by_user?(nwo, number)
-    client.issue_comments(nwo, number).any? { |c| c.user.login.casecmp?(@user.github_login) }
-  rescue Octokit::Error
+    client.issue_comments(nwo, number, per_page: 100).any? { |c| c.user.id == @user.github_id }
+  rescue Octokit::Error, Faraday::Error
     false
   end
 
-  def failed_evidence(kind, nwo, number, error)
+  def failed_evidence(kind, url, nwo, number, error)
     @writeup.evidence.create!(
-      key: next_key, kind: kind, url: @url,
+      key: next_key, kind: kind, url: url,
       title: "GitHub #{kind == 'github_pr' ? 'PR' : 'issue'} ##{number}", detail: nwo,
       status: 'failed', repo: nwo, number: number,
       failure_reason: failure_reason_for(error)
@@ -114,9 +160,11 @@ class GithubEvidenceVerifier
   def failure_reason_for(error)
     case error
     when Octokit::NotFound
-      'Private repo — not supported yet.'
-    when Octokit::Unauthorized, Octokit::Forbidden, Octokit::TooManyRequests
-      'GitHub rejected the request — try again shortly.'
+      'Not found, or a private repo (not supported yet).'
+    when Octokit::Unauthorized
+      "Your GitHub sign-in expired — sign in again."
+    when Octokit::TooManyRequests, Octokit::Forbidden
+      'GitHub is rate-limiting us — try again shortly.'
     else
       "Couldn't reach GitHub to verify this link."
     end

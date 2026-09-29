@@ -6,8 +6,7 @@ module Api
 
       def create
         url = params[:url].to_s.strip
-        raise Unprocessable, "That doesn't look like a link. Paste a full https:// URL." unless valid_url?(url)
-        raise Unprocessable, 'That link is already attached.' if @writeup.evidence.exists?(url: url)
+        raise Unprocessable, "That doesn't look like a link. Paste a full https:// URL." unless parseable_url?(url)
 
         GithubEvidenceVerifier.new(@writeup, url, current_user).call
         render json: WriteupSerializer.call(@writeup.reload), status: :created
@@ -26,9 +25,14 @@ module Api
         raise Forbidden, "That write-up isn't yours." unless @writeup.user_id == current_user.id
       end
 
-      def valid_url?(url)
-        uri = URI.parse(url)
-        uri.is_a?(URI::HTTP) && uri.host.present?
+      # Just enough of a gate to reject garbage strings before anything else
+      # touches them. The scheme itself (http/https only) is the Evidence
+      # model's job, since it has to hold for every path into that model.
+      def parseable_url?(url)
+        return false if url.blank?
+
+        URI.parse(url)
+        true
       rescue URI::InvalidURIError
         false
       end

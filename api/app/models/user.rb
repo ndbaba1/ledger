@@ -3,6 +3,8 @@ class User < ApplicationRecord
   has_many :posts, dependent: :destroy
   has_many :hits, dependent: :destroy
 
+  encrypts :github_token
+
   MAX_STACK_TAGS = 12
   MAX_STACK_TAG_LENGTH = 24
 

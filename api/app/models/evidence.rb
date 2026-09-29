@@ -13,7 +13,8 @@ class Evidence < ApplicationRecord
   validates :kind, inclusion: { in: KINDS }
   validates :status, inclusion: { in: STATUSES }
   validates :key, uniqueness: { scope: :writeup_id }
-  validates :url, uniqueness: { scope: :writeup_id, message: 'is already attached' }
+  validate :url_is_http
+  validate :url_not_duplicated
 
   WHAT_BY_TYPE = { 'design' => 'the implementation', 'decision' => 'the change' }.freeze
 
@@ -40,5 +41,24 @@ class Evidence < ApplicationRecord
     elsif kind == 'github_issue' && snapshot['participated']
       { label: 'Participated in the investigation', detail: repo, verified: true, url: url }
     end
+  end
+
+  private
+
+  def url_is_http
+    return if url.blank?
+
+    uri = URI.parse(url)
+    errors.add(:base, 'Only http(s) links can be added.') unless uri.is_a?(URI::HTTP) && uri.host.present?
+  rescue URI::InvalidURIError
+    errors.add(:base, 'Only http(s) links can be added.')
+  end
+
+  def url_not_duplicated
+    return if url.blank? || writeup_id.blank?
+
+    scope = self.class.where(writeup_id: writeup_id, url: url)
+    scope = scope.where.not(id: id) if persisted?
+    errors.add(:base, 'Already added.') if scope.exists?
   end
 end
