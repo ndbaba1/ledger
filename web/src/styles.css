@@ -1491,6 +1491,24 @@ a.verified:hover {
   gap: 22px;
   align-items: flex-start;
 }
+.profile-head__content {
+  flex: 1;
+  min-width: 0;
+}
+.profile-head__edit {
+  flex-shrink: 0;
+}
+.profile-head__prompt {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: var(--faint);
+  font-size: 13px;
+  cursor: pointer;
+}
+.profile-head__prompt:hover {
+  color: var(--amber);
+}
 .stat {
   display: flex;
   flex-direction: column;
@@ -1788,6 +1806,13 @@ a.verified:hover {
   .profile-head {
     flex-direction: column;
     gap: 14px;
+  }
+  .profile-editor__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .profile-editor__actions .btn {
+    width: 100%;
   }
   .public__head {
     padding: 0 16px;
@@ -4467,4 +4492,119 @@ code.slack__text {
   .change-row__role {
     display: none;
   }
+}
+
+/* ---- Tag input (chips) ---------------------------------------------------- */
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  cursor: text;
+}
+.tag-input:focus-within {
+  border-color: var(--amber);
+}
+.tag-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 4px 0 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+.tag-input__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tag-input__remove:hover {
+  background: var(--line-2);
+  color: var(--text);
+}
+.tag-input__field {
+  flex: 1;
+  min-width: 120px;
+  height: 26px;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.tag-input__field::placeholder {
+  color: var(--faint);
+}
+.tag-input__suggest {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+/* ---- Profile editor fields ------------------------------------------------ */
+.profile-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.profile-editor__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.profile-editor__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.profile-editor__hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+.profile-editor__count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.profile-editor__locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--inset);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.profile-editor__locked svg {
+  color: var(--faint);
+}
+.profile-editor__locked-note {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--faint);
 }

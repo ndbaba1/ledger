@@ -1,18 +1,17 @@
 import { ProjectComposerScreen } from './screens/ProjectComposerScreen'
 import { ProjectScreen } from './screens/ProjectScreen'
 import { Component, Suspense, lazy, useEffect, type ReactNode } from 'react'
-import { HashRouter, Link, MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { HashRouter, Link, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { ApiProvider } from './api/ApiContext'
 import type { LedgerApi } from './api/client'
 import { AppShell } from './app/AppShell'
-import { RequireAuth, ReturnToAfterSignIn, SessionProvider } from './app/session'
+import { RequireAuth, ReturnToAfterSignIn, SessionProvider, useMe } from './app/session'
 import { Loading } from './components/States'
 import { features } from './lib/features'
 import { CasesScreen } from './screens/CasesScreen'
 import { DraftScreen } from './screens/DraftScreen'
 import { InboxScreen } from './screens/InboxScreen'
 import { LandingScreen } from './screens/LandingScreen'
-import { MyProfileEditScreen } from './screens/MyProfileEditScreen'
 import { MyWriteupsScreen } from './screens/MyWriteupsScreen'
 import { NewWriteupScreen } from './screens/NewWriteupScreen'
 import { PostScreen } from './screens/PostScreen'
@@ -39,9 +38,15 @@ const editorRoutes = (
         </Suspense>
       }
     />
-    <Route path="me/profile" element={<MyProfileEditScreen />} />
+    <Route path="me/profile" element={<MyProfileRedirect />} />
   </>
 )
+
+/** RequireAuth (wrapping every route here) sends a signed-out visitor to sign in first. */
+function MyProfileRedirect() {
+  const me = useMe()!
+  return <Navigate to={`/u/${me.handle}?edit=1`} replace />
+}
 
 export function AppRoutes() {
   return (

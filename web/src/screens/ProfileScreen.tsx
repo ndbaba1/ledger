@@ -1,14 +1,15 @@
-import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { PublicLayout } from '../app/PublicLayout'
-import { useMe } from '../app/session'
+import { useMe, useSetMe } from '../app/session'
 import { Icon } from '../components/Icon'
 import { Empty, ErrorState, Loading } from '../components/States'
 import { FeedList, FilterMenu } from '../components/FeedList'
 import { ListBox, ListHeader } from '../components/ListBox'
-import { ProfileHeader } from '../components/ProfileHeader'
+import { ProfileHeader, type ProfileEditField } from '../components/ProfileHeader'
+import { ProfileHeaderEditor } from '../components/ProfileHeaderEditor'
 import { ProjectSummary } from '../components/ProjectSummary'
 import { features } from '../lib/features'
 import { useQuery } from '../lib/useAsync'
@@ -25,8 +26,30 @@ export function ProfileScreen() {
   const { handle = '' } = useParams()
   const api = useApi()
   const me = useMe()
+  const setMe = useSetMe()
   const profile = useQuery(() => api.getProfile(handle), [api, handle])
   const [tab, setTab] = useState<RecordType | 'all'>('all')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [editing, setEditing] = useState(false)
+  const [focusField, setFocusField] = useState<ProfileEditField>('name')
+
+  const isMe = profile.data?.user.id === me?.id
+
+  // ?edit=1 opens the editor straight away (see the /me/profile redirect);
+  // strip it from the URL so refreshing/sharing the link doesn't reopen it.
+  useEffect(() => {
+    if (!isMe || searchParams.get('edit') !== '1') return
+    setEditing(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('edit')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMe])
+
+  const closeEditing = () => {
+    setEditing(false)
+    document.getElementById('profile-edit-button')?.focus()
+  }
 
   if (profile.error)
     return (
@@ -41,31 +64,35 @@ export function ProfileScreen() {
       </PublicLayout>
     )
 
-  const { user, posts, projects = [], hitByViewer = [], verifiedPRs, repos } = profile.data
+  const data = profile.data
+  const { user, posts, projects = [], hitByViewer = [], verifiedPRs, repos } = data
   const visible = posts.filter((p) => tab === 'all' || p.type === tab)
   const verifiedFallback = posts.flatMap((p) => p.badges).filter((b) => b.verified).length
-  const isMe = user.id === me?.id
-  const needsProfileContent = isMe && !user.headline && (user.stack?.length ?? 0) === 0
 
   return (
     <PublicLayout>
       <div className="profile">
         <div className="profile__main stack gap-24">
-          <div className="row gap-16 wrap" style={{ alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
-              <ProfileHeader user={user} />
-            </div>
-            {isMe && (
-              <Link to="/me/profile" className="btn btn--ghost btn--sm">
-                Edit profile
-              </Link>
-            )}
-          </div>
-
-          {needsProfileContent && (
-            <p className="small muted">
-              Add a headline and your stack so readers know what you work on — <Link to="/me/profile">edit your profile</Link>.
-            </p>
+          {editing ? (
+            <ProfileHeaderEditor
+              user={user}
+              focus={focusField}
+              onSaved={(updated) => {
+                profile.setData({ ...data, user: updated })
+                setMe(updated)
+                closeEditing()
+              }}
+              onCancel={closeEditing}
+            />
+          ) : (
+            <ProfileHeader
+              user={user}
+              isMe={isMe}
+              onEdit={(field) => {
+                setFocusField(field ?? 'name')
+                setEditing(true)
+              }}
+            />
           )}
 
           {features.projects && projects.length > 0 && (
