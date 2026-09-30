@@ -1,4 +1,4 @@
-import type { PostSection, PublicPost, RedactionRule, TeamRecord } from '../api/types'
+import type { EvidenceBadgeType, PostSection, PublicPost, RedactionRule, TeamRecord, VerifiedEvidenceItem } from '../api/types'
 import { readMinutes, wordCount } from './format'
 import { removeCitations, stripInline } from './inline'
 import { SECTION_LABELS } from './labels'
@@ -99,4 +99,34 @@ export function buildPost(
 export function postMinutes(post: Pick<PublicPost, 'sections' | 'decision' | 'lesson'>): number {
   const text = [post.decision ?? '', ...post.sections.map((s) => s.body), post.lesson ?? ''].join(' ')
   return readMinutes(wordCount(stripInline(text)))
+}
+
+export interface EvidenceGroup {
+  badgeType: EvidenceBadgeType
+  label: string
+  items: VerifiedEvidenceItem[]
+}
+
+const BADGE_TYPE_LABELS: Record<EvidenceBadgeType, string> = {
+  authored_merged: 'Authored & merged',
+  reviewed: 'Reviewed & approved',
+  participated: 'Took part in',
+}
+
+/** Display order for grouped evidence, regardless of the order items arrived in. */
+const BADGE_TYPE_ORDER: EvidenceBadgeType[] = ['authored_merged', 'reviewed', 'participated']
+
+/** Buckets verified evidence by badge type, in a fixed order, dropping empty buckets. */
+export function groupVerifiedEvidence(items: VerifiedEvidenceItem[]): EvidenceGroup[] {
+  return BADGE_TYPE_ORDER.map((badgeType) => ({
+    badgeType,
+    label: BADGE_TYPE_LABELS[badgeType],
+    items: items.filter((item) => item.badgeType === badgeType),
+  })).filter((group) => group.items.length > 0)
+}
+
+/** "3 PRs" / "1 issue" — every item in a group shares a kind, so the first one decides the noun. */
+export function evidenceCountLabel(items: VerifiedEvidenceItem[]): string {
+  const noun = items[0]?.kind === 'github_issue' ? 'issue' : 'PR'
+  return `${items.length} ${noun}${items.length === 1 ? '' : 's'}`
 }

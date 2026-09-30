@@ -126,7 +126,7 @@ class GithubEvidenceVerifier
       status: 'fetched', verified_at: Time.current,
       failure_reason: issue_badge_note(issue.user.login, participated),
       failure_code: nil, refresh_warning: nil, private: false, owner: nil, install_url: nil,
-      snapshot: evidence.snapshot.to_h.merge('title' => issue.title, 'participated' => participated)
+      snapshot: evidence.snapshot.to_h.merge('title' => issue.title, 'participated' => participated, 'createdAt' => issue.created_at&.iso8601)
     )
   rescue Octokit::NotFound
     refresh_issue_via_app(evidence, m)
@@ -187,7 +187,7 @@ class GithubEvidenceVerifier
         title: "GitHub issue ##{m[:number]} · #{issue.title}", detail: "private GitHub project · #{format_month(issue.created_at)}",
         repo: nwo, private: true, owner: m[:owner], failure_code: nil, install_url: nil,
         failure_reason: nil, refresh_warning: nil,
-        snapshot: evidence.snapshot.to_h.merge('title' => issue.title, 'participated' => true)
+        snapshot: evidence.snapshot.to_h.merge('title' => issue.title, 'participated' => true, 'createdAt' => issue.created_at&.iso8601)
       )
     else
       evidence.update!(
@@ -301,7 +301,7 @@ class GithubEvidenceVerifier
       status: 'fetched', repo: nwo, number: number,
       authored_by_user: false, verified_at: Time.current,
       failure_reason: issue_badge_note(issue.user.login, participated),
-      snapshot: { title: issue.title, participated: participated }
+      snapshot: { title: issue.title, participated: participated, createdAt: issue.created_at&.iso8601 }
     )
   rescue Octokit::NotFound
     verify_issue_via_app(m, url, number)
@@ -359,7 +359,7 @@ class GithubEvidenceVerifier
         title: "GitHub issue ##{number} · #{issue.title}", detail: "private GitHub project · #{format_month(issue.created_at)}",
         status: 'fetched', repo: nwo, number: number, private: true, owner: m[:owner],
         authored_by_user: false, verified_at: Time.current,
-        snapshot: { title: issue.title, participated: true }
+        snapshot: { title: issue.title, participated: true, createdAt: issue.created_at&.iso8601 }
       )
     else
       create_evidence!(

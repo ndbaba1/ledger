@@ -8,11 +8,11 @@ import { Icon } from '../components/Icon'
 import { Inline, Markdown } from '../components/Inline'
 import { KindPill, PostContent } from '../components/PostContent'
 import { HitButton, PublicQA } from '../components/PublicQA'
-import type { PostThread, PublicPost, User } from '../api/types'
+import type { PostThread, PublicPost, User, VerifiedEvidenceItem } from '../api/types'
 import { ErrorState, Loading } from '../components/States'
 import { features } from '../lib/features'
-import { shortDate, slugifyHeading } from '../lib/format'
-import { postMinutes } from '../lib/publicPost'
+import { monthYear, shortDate, slugifyHeading } from '../lib/format'
+import { evidenceCountLabel, groupVerifiedEvidence, postMinutes, type EvidenceGroup } from '../lib/publicPost'
 import { useQuery } from '../lib/useAsync'
 
 /** Section headings for the "On this page" nav, in reading order. */
@@ -106,9 +106,12 @@ export function PostScreen() {
   const updatedAt = revisions[0]?.createdAt
   const askersById = new Map(currentThread.askers.map((u) => [u.id, u]))
   const onThisPage = onThisPageHeadings(post)
-  // Live posts return every piece of evidence, verified or not; mock posts
-  // only ever have the already-verified `badges` — which renders the same way.
-  const evidence = post.evidence ?? post.badges
+  // Live posts always set `evidence` (unverified/plain links) and
+  // `verifiedEvidence` (grouped by badge type), even when empty; mock posts
+  // never set either, and only ever have the already-verified flat `badges`.
+  const isLivePost = post.evidence !== undefined || post.verifiedEvidence !== undefined
+  const verifiedGroups = isLivePost ? groupVerifiedEvidence(post.verifiedEvidence ?? []) : []
+  const flatEvidence = isLivePost ? (post.evidence ?? []) : post.badges
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
   const partOf = features.projects ? profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug)) : undefined
 
@@ -263,33 +266,42 @@ export function PostScreen() {
         <aside className="post-rail" aria-label="Author, evidence and more write-ups">
           <AuthorCard author={author} />
 
-          {evidence.length > 0 && (
+          {(verifiedGroups.length > 0 || flatEvidence.length > 0) && (
             <section className="stack gap-12 rail-section" aria-labelledby="evidence-title">
               <h2 id="evidence-title" className="post-section__label">
                 Evidence
               </h2>
-              <ul className="evidence-list">
-                {evidence.map((b, i) => {
-                  const body = (
-                    <>
-                      <span className="evidence-list__label">{b.label}</span>
-                      <span className="evidence-list__detail">{b.verified ? b.detail : 'not verified'}</span>
-                    </>
-                  )
-                  return (
-                    <li key={b.url ?? i} className={`evidence-list__item${b.verified ? '' : ' evidence-list__item--unverified'}`}>
-                      <Icon name={b.verified ? 'check' : 'link'} size={15} strokeWidth={2.5} className={b.verified ? 'text-green' : 'muted'} />
-                      {b.url ? (
-                        <a href={b.url} target="_blank" rel="noreferrer" className="evidence-list__body">
-                          {body}
-                        </a>
-                      ) : (
-                        <span className="evidence-list__body">{body}</span>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
+              {verifiedGroups.length > 0 && (
+                <div className="stack gap-14">
+                  {verifiedGroups.map((group) => (
+                    <EvidenceGroupRows key={group.badgeType} group={group} />
+                  ))}
+                </div>
+              )}
+              {flatEvidence.length > 0 && (
+                <ul className="evidence-list">
+                  {flatEvidence.map((b, i) => {
+                    const body = (
+                      <>
+                        <span className="evidence-list__label">{b.label}</span>
+                        <span className="evidence-list__detail">{b.verified ? b.detail : 'not verified'}</span>
+                      </>
+                    )
+                    return (
+                      <li key={b.url ?? i} className={`evidence-list__item${b.verified ? '' : ' evidence-list__item--unverified'}`}>
+                        <Icon name={b.verified ? 'check' : 'link'} size={15} strokeWidth={2.5} className={b.verified ? 'text-green' : 'muted'} />
+                        {b.url ? (
+                          <a href={b.url} target="_blank" rel="noreferrer" className="evidence-list__body">
+                            {body}
+                          </a>
+                        ) : (
+                          <span className="evidence-list__body">{body}</span>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
               <p className="small muted">Each badge is checked with GitHub when the post is published.</p>
             </section>
           )}
@@ -333,6 +345,55 @@ export function PostScreen() {
         </aside>
       </div>
     </PublicLayout>
+  )
+}
+
+/** One badge-type bucket in the grouped Evidence rail: a heading with a count, then compact rows. */
+function EvidenceGroupRows({ group }: { group: EvidenceGroup }) {
+  const [expanded, setExpanded] = useState(false)
+  const truncatable = group.items.length > 5
+  const shown = truncatable && !expanded ? group.items.slice(0, 3) : group.items
+
+  return (
+    <div className="evidence-group">
+      <div className="evidence-group__head">
+        <Icon name="check" size={14} strokeWidth={2.5} className="text-green" />
+        <span className="evidence-group__label">{group.label}</span>
+        <span className="small muted">· {evidenceCountLabel(group.items)}</span>
+      </div>
+      <ul className="plain-list evidence-group__rows">
+        {shown.map((item, i) => (
+          <EvidenceGroupRow key={item.url ?? `${group.badgeType}-${i}`} item={item} />
+        ))}
+      </ul>
+      {truncatable && (
+        <button type="button" className="btn-link small" onClick={() => setExpanded((e) => !e)}>
+          {expanded ? 'Show less' : `+${group.items.length - 3} more`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function EvidenceGroupRow({ item }: { item: VerifiedEvidenceItem }) {
+  const when = item.date ? monthYear(item.date) : undefined
+  return (
+    <li className="evidence-group__row">
+      {item.private ? (
+        <span className="evidence-group__row-title">
+          <Icon name="lock" size={11} className="muted" />
+          {item.kind === 'github_issue' ? 'Private issue' : 'Private PR'}
+        </span>
+      ) : (
+        <a href={item.url} target="_blank" rel="noreferrer" className="evidence-group__row-title">
+          #{item.number} {item.title}
+        </a>
+      )}
+      <span className="small muted evidence-group__row-detail">
+        {item.private ? 'private GitHub project' : item.repo}
+        {when && ` · ${when}`}
+      </span>
+    </li>
   )
 }
 

@@ -214,6 +214,26 @@ export interface Badge {
   url?: string
 }
 
+/** Which of the three ways a piece of evidence earns a badge, independent of write-up type. */
+export type EvidenceBadgeType = 'authored_merged' | 'reviewed' | 'participated'
+
+/**
+ * One verified PR or issue behind a post, for the grouped "Evidence" rail —
+ * grouped client-side by `badgeType`. A private repo's number/title/repo/url
+ * are never sent; only that it's private, its kind, and when it happened.
+ */
+export interface VerifiedEvidenceItem {
+  kind: 'github_pr' | 'github_issue'
+  badgeType: EvidenceBadgeType
+  private?: boolean
+  number?: number
+  title?: string
+  repo?: string
+  url?: string
+  /** ISO date — the PR's merge date, or the issue's created date. */
+  date?: string
+}
+
 /**
  * How a section renders: running text, a plain list, or a numbered list of
  * dead ends / rejected options. List bodies hold one "- " item per line.
@@ -248,8 +268,10 @@ export interface PublicPost {
   result?: ResultMetric
   lesson?: string
   badges: Badge[]
-  /** Every piece of evidence on the post, verified or not. */
+  /** Unverified evidence only (plain links, a fetched PR/issue that didn't earn a badge) — verified evidence is in `verifiedEvidence` instead, grouped by badge type in the rail. Undefined (rather than empty) on a mock post, which only ever has `badges`. */
   evidence?: Badge[]
+  /** Verified PRs/issues, ungrouped — group by `badgeType` to render (see PostScreen). Undefined on a mock post. */
+  verifiedEvidence?: VerifiedEvidenceItem[]
   publishedAt: string
   /** Employer line shown on the post, if the author chose to show one. */
   employerLine?: string

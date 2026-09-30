@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LedgerApi } from '../api/client'
-import type { ExploreResult, Profile, PostThread, PublicPost, User, Writeup } from '../api/types'
+import type { ExploreResult, Profile, PostThread, PublicPost, User, VerifiedEvidenceItem, Writeup } from '../api/types'
 
 // `isLive`/`features` are read from `import.meta.env.VITE_API` once at
 // import time, so each test stubs the env, resets the module cache, and
@@ -269,26 +269,85 @@ describe('the post page rail', () => {
     expect(within(rail).queryByRole('heading', { name: /More from/ })).not.toBeInTheDocument()
   })
 
-  it('lists every piece of evidence, verified and not', async () => {
-    const evidence: PublicPost['evidence'] = [
-      { label: 'Authored & merged the fix', detail: 'acme/checkout · Sep 2026', verified: true, url: 'https://github.com/acme/checkout/pull/9' },
-      { label: 'GitHub PR #11', verified: false, url: 'https://github.com/acme/checkout/pull/11' },
-    ]
+  it('lists unverified evidence in the flat list', async () => {
+    const evidence: PublicPost['evidence'] = [{ label: 'GitHub PR #11', verified: false, url: 'https://github.com/acme/checkout/pull/11' }]
     await renderLive(`#/u/${author.handle}/${post.slug}`, () => ({
       me: () => Promise.resolve(me),
-      getPost: () => Promise.resolve({ post: { ...post, evidence }, author }),
+      getPost: () => Promise.resolve({ post: { ...post, evidence, verifiedEvidence: [] }, author }),
       getProfile: () => Promise.resolve(profile(author)),
       getThread: () => Promise.resolve(thread),
     }))
 
     const evidenceSection = await screen.findByRole('heading', { name: 'Evidence' })
     const rail = within(evidenceSection.closest('section')!)
-    expect(rail.getByText('Authored & merged the fix')).toBeInTheDocument()
-    expect(rail.getByText('acme/checkout · Sep 2026')).toBeInTheDocument()
     expect(rail.getByText('GitHub PR #11')).toBeInTheDocument()
     expect(rail.getByText('not verified')).toBeInTheDocument()
     expect(rail.getByText('Each badge is checked with GitHub when the post is published.')).toBeInTheDocument()
     expect(rail.getByRole('link', { name: /GitHub PR #11/ })).toHaveAttribute('href', 'https://github.com/acme/checkout/pull/11')
+  })
+
+  it('groups verified evidence by badge type, with a count, public links, and locked private rows', async () => {
+    const verifiedEvidence: VerifiedEvidenceItem[] = [
+      { kind: 'github_pr', badgeType: 'authored_merged', number: 9, title: 'Revert pool size', repo: 'acme/checkout', url: 'https://github.com/acme/checkout/pull/9', date: '2026-09-15T12:00:00Z' },
+      { kind: 'github_pr', badgeType: 'authored_merged', private: true, date: '2026-08-15T12:00:00Z' },
+      { kind: 'github_issue', badgeType: 'participated', number: 4, title: 'Flaky test', repo: 'acme/checkout', url: 'https://github.com/acme/checkout/issues/4', date: '2026-07-15T12:00:00Z' },
+    ]
+    await renderLive(`#/u/${author.handle}/${post.slug}`, () => ({
+      me: () => Promise.resolve(me),
+      getPost: () => Promise.resolve({ post: { ...post, evidence: [], verifiedEvidence }, author }),
+      getProfile: () => Promise.resolve(profile(author)),
+      getThread: () => Promise.resolve(thread),
+    }))
+
+    const evidenceSection = await screen.findByRole('heading', { name: 'Evidence' })
+    const rail = within(evidenceSection.closest('section')!)
+
+    expect(rail.getByText('Authored & merged')).toBeInTheDocument()
+    expect(rail.getByText('· 2 PRs')).toBeInTheDocument()
+    expect(rail.getByText('Took part in')).toBeInTheDocument()
+    expect(rail.getByText('· 1 issue')).toBeInTheDocument()
+
+    const publicRow = rail.getByRole('link', { name: '#9 Revert pool size' })
+    expect(publicRow).toHaveAttribute('href', 'https://github.com/acme/checkout/pull/9')
+    expect(rail.getByText('acme/checkout · Sep 2026')).toBeInTheDocument()
+
+    expect(rail.getByText('Private PR')).toBeInTheDocument()
+    expect(rail.getByText('private GitHub project · Aug 2026')).toBeInTheDocument()
+    expect(rail.queryByRole('link', { name: /Private PR/ })).not.toBeInTheDocument()
+
+    expect(rail.getByRole('link', { name: '#4 Flaky test' })).toHaveAttribute('href', 'https://github.com/acme/checkout/issues/4')
+  })
+
+  it('shows 3 rows and a "+N more" toggle for a group of more than 5', async () => {
+    const verifiedEvidence: VerifiedEvidenceItem[] = Array.from({ length: 7 }, (_, i) => ({
+      kind: 'github_pr' as const,
+      badgeType: 'authored_merged' as const,
+      number: i + 1,
+      title: `PR ${i + 1}`,
+      repo: 'acme/checkout',
+      url: `https://github.com/acme/checkout/pull/${i + 1}`,
+      date: '2026-09-15T12:00:00Z',
+    }))
+    const user = await renderLive(`#/u/${author.handle}/${post.slug}`, () => ({
+      me: () => Promise.resolve(me),
+      getPost: () => Promise.resolve({ post: { ...post, evidence: [], verifiedEvidence }, author }),
+      getProfile: () => Promise.resolve(profile(author)),
+      getThread: () => Promise.resolve(thread),
+    }))
+
+    const evidenceSection = await screen.findByRole('heading', { name: 'Evidence' })
+    const rail = within(evidenceSection.closest('section')!)
+
+    expect(rail.getByText('#1 PR 1')).toBeInTheDocument()
+    expect(rail.getByText('#3 PR 3')).toBeInTheDocument()
+    expect(rail.queryByText('#4 PR 4')).not.toBeInTheDocument()
+    const toggle = rail.getByRole('button', { name: '+4 more' })
+
+    await user.click(toggle)
+
+    expect(rail.getByText('#4 PR 4')).toBeInTheDocument()
+    expect(rail.getByText('#7 PR 7')).toBeInTheDocument()
+    expect(rail.getByRole('button', { name: 'Show less' })).toBeInTheDocument()
   })
 
   it('lists section headings under "On this page", including Follow-ups and Ask the author', async () => {

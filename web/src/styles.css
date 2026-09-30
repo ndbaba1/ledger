@@ -2570,6 +2570,47 @@ a.evidence-list__body:hover .evidence-list__label {
 .evidence-list__item--unverified a.evidence-list__body:hover .evidence-list__label {
   color: var(--text);
 }
+.evidence-group__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.evidence-group__label {
+  color: var(--text);
+  font-weight: 500;
+}
+.evidence-group__rows {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.evidence-group__row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 20px;
+}
+.evidence-group__row-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+a.evidence-group__row-title {
+  color: var(--blue);
+}
+a.evidence-group__row-title:hover {
+  color: #c4d6ff;
+}
+.evidence-group__row-detail {
+  overflow-wrap: anywhere;
+}
 .on-this-page {
   list-style: none;
   margin: 0;

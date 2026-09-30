@@ -3,11 +3,14 @@ module PostSerializer
   def self.call(post)
     revisions = post.revisions.map { |r| { id: r.id.to_s, summary: r.summary, createdAt: r.created_at.iso8601 } }
     follow_ups = post.follow_ups.map { |f| { question: f['question'], answer: f['answer'], askerId: f['asker_id'] }.compact }
-    # Every piece of evidence on the post, not just the ones that earned a
-    # badge — the aside shows verified and unverified evidence alike. Failed
-    # evidence (private, deleted, unreachable) never appears publicly.
-    evidence = post.writeup.evidence.reject { |e| e.status == 'failed' }
-                   .map { |e| e.badge(post.type) || { label: e.title, verified: false, url: e.url } }
+    # Failed evidence (private, deleted, unreachable) never appears publicly.
+    # What's left splits in two: verified evidence renders grouped by badge
+    # type in the rail (see VerifiedEvidenceSerializer); everything else
+    # (plain links, a fetched PR/issue that just didn't earn a badge) keeps
+    # its own flat row, same as always.
+    live_evidence = post.writeup.evidence.reject { |e| e.status == 'failed' }
+    verified_evidence = live_evidence.select(&:verified?).map { |e| VerifiedEvidenceSerializer.call(e) }
+    evidence = live_evidence.reject(&:verified?).map { |e| { label: e.title, verified: false, url: e.url } }
     {
       slug: post.slug,
       writeupId: post.writeup_id.to_s,
@@ -22,7 +25,11 @@ module PostSerializer
       result: post.result,
       lesson: post.lesson,
       badges: post.badges,
-      evidence: evidence.presence,
+      # Always present (even empty) on a live post — unlike a mock post, which
+      # never sets either — so the frontend can tell them apart and render
+      # accordingly (see groupVerifiedEvidence in web/src/lib/publicPost.ts).
+      evidence: evidence,
+      verifiedEvidence: verified_evidence,
       publishedAt: post.published_at.iso8601,
       revisions: revisions.presence,
       hitCount: post.hit_count,
