@@ -237,18 +237,23 @@ export interface PublicPost {
   /** How many engineers said they hit this same problem. */
   hitCount?: number
   /** Answers the author folded into the post from public questions. */
-  followUps?: string[]
+  followUps?: FollowUp[]
   /** The write-up this post was published from. Only ever your own. */
   writeupId?: ID
-  /** Set once this post has been edited and republished at least once. */
-  updatedAt?: string
-  /** Every republish and folded-in answer, newest first. Internal — not rendered as a diff. */
-  history?: PostRevisionEntry[]
+  /** Every republish and folded-in answer, newest first. */
+  revisions?: PostRevision[]
 }
 
-export interface PostRevisionEntry {
-  at: string
+/** An answer folded into the post, with the question it answered when there was one. */
+export interface FollowUp {
+  question?: string
+  answer: string
+}
+
+export interface PostRevision {
+  id: ID
   summary: string
+  createdAt: string
 }
 
 export type PublicQuestionStatus = 'pending' | 'answered' | 'dismissed'

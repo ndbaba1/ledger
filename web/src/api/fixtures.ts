@@ -667,7 +667,13 @@ export const communityPosts: PublicPost[] = [
     ],
     result: { label: 'Time to recover from a provider blip', before: '40 min', after: '45 s' },
     lesson: 'Count your retries end to end. Retries at every layer multiply, and without jitter they arrive together.',
-    followUps: ['Keep retries in the layer that knows whether the operation is idempotent — here, the job queue, since charges carry an idempotency key there.'],
+    followUps: [
+      {
+        question: 'How did you decide which layer keeps the retries?',
+        answer:
+          'Keep retries in the layer that knows whether the operation is idempotent — here, the job queue, since charges carry an idempotency key there.',
+      },
+    ],
     badges: [{ label: 'Authored & merged the fix', detail: 'private GitHub project · Aug 2026', verified: true }],
     publishedAt: '2026-08-19T14:00:00Z',
   },

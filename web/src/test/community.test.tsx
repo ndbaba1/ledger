@@ -34,7 +34,13 @@ describe('mock API: public Q&A', () => {
     expect(answered.questions.find((q) => q.id === 'pq2')?.status).toBe('answered')
 
     const { post } = await api.foldPublic(...MINE, 'pq2')
-    expect(post.followUps).toEqual(['Yes — schema `USAGE` and `CREATE` via PUBLIC are both reported.'])
+    expect(post.followUps).toEqual([
+      {
+        question: 'Does agent-db-scan check privileges granted through `PUBLIC` on schemas, or only tables?',
+        answer: 'Yes — schema `USAGE` and `CREATE` via PUBLIC are both reported.',
+      },
+    ])
+    expect(post.revisions?.[0].summary).toMatch(/^Added a follow-up:/)
 
     await expect(api.dismissPublic(...HANNAH, 'pq3')).rejects.toThrow(/Only the author/)
   })
@@ -100,7 +106,29 @@ describe('community features in the app', () => {
 
     const add = await within(qa).findAllByRole('button', { name: 'Add to post' })
     await user.click(add[add.length - 1])
-    expect(await screen.findByRole('heading', { name: 'Follow-ups' })).toBeInTheDocument()
+    const followUpsHeading = await screen.findByRole('heading', { name: 'Follow-ups' })
+    const followUps = within(followUpsHeading.closest('section')!)
+    expect(followUps.getByText('Does agent-db-scan check privileges granted through `PUBLIC` on schemas, or only tables?')).toBeInTheDocument()
+
+    const history = screen.getByText(/History · 1 change/)
+    history.click()
+    expect(screen.getByText(/^Added a follow-up:/)).toBeInTheDocument()
+  })
+
+  it('shows no answered-question count on a post nobody has asked about yet', async () => {
+    window.location.hash = `#/u/${TOMAS.join('/')}`
+    render(<App api={newApi()} />)
+
+    await screen.findByRole('heading', { name: 'Ask the author' })
+    expect(screen.queryByText(/answered question/)).not.toBeInTheDocument()
+  })
+
+  it('focuses the ask box on returning from sign-in with #ask', async () => {
+    window.location.hash = `#/u/${HANNAH.join('/')}#ask`
+    render(<App api={newApi()} />)
+
+    const input = await screen.findByPlaceholderText(/Ask .* a question/)
+    expect(input).toHaveFocus()
   })
 
   it('shows a header badge for pending questions and links to /me/questions', async () => {

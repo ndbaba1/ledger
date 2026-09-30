@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { ID, PostThread, PublicPost, PublicQuestion, User } from '../api/types'
@@ -79,9 +79,20 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
   const answered = thread.questions.filter((q) => q.status === 'answered')
   const pending = thread.questions.filter((q) => q.status === 'pending')
   const first = author.name.split(' ')[0]
+  const askInputRef = useRef<HTMLInputElement>(null)
+
+  // Signed-in state can only change via a full page navigation (the GitHub
+  // round trip), so this only ever runs once, right after landing back here.
+  useEffect(() => {
+    if (me && !isAuthor && location.hash === '#ask') askInputRef.current?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const goSignIn = () => signInWithGithub(`${location.pathname}${location.search}#ask`)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    if (!me) return goSignIn()
     const next = await ask.run(body)
     if (next) {
       onThread(next)
@@ -95,9 +106,11 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
         <h2 id="pqa-title" className="post-section__label">
           Ask the author
         </h2>
-        <span className="small muted">
-          {answered.length} answered question{answered.length === 1 ? '' : 's'}
-        </span>
+        {answered.length > 0 && (
+          <span className="small muted">
+            {answered.length} answered question{answered.length === 1 ? '' : 's'}
+          </span>
+        )}
       </div>
 
       {isAuthor && pending.length > 0 && (
@@ -144,17 +157,7 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
         </div>
       )}
 
-      {!isAuthor && !me && (
-        <button
-          type="button"
-          className="btn btn--ask"
-          onClick={() => signInWithGithub(location.pathname + location.search)}
-        >
-          Sign in to ask
-        </button>
-      )}
-
-      {!isAuthor && me && (
+      {!isAuthor && (
         <form className="stack gap-6" onSubmit={submit}>
           <div className="qa__ask">
             <label htmlFor="pqa-ask" className="sr-only">
@@ -162,21 +165,25 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
             </label>
             <input
               id="pqa-ask"
+              ref={askInputRef}
               className="input qa__input"
               placeholder={`Ask ${first} a question…`}
               value={body}
               maxLength={600}
+              onFocus={() => {
+                if (!me) goSignIn()
+              }}
               onChange={(e) => {
                 setBody(e.target.value)
                 ask.clearError()
               }}
             />
-            <button type="submit" className="btn btn--ask" disabled={!body.trim() || ask.pending}>
+            <button type="submit" className="btn btn--ask" disabled={Boolean(me) && (!body.trim() || ask.pending)}>
               Ask
             </button>
           </div>
           <FieldError message={ask.error} />
-          <p className="small muted">Questions appear here once {first} answers. Signed in as a verified GitHub user.</p>
+          <p className="small muted">{me ? `Questions appear here once ${first} answers. Signed in as a verified GitHub user.` : 'Sign in with GitHub to ask.'}</p>
         </form>
       )}
     </section>
@@ -232,7 +239,7 @@ function AnsweredQuestion({
                 isAuthor && (
                   <button
                     type="button"
-                    className="fold-btn"
+                    className="btn btn--sm"
                     disabled={fold.pending}
                     title="Adds this answer to the post under Follow-ups"
                     onClick={async () => {

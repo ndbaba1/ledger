@@ -35,13 +35,21 @@ describe('signed out', () => {
     expect(toggleHit).not.toHaveBeenCalled()
   })
 
-  it('replaces the ask box with a sign-in prompt, while still showing answered questions', async () => {
+  it('sends focusing or submitting the ask box to sign-in, while still showing answered questions', async () => {
+    sessionStorage.clear()
     window.location.hash = '#/u/hannahl/retries-turned-a-blip-into-an-outage'
+    const user = userEvent.setup()
     render(<App api={signedOutApi()} />)
 
     expect(await screen.findByRole('heading', { name: 'Ask the author' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sign in to ask' })).toBeInTheDocument()
-    expect(screen.queryByPlaceholderText(/Ask .* a question/)).not.toBeInTheDocument()
+    const input = screen.getByPlaceholderText(/Ask .* a question/)
+    expect(screen.getByText('Sign in with GitHub to ask.')).toBeInTheDocument()
+
+    await user.click(input)
+    // signInWithGithub stashes the return path (with #ask) before it does
+    // anything async, so this is observable even though the GitHub round
+    // trip itself can't complete in a test.
+    expect(sessionStorage.getItem('ledger:returnTo')).toBe('/u/hannahl/retries-turned-a-blip-into-an-outage#ask')
   })
 
   it('sends a workspace route to sign-in instead of rendering it', async () => {

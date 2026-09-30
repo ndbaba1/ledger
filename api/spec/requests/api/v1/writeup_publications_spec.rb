@@ -72,8 +72,9 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     expect(response).to have_http_status(:ok)
     expect(json['slug']).to eq(first_slug)
     expect(Post.count).to eq(1)
-    expect(json['updatedAt']).to be_present
-    expect(json['history']).to eq([{ 'at' => json['updatedAt'], 'summary' => 'Clarified the fix' }])
+    expect(json['revisions'].length).to eq(1)
+    expect(json['revisions'].first).to include('summary' => 'Clarified the fix')
+    expect(json['revisions'].first['createdAt']).to be_present
 
     post = Post.find_by(slug: first_slug)
     expect(post.revisions.count).to eq(1)

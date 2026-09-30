@@ -215,7 +215,7 @@ describe('living documents: questions, editing and revisions', () => {
   })
 
   it('shows an "Edit post" link and the update byline once a post has been revised', async () => {
-    const mine = { ...post, authorId: me.id, writeupId: 'w1', updatedAt: '2026-01-05T00:00:00Z', history: [{ at: '2026-01-05T00:00:00Z', summary: 'Clarified the fix' }] }
+    const mine = { ...post, authorId: me.id, writeupId: 'w1', revisions: [{ id: 'rev1', createdAt: '2026-01-05T00:00:00Z', summary: 'Clarified the fix' }] }
     await renderLive(`#/u/${me.handle}/${post.slug}`, () => ({
       me: () => Promise.resolve(me),
       getPost: () => Promise.resolve({ post: mine, author: me }),

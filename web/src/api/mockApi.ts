@@ -993,7 +993,11 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         const { post } = postBy(handle, slug)
         if (!q.folded) {
           q.folded = true
-          post.followUps = [...(post.followUps ?? []), q.answer.body]
+          post.followUps = [...(post.followUps ?? []), { question: q.body, answer: q.answer.body }]
+          post.revisions = [
+            { id: `rev_${Date.now().toString(36)}`, summary: `Added a follow-up: ${q.body.slice(0, 60)}`, createdAt: now().toISOString() },
+            ...(post.revisions ?? []),
+          ]
         }
         return { thread: thread(handle, slug), post }
       }),

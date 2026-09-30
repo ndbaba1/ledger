@@ -48,7 +48,7 @@ module Api
         post = question.post
         unless question.folded?
           question.update!(folded: true)
-          post.update!(follow_ups: post.follow_ups + [question.answer_body])
+          post.update!(follow_ups: post.follow_ups + [{ 'question' => question.body, 'answer' => question.answer_body }])
           post.revisions.create!(summary: "Added a follow-up: #{question.body[0, 60]}", sections_snapshot: post.sections)
         end
 

@@ -151,11 +151,11 @@ RSpec.describe 'Public Q&A on a post', type: :request do
       post_json "#{base}/questions/#{question.id}/fold"
 
       expect(response).to have_http_status(:ok)
-      expect(json['post']['followUps']).to eq(['16'])
+      expect(json['post']['followUps']).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16' }])
       expect(json['thread']['questions'].find { |q| q['id'] == question.id.to_s }['folded']).to eq(true)
 
       post_record.reload
-      expect(post_record.follow_ups).to eq(['16'])
+      expect(post_record.follow_ups).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16' }])
       expect(post_record.revisions.count).to eq(1)
       expect(post_record.revisions.first.summary).to eq('Added a follow-up: What version of Postgres?')
     end
@@ -167,7 +167,7 @@ RSpec.describe 'Public Q&A on a post', type: :request do
       post_json "#{base}/questions/#{question.id}/fold"
 
       post_record.reload
-      expect(post_record.follow_ups).to eq(['16'])
+      expect(post_record.follow_ups).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16' }])
       expect(post_record.revisions.count).to eq(1)
     end
   end

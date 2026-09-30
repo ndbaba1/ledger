@@ -32,7 +32,7 @@ class Post < ApplicationRecord
     self.search_body = [
       summary, context, decision, lesson,
       sections.to_a.map { |s| s['body'] }.join(' '),
-      follow_ups.join(' ')
+      follow_ups.to_a.flat_map { |f| [f['question'], f['answer']] }.join(' ')
     ].compact.join(' ')
   end
 

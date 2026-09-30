@@ -65,6 +65,8 @@ export function PostScreen() {
   const post = postOverride ?? loadedPost
   const currentThread = thread ?? loadedThread
   const isMe = me?.id === author.id
+  const revisions = post.revisions ?? []
+  const updatedAt = revisions[0]?.createdAt
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
   const partOf = features.projects ? profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug)) : undefined
 
@@ -120,10 +122,10 @@ export function PostScreen() {
                 <strong className="text">{author.name}</strong>
                 {post.employerLine && ` ${post.employerLine}`} · published{' '}
                 <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time>
-                {post.updatedAt && (
+                {updatedAt && (
                   <>
                     {' '}
-                    · updated <time dateTime={post.updatedAt}>{shortDate(post.updatedAt)}</time>
+                    · updated <span className="text"><time dateTime={updatedAt}>{shortDate(updatedAt)}</time></span>
                   </>
                 )}{' '}
                 · {postMinutes(post)} min read
@@ -134,15 +136,27 @@ export function PostScreen() {
 
           <PostContent
             decision={post.decision}
-            sections={
-              post.followUps?.length
-                ? [...post.sections, { heading: 'Follow-ups', kind: 'list' as const, body: post.followUps.map((f) => `- ${f}`).join('\n') }]
-                : post.sections
-            }
+            sections={post.sections}
             result={post.result}
             lesson={post.lesson}
             render={(text) => <Inline text={text} />}
           />
+
+          {post.followUps?.length ? (
+            <section className="post-section">
+              <h2 className="post-section__label">Follow-ups</h2>
+              <ul className="followups">
+                {post.followUps.map((f, i) => (
+                  <li key={i}>
+                    {f.question && <strong className="followups__q">{f.question}</strong>}
+                    <span className="followups__a">
+                      <Inline text={f.answer} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           <div className="hit-row">
             <HitButton handle={handle} slug={slug} isAuthor={isMe} thread={currentThread} onThread={setThread} />
@@ -175,20 +189,19 @@ export function PostScreen() {
             </div>
           )}
 
-          {post.history && post.history.length > 0 && (
+          {revisions.length > 0 && (
             <details className="post-history">
-              <summary>
-                <Icon name="history" size={14} />
-                History · {post.history.length} change{post.history.length === 1 ? '' : 's'}
+              <summary className="post-section__label">
+                History · {revisions.length} change{revisions.length === 1 ? '' : 's'}
               </summary>
-              <ul className="post-history__list">
-                {post.history.map((h) => (
-                  <li key={h.at + h.summary}>
-                    <time dateTime={h.at}>{shortDate(h.at)}</time>
-                    <span>{h.summary}</span>
+              <ol className="post-history__list">
+                {revisions.map((r) => (
+                  <li key={r.id}>
+                    <span className="mono small muted">{shortDate(r.createdAt)}</span>
+                    <span className="small">{r.summary}</span>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </details>
           )}
         </article>

@@ -2287,6 +2287,29 @@ a.ref:hover {
   font-size: 16px;
   color: var(--text);
 }
+.followups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.followups li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 14px;
+  border-left: 2px solid var(--line-2);
+}
+.followups__q {
+  font-weight: 600;
+  color: var(--text);
+}
+.followups__a {
+  color: var(--text-2);
+  line-height: 1.6;
+}
 
 .steps {
   list-style: none;
@@ -2514,15 +2537,11 @@ a.evidence-list__body:hover .evidence-list__label {
 }
 .post-history {
   margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
 }
 .post-history summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
   list-style: none;
 }
 .post-history summary::-webkit-details-marker {
@@ -2530,7 +2549,7 @@ a.evidence-list__body:hover .evidence-list__label {
 }
 .post-history__list {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -2538,13 +2557,8 @@ a.evidence-list__body:hover .evidence-list__label {
 }
 .post-history__list li {
   display: flex;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.post-history__list time {
-  flex-shrink: 0;
-  color: var(--faint);
+  gap: 14px;
+  align-items: baseline;
 }
 
 @media (max-width: 1023px) {

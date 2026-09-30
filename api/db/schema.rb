@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_30_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_30_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -85,13 +85,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_120000) do
     t.string "lesson"
     t.text "tags", default: [], null: false, array: true
     t.jsonb "badges", default: [], null: false
-    t.text "follow_ups", default: [], null: false, array: true
     t.integer "hit_count", default: 0, null: false
     t.datetime "published_at", null: false
     t.text "search_body", default: "", null: false
     t.tsvector "search_vector"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "follow_ups", default: [], null: false
     t.index ["search_vector"], name: "index_posts_on_search_vector", using: :gin
     t.index ["tags"], name: "index_posts_on_tags", using: :gin
     t.index ["user_id", "slug"], name: "index_posts_on_user_id_and_slug", unique: true
