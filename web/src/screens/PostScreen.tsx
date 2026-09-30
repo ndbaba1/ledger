@@ -33,7 +33,7 @@ export function PostScreen() {
   const navState = location.state as { justPublished?: boolean; justUpdated?: boolean } | null
   const [banner, setBanner] = useState(Boolean(navState?.justPublished || navState?.justUpdated))
   const justUpdated = Boolean(navState?.justUpdated)
-  const highlighted = useRef<string>()
+  const highlighted = useRef<string | undefined>(undefined)
 
   // Deep-links to a question (#q-<id>) scroll to it and highlight it briefly.
   useEffect(() => {
