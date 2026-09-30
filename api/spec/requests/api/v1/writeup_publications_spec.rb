@@ -138,6 +138,81 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     expect(json['error']).to match(/140 characters/)
   end
 
+  it 'publishes a verified private PR with a redacted public badge — no url, title or repo' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/90')
+      .to_return(status: 200, body: {
+        title: 'Revert pool size', merged_at: '2026-09-20T10:00:00Z',
+        user: { id: 1001, login: 'octocat' }, additions: 5, deletions: 5,
+        base: { repo: { private: true } }
+      }.to_json, headers: { 'Content-Type' => 'application/json' })
+    stub_installation_found('acme', 'checkout')
+    stub_installation_token
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/90')
+      .with(headers: { 'Authorization' => 'Bearer ghs_installation_token' })
+      .to_return(status: 200, body: {
+        title: 'Revert pool size', merged_at: '2026-09-20T10:00:00Z',
+        user: { id: 1001, login: 'octocat' }, additions: 5, deletions: 5,
+        base: { repo: { private: true } }
+      }.to_json, headers: { 'Content-Type' => 'application/json' })
+
+    post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/90' }
+    evidence = json['evidence'].last
+    expect(evidence['private']).to be true
+    expect(evidence['title']).to include('Revert pool size')
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+
+    expect(response).to have_http_status(:created)
+    badge = json['badges'].first
+    expect(badge['label']).to eq('Authored & merged the fix')
+    expect(badge['detail']).to eq('private GitHub project · Sep 2026')
+    expect(badge).not_to have_key('url')
+    expect(json.to_s).not_to include('Revert pool size')
+    expect(json.to_s).not_to include('acme/checkout')
+  end
+
+  it 'republishing after the app is uninstalled keeps the badge and sets a refresh_warning' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/91')
+      .to_return(status: 200, body: {
+        title: 'Revert pool size', merged_at: '2026-09-20T10:00:00Z',
+        user: { id: 1001, login: 'octocat' }, additions: 5, deletions: 5,
+        base: { repo: { private: true } }
+      }.to_json, headers: { 'Content-Type' => 'application/json' })
+    stub_installation_found('acme', 'checkout')
+    stub_installation_token
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/91')
+      .with(headers: { 'Authorization' => 'Bearer ghs_installation_token' })
+      .to_return(status: 200, body: {
+        title: 'Revert pool size', merged_at: '2026-09-20T10:00:00Z',
+        user: { id: 1001, login: 'octocat' }, additions: 5, deletions: 5,
+        base: { repo: { private: true } }
+      }.to_json, headers: { 'Content-Type' => 'application/json' })
+    post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/91' }
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+    expect(json['badges']).to include(hash_including('label' => 'Authored & merged the fix'))
+
+    # The repo is still private and the app is gone — the OAuth client 404s
+    # (as it always would for a private repo) and now so does GithubApp.
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/91')
+      .to_return(status: 404, body: { message: 'Not Found' }.to_json, headers: { 'Content-Type' => 'application/json' })
+    stub_installation_missing('acme', 'checkout')
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish", params: { summary: 'Fixed a typo' }
+
+    expect(response).to have_http_status(:ok)
+    expect(json['badges']).to include(hash_including('label' => 'Authored & merged the fix'))
+
+    get "/api/v1/writeups/#{writeup.id}"
+    evidence = json['evidence'].first
+    expect(evidence['refreshWarning']).to eq('The Ledger app was removed from acme. Badge kept from Sep 2026.')
+    expect(evidence['authoredByMe']).to eq(true)
+  end
+
   it 'drops a badge that no longer verifies on republish, but still publishes' do
     writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
     evidence = create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: true,

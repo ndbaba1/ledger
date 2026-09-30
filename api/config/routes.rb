@@ -27,9 +27,17 @@ Rails.application.routes.draw do
       get 'explore', to: 'explore#index'
 
       resources :writeups, only: %i[index create show update] do
-        resources :evidence, only: %i[create destroy], param: :key
+        resources :evidence, only: %i[create destroy], param: :key do
+          member { post :recheck }
+        end
         resource :status, only: [:update], controller: 'writeup_statuses'
         post :publish, to: 'writeup_publications#create'
+      end
+
+      namespace :github do
+        namespace :app do
+          get 'setup', to: 'setups#show'
+        end
       end
 
       resources :users, only: [:show], param: :handle do

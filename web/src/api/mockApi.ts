@@ -454,6 +454,9 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         return w
       }),
 
+    // The mock never fabricates a private repo, so there's nothing to recheck.
+    recheckWriteupEvidence: (id) => run(() => writeupById(id)),
+
     setWriteupStatus: (id, status) =>
       run(() => {
         const w = writeupById(id)

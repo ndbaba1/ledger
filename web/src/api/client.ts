@@ -65,6 +65,8 @@ export interface LedgerApi {
   saveWriteup(id: ID, fields: Partial<WriteupFields>): Promise<Writeup>
   addWriteupEvidence(id: ID, url: string): Promise<Writeup>
   removeWriteupEvidence(id: ID, key: string): Promise<Writeup>
+  /** Re-runs verification for one piece of evidence in place — e.g. after installing the GitHub App. */
+  recheckWriteupEvidence(id: ID, key: string): Promise<Writeup>
   setWriteupStatus(id: ID, status: WriteupStatus): Promise<Writeup>
   /** Fails with the list of what's missing when the write-up isn't ready. */
   publishWriteup(id: ID): Promise<TeamRecord>

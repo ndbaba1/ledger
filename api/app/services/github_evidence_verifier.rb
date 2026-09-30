@@ -1,14 +1,23 @@
 # Turns a pasted URL into an Evidence record. GitHub PR and issue links are
 # verified live against the GitHub API, using the signed-in user's own OAuth
 # token (scoped to `read:user` only — see config/initializers/omniauth.rb — so
-# private repos are never actually readable; the private checks below are a
-# second line of defence). Everything else is stored as a plain link.
+# private repos are never actually readable that way). When the OAuth token
+# can't see a repo (404, or an explicit private flag), GithubApp is asked
+# whether the Ledger GitHub App is installed there instead; if so, its
+# installation token does the same author/approved/participated checks.
 #
-# Two rules this class keeps:
+# Three rules this class keeps:
 # - Only a definite answer from GitHub changes a badge (not merged, not yours,
-#   private, deleted). A temporary failure (expired sign-in, rate limit,
-#   GitHub or network down) never removes a badge that was earned before.
-# - Nothing learned from the API about a private repo is stored.
+#   deleted, no longer installed with a *new* definite answer). A temporary
+#   failure (expired sign-in, rate limit, GitHub or network down, an
+#   installation token that fails to mint) never removes a badge earned before.
+# - Nothing learned from the API about a private repo is stored unless the
+#   signed-in user authored, approved or participated in it themselves — and
+#   even then, only the author ever sees the title. Everyone else sees a
+#   generic "private GitHub project" badge.
+# - A repo the app isn't installed on yet is not a failure to report loudly:
+#   it's an actionable one (install_url), re-checked on demand or the moment
+#   the app is installed (see Api::V1::GithubAppSetupsController).
 class GithubEvidenceVerifier
   # Raised to the controller, which returns 422 with the message.
   class InvalidLink < StandardError; end
@@ -30,7 +39,7 @@ class GithubEvidenceVerifier
     TemporaryFailure
   ].freeze
 
-  PRIVATE_REASON = 'Private repo — not supported yet.'
+  APP_NOT_INSTALLED = 'app_not_installed'
 
   def initialize(writeup, url, user)
     @writeup = writeup
@@ -77,7 +86,7 @@ class GithubEvidenceVerifier
   def refresh_pull_request(evidence, m)
     nwo = "#{m[:owner]}/#{m[:repo]}"
     pr = client.pull_request(nwo, m[:number])
-    return mark_private!(evidence, 'PR', m[:number]) if pr.base.repo.private
+    return refresh_pull_request_via_app(evidence, m) if pr.base.repo.private
 
     merged = pr.merged_at.present?
     authored = merged && pr.user.id == @user.github_id
@@ -86,18 +95,18 @@ class GithubEvidenceVerifier
     evidence.update!(
       status: 'fetched', authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
       failure_reason: pr_badge_note(pr.user.id, pr.user.login, merged, authored, reviewed),
-      refresh_warning: nil,
+      failure_code: nil, refresh_warning: nil, private: false, owner: nil, install_url: nil,
       snapshot: evidence.snapshot.to_h.merge('title' => pr.title, 'mergedAt' => pr.merged_at&.iso8601, 'reviewed' => reviewed)
     )
   rescue Octokit::NotFound
-    mark_gone!(evidence, 'PR', m[:number])
+    refresh_pull_request_via_app(evidence, m)
   rescue *TEMPORARY_ERRORS => e
     evidence.update!(refresh_warning: temporary_reason_for(e))
   end
 
   def refresh_issue(evidence, m)
     nwo = "#{m[:owner]}/#{m[:repo]}"
-    return mark_private!(evidence, 'issue', m[:number]) if client.repository(nwo).private
+    return refresh_issue_via_app(evidence, m) if client.repository(nwo).private
 
     issue = client.issue(nwo, m[:number])
     participated = issue.user.id == @user.github_id || commented_by_user?(nwo, m[:number])
@@ -105,32 +114,106 @@ class GithubEvidenceVerifier
     evidence.update!(
       status: 'fetched', verified_at: Time.current,
       failure_reason: issue_badge_note(issue.user.login, participated),
-      refresh_warning: nil,
+      failure_code: nil, refresh_warning: nil, private: false, owner: nil, install_url: nil,
       snapshot: evidence.snapshot.to_h.merge('title' => issue.title, 'participated' => participated)
     )
+  rescue Octokit::NotFound
+    refresh_issue_via_app(evidence, m)
+  rescue *TEMPORARY_ERRORS => e
+    evidence.update!(refresh_warning: temporary_reason_for(e))
+  end
+
+  # The OAuth token can't see this repo (or it's flagged private outright) —
+  # ask GithubApp whether Ledger's app is installed there and, if so, re-check
+  # with its installation token. A missing installation is never treated as a
+  # definite "gone": it just means we still can't look, so the previous badge
+  # (if any) stands with a refresh_warning explaining why.
+  def refresh_pull_request_via_app(evidence, m)
+    installation_id = GithubApp.installation_for(m[:owner], m[:repo])
+    return keep_badge_app_not_installed!(evidence, m[:owner]) if installation_id.nil?
+
+    app_client = GithubApp.installation_client(installation_id)
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    pr = app_client.pull_request(nwo, m[:number])
+    merged = pr.merged_at.present?
+    authored = merged && pr.user.id == @user.github_id
+    reviewed = !authored && merged && approved_by_user?(nwo, m[:number], client: app_client)
+
+    if authored || reviewed
+      evidence.update!(
+        status: 'fetched', authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
+        title: "GitHub PR ##{m[:number]} · #{pr.title}", detail: "private GitHub project · #{format_month(pr.merged_at)}",
+        repo: nwo, private: true, owner: m[:owner], failure_code: nil, install_url: nil,
+        failure_reason: nil, refresh_warning: nil,
+        snapshot: evidence.snapshot.to_h.merge('title' => pr.title, 'mergedAt' => pr.merged_at&.iso8601, 'reviewed' => reviewed)
+      )
+    else
+      evidence.update!(
+        status: 'failed', authored_by_user: false, merged_at: merged ? pr.merged_at : nil,
+        title: "GitHub PR ##{m[:number]}", detail: '', repo: nil, private: true, owner: m[:owner],
+        failure_code: nil, install_url: nil, refresh_warning: nil, snapshot: {},
+        failure_reason: "You didn't author or approve this PR."
+      )
+    end
+  rescue Octokit::NotFound
+    mark_gone!(evidence, 'PR', m[:number])
+  rescue *TEMPORARY_ERRORS => e
+    evidence.update!(refresh_warning: temporary_reason_for(e))
+  end
+
+  def refresh_issue_via_app(evidence, m)
+    installation_id = GithubApp.installation_for(m[:owner], m[:repo])
+    return keep_badge_app_not_installed!(evidence, m[:owner]) if installation_id.nil?
+
+    app_client = GithubApp.installation_client(installation_id)
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    issue = app_client.issue(nwo, m[:number])
+    participated = issue.user.id == @user.github_id || commented_by_user?(nwo, m[:number], client: app_client)
+
+    if participated
+      evidence.update!(
+        status: 'fetched', verified_at: Time.current,
+        title: "GitHub issue ##{m[:number]} · #{issue.title}", detail: "private GitHub project · #{format_month(issue.created_at)}",
+        repo: nwo, private: true, owner: m[:owner], failure_code: nil, install_url: nil,
+        failure_reason: nil, refresh_warning: nil,
+        snapshot: evidence.snapshot.to_h.merge('title' => issue.title, 'participated' => true)
+      )
+    else
+      evidence.update!(
+        status: 'failed', title: "GitHub issue ##{m[:number]}", detail: '', repo: nil,
+        private: true, owner: m[:owner], failure_code: nil, install_url: nil, refresh_warning: nil, snapshot: {},
+        failure_reason: "You didn't author or comment on this issue."
+      )
+    end
   rescue Octokit::NotFound
     mark_gone!(evidence, 'issue', m[:number])
   rescue *TEMPORARY_ERRORS => e
     evidence.update!(refresh_warning: temporary_reason_for(e))
   end
 
-  # The repo went private since it was added: drop the badge and forget
-  # everything the API told us about it.
-  def mark_private!(evidence, noun, number)
-    evidence.update!(
-      status: 'failed', authored_by_user: false, merged_at: nil,
-      title: "GitHub #{noun} ##{number}", detail: '', repo: nil, snapshot: {},
-      failure_reason: PRIVATE_REASON, refresh_warning: nil
-    )
+  # The app was never installed (still true on "Check again"), or was
+  # installed and got removed since — either way, GitHub can't be asked right
+  # now. Whatever badge exists (none, for the first case) is left alone.
+  def keep_badge_app_not_installed!(evidence, owner)
+    if evidence.failure_code == APP_NOT_INSTALLED
+      evidence.update!(
+        failure_reason: app_not_installed_reason(owner), install_url: GithubApp.install_url, refresh_warning: nil
+      )
+    else
+      evidence.update!(
+        refresh_warning: "The Ledger app was removed from #{owner}. Badge kept from #{format_month(evidence.verified_at)}."
+      )
+    end
   end
 
-  # Deleted, or no longer visible to this user: a definite answer, so the
-  # badge goes. The title is cleared too, in case it went private.
+  # Deleted, or no longer visible even with the app installed: a definite
+  # answer, so the badge goes.
   def mark_gone!(evidence, noun, number)
     evidence.update!(
       status: 'failed', authored_by_user: false, merged_at: nil,
       title: "GitHub #{noun} ##{number}", detail: '', repo: nil, snapshot: {},
-      failure_reason: 'Not found, or a private repo (not supported yet).', refresh_warning: nil
+      private: false, owner: nil, failure_code: nil, install_url: nil,
+      failure_reason: 'Not found, or a private repo Ledger can’t see.', refresh_warning: nil
     )
   end
 
@@ -165,7 +248,7 @@ class GithubEvidenceVerifier
     number = m[:number]
     url = canonical_url(m, 'pull')
     pr = client.pull_request(nwo, number)
-    return private_evidence('github_pr', url, number) if pr.base.repo.private
+    return verify_pull_request_via_app(m, url, number) if pr.base.repo.private
 
     merged = pr.merged_at.present?
     authored = merged && pr.user.id == @user.github_id
@@ -180,7 +263,7 @@ class GithubEvidenceVerifier
       snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, additions: pr.additions, deletions: pr.deletions, reviewed: reviewed }
     )
   rescue Octokit::NotFound
-    failed_evidence('github_pr', url, number, 'Not found, or a private repo (not supported yet).')
+    verify_pull_request_via_app(m, url, number)
   rescue *TEMPORARY_ERRORS => e
     failed_evidence('github_pr', url, number, temporary_reason_for(e))
   end
@@ -189,7 +272,7 @@ class GithubEvidenceVerifier
     nwo = "#{m[:owner]}/#{m[:repo]}"
     number = m[:number]
     url = canonical_url(m, 'issues')
-    return private_evidence('github_issue', url, number) if client.repository(nwo).private
+    return verify_issue_via_app(m, url, number) if client.repository(nwo).private
 
     issue = client.issue(nwo, number)
     participated = issue.user.id == @user.github_id || commented_by_user?(nwo, number)
@@ -203,7 +286,73 @@ class GithubEvidenceVerifier
       snapshot: { title: issue.title, participated: participated }
     )
   rescue Octokit::NotFound
-    failed_evidence('github_issue', url, number, 'Not found, or a private repo (not supported yet).')
+    verify_issue_via_app(m, url, number)
+  rescue *TEMPORARY_ERRORS => e
+    failed_evidence('github_issue', url, number, temporary_reason_for(e))
+  end
+
+  # The OAuth client can't see this repo — ask GithubApp whether Ledger's app
+  # is installed there and, if so, check the PR with its installation token.
+  def verify_pull_request_via_app(m, url, number)
+    installation_id = GithubApp.installation_for(m[:owner], m[:repo])
+    return app_not_installed_evidence('github_pr', url, number, m[:owner]) unless installation_id
+
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    app_client = GithubApp.installation_client(installation_id)
+    pr = app_client.pull_request(nwo, number)
+    merged = pr.merged_at.present?
+    authored = merged && pr.user.id == @user.github_id
+    reviewed = !authored && merged && approved_by_user?(nwo, number, client: app_client)
+
+    if authored || reviewed
+      create_evidence!(
+        kind: 'github_pr', url: url,
+        title: "GitHub PR ##{number} · #{pr.title}", detail: "private GitHub project · #{format_month(pr.merged_at)}",
+        status: 'fetched', repo: nwo, number: number, private: true, owner: m[:owner],
+        authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
+        snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, reviewed: reviewed }
+      )
+    else
+      create_evidence!(
+        kind: 'github_pr', url: url,
+        title: "GitHub PR ##{number}", detail: '',
+        status: 'failed', repo: nil, number: number, private: true, owner: m[:owner],
+        failure_reason: "You didn't author or approve this PR."
+      )
+    end
+  rescue Octokit::NotFound
+    failed_evidence('github_pr', url, number, 'Not found, or a private repo Ledger can’t see.')
+  rescue *TEMPORARY_ERRORS => e
+    failed_evidence('github_pr', url, number, temporary_reason_for(e))
+  end
+
+  def verify_issue_via_app(m, url, number)
+    installation_id = GithubApp.installation_for(m[:owner], m[:repo])
+    return app_not_installed_evidence('github_issue', url, number, m[:owner]) unless installation_id
+
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    app_client = GithubApp.installation_client(installation_id)
+    issue = app_client.issue(nwo, number)
+    participated = issue.user.id == @user.github_id || commented_by_user?(nwo, number, client: app_client)
+
+    if participated
+      create_evidence!(
+        kind: 'github_issue', url: url,
+        title: "GitHub issue ##{number} · #{issue.title}", detail: "private GitHub project · #{format_month(issue.created_at)}",
+        status: 'fetched', repo: nwo, number: number, private: true, owner: m[:owner],
+        authored_by_user: false, verified_at: Time.current,
+        snapshot: { title: issue.title, participated: true }
+      )
+    else
+      create_evidence!(
+        kind: 'github_issue', url: url,
+        title: "GitHub issue ##{number}", detail: '',
+        status: 'failed', repo: nil, number: number, private: true, owner: m[:owner],
+        failure_reason: "You didn't author or comment on this issue."
+      )
+    end
+  rescue Octokit::NotFound
+    failed_evidence('github_issue', url, number, 'Not found, or a private repo Ledger can’t see.')
   rescue *TEMPORARY_ERRORS => e
     failed_evidence('github_issue', url, number, temporary_reason_for(e))
   end
@@ -223,10 +372,20 @@ class GithubEvidenceVerifier
     raise InvalidLink, 'That doesn’t look like a link.'
   end
 
-  # Fetched fine, but the repo is private: store only what the pasted URL
-  # already says, never the title or repo details from the API.
-  def private_evidence(kind, url, number)
-    failed_evidence(kind, url, number, PRIVATE_REASON)
+  # Ledger's GitHub App isn't installed on this owner — an actionable failure,
+  # not a dead end: the editor offers to install it and check again.
+  def app_not_installed_evidence(kind, url, number, owner)
+    create_evidence!(
+      kind: kind, url: url,
+      title: "GitHub #{kind == 'github_pr' ? 'PR' : 'issue'} ##{number}", detail: '',
+      status: 'failed', repo: nil, number: number, private: true, owner: owner,
+      failure_code: APP_NOT_INSTALLED, failure_reason: app_not_installed_reason(owner),
+      install_url: GithubApp.install_url
+    )
+  end
+
+  def app_not_installed_reason(owner)
+    "Ledger can't see this repo. Install the Ledger app on #{owner} to verify private work."
   end
 
   # Author-only: the public API must not return failed evidence (see
@@ -258,8 +417,9 @@ class GithubEvidenceVerifier
   end
 
   # These raise TemporaryFailure instead of answering "no" when GitHub can't
-  # be asked, so a blip never reads as "you didn't review this".
-  def approved_by_user?(nwo, number)
+  # be asked, so a blip never reads as "you didn't review this". `client:`
+  # is overridden with the installation client when checking a private repo.
+  def approved_by_user?(nwo, number, client: self.client)
     client.pull_request_reviews(nwo, number, per_page: 100).any? do |review|
       review.state == 'APPROVED' && review.user&.id == @user.github_id
     end
@@ -269,7 +429,7 @@ class GithubEvidenceVerifier
     raise TemporaryFailure, e.message
   end
 
-  def commented_by_user?(nwo, number)
+  def commented_by_user?(nwo, number, client: self.client)
     client.issue_comments(nwo, number, per_page: 100).any? { |c| c.user&.id == @user.github_id }
   rescue Octokit::NotFound
     false

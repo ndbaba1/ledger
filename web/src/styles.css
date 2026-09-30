@@ -2970,6 +2970,10 @@ a.evidence-list__body:hover .evidence-list__label {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.evidence-edit__actions {
+  grid-column: 2 / -1;
+  margin-top: 2px;
+}
 
 .segmented--compact {
   gap: 0;

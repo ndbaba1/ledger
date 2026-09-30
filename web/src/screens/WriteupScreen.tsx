@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { Signal, Writeup, WriteupFields, WriteupStatus } from '../api/types'
 import { useMaybeWorkspace, useMe } from '../app/session'
@@ -98,6 +98,25 @@ function Editor({ initial }: { initial: Writeup }) {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const dirty = useRef(false)
   const info = TYPE_INFO[w.type]
+
+  // Back from installing the GitHub App on GitHub's own site — the setup
+  // callback already re-verified evidence server-side, so `initial` (loaded
+  // right after) already reflects it; just show the notice and drop the param.
+  const [params, setParams] = useSearchParams()
+  const [justInstalled, setJustInstalled] = useState(false)
+  useEffect(() => {
+    if (params.get('installed') !== '1') return
+    setJustInstalled(true)
+    setParams(
+      (p) => {
+        p.delete('installed')
+        return p
+      },
+      { replace: true },
+    )
+    // Only ever react to the param on the redirect back from GitHub.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const fields = useMemo(() => toFields(form), [form])
   const current = { ...w, ...fields }
@@ -335,6 +354,17 @@ function Editor({ initial }: { initial: Writeup }) {
             </section>
           )}
 
+          {justInstalled && (
+            <div className="banner banner--green" role="status">
+              <Icon name="check" size={16} />
+              <span>
+                Ledger can now verify {[...new Set(w.evidence.filter((e) => e.private && e.owner).map((e) => e.owner))].join(', ') || 'that repo'}.
+              </span>
+              <button type="button" className="icon-btn" aria-label="Dismiss" onClick={() => setJustInstalled(false)}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          )}
           <Evidence writeup={w} onChange={(next) => setW((prev) => ({ ...prev, evidence: next.evidence }))} />
 
           <section className="stack gap-10 side-section" aria-labelledby="w-ready">
@@ -461,6 +491,7 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
   const [url, setUrl] = useState('')
   const add = useMutation((u: string) => api.addWriteupEvidence(writeup.id, u))
   const remove = useMutation((key: string) => api.removeWriteupEvidence(writeup.id, key))
+  const recheck = useMutation((key: string) => api.recheckWriteupEvidence(writeup.id, key))
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -487,7 +518,10 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
         {writeup.evidence.map((e) => (
           <li key={e.key} className="evidence-edit__item">
             <SourceIcon kind={e.kind} />
-            <span className="evidence-edit__title">{e.title}</span>
+            <span className="evidence-edit__title">
+              {e.title}
+              {e.private && e.verified && <Icon name="lock" size={11} />}
+            </span>
             <button
               type="button"
               className="icon-btn"
@@ -500,9 +534,30 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
             >
               <Icon name="x" size={14} />
             </button>
+            {e.private && e.verified && (
+              <span className="evidence-edit__reason small muted">Only you see the title — readers see “private GitHub project”.</span>
+            )}
             {e.failureReason && (
               <span className="evidence-edit__reason">
                 <Icon name="alert" size={11} /> {e.failureReason}
+              </span>
+            )}
+            {e.failureCode === 'app_not_installed' && (
+              <span className="row gap-6 evidence-edit__actions">
+                <a href={e.installUrl} className="btn btn--primary btn--sm">
+                  Install Ledger on {e.owner}
+                </a>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  disabled={recheck.pending}
+                  onClick={async () => {
+                    const next = await recheck.run(e.key)
+                    if (next) onChange(next)
+                  }}
+                >
+                  Check again
+                </button>
               </span>
             )}
             {e.refreshWarning && (

@@ -68,8 +68,42 @@ cd web && npm install && npm run dev
 4. Copy the **Client ID**, generate a **Client secret**, and put both in `.env`
    as `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
 
-Version 1 only verifies **public** repos — a PR or issue in a private repo is
-stored as an unverified link rather than failing.
+Public repos are verified this way alone. For a private repo, sign-in stays on
+this OAuth app — Ledger instead checks whether its separate GitHub App (below)
+is installed there.
+
+## Creating the GitHub App (private repos)
+
+Sign-in never touches this app; it exists only so Ledger can read a PR or
+issue in a repo someone has explicitly installed it on.
+
+1. Go to https://github.com/settings/apps → **New GitHub App**.
+2. **Homepage URL**: `http://localhost:8080`.
+3. **Setup URL**: `http://localhost:8080/api/v1/github/app/setup` (nginx
+   proxies `/api/` to the `api` container, same as the OAuth callback above —
+   use `:3000` instead if you're running the API on its own), and check
+   **Redirect on update** so re-installing (adding repos) comes back here too.
+4. **Webhook**: uncheck **Active** — Ledger looks up installations on demand
+   (`GithubApp#installation_for`), so no webhook is needed, in development or
+   anywhere else.
+5. **Repository permissions**: `Pull requests` → Read-only, `Issues` →
+   Read-only, `Metadata` → Read-only (added automatically).
+6. **Where can this GitHub App be installed?**: Any account, so anyone can
+   install it on their own repos.
+7. Create the app, then **Generate a private key** — it downloads a `.pem`
+   file. Base64-encode it onto one line and put the pieces in `.env`:
+   ```bash
+   base64 -i your-app-name.private-key.pem
+   ```
+   - `GITHUB_APP_ID` — the **App ID** on the app's settings page.
+   - `GITHUB_APP_SLUG` — the app's URL slug (`github.com/apps/<slug>`).
+   - `GITHUB_APP_PRIVATE_KEY_BASE64` — the base64 output above.
+
+Without these three, development and test fall back to a fixed, throwaway app
+id and key (see `config/initializers/github_app.rb`) so the app still boots —
+private-repo verification just won't reach real installations until you set
+real ones. Never log, commit, or otherwise let `GITHUB_APP_PRIVATE_KEY_BASE64`
+leave `.env`.
 
 ## What's live versus mock
 

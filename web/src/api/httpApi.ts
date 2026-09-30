@@ -83,6 +83,7 @@ export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
     saveWriteup: (id: ID, fields: Partial<WriteupFields>) => patch(`/writeups/${id}`, fields),
     addWriteupEvidence: (id: ID, url: string) => post(`/writeups/${id}/evidence`, { url }),
     removeWriteupEvidence: (id: ID, key: string) => del(`/writeups/${id}/evidence/${encodeURIComponent(key)}`),
+    recheckWriteupEvidence: (id: ID, key: string) => post(`/writeups/${id}/evidence/${encodeURIComponent(key)}/recheck`, undefined),
     setWriteupStatus: (id: ID, status: WriteupStatus) => patch(`/writeups/${id}/status`, { status }),
     publishWriteupToProfile: (id: ID, summary?: string) => post<PublicPost>(`/writeups/${id}/publish`, summary ? { summary } : undefined),
   }

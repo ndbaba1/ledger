@@ -3,6 +3,7 @@ class Evidence < ApplicationRecord
 
   KINDS = %w[github_pr github_issue link].freeze
   STATUSES = %w[fetched linked failed].freeze
+  FAILURE_CODES = %w[app_not_installed].freeze
 
   belongs_to :writeup, inverse_of: :evidence
 
@@ -28,19 +29,32 @@ class Evidence < ApplicationRecord
   end
 
   # The verification badge this evidence earns on a published post of the
-  # given write-up type, or nil when it's just a plain link.
+  # given write-up type, or nil when it's just a plain link. A private repo's
+  # real repo name and URL never appear here — only the author's own editor
+  # (via EvidenceSerializer, from the `title` column) sees those.
   def badge(writeup_type)
     when_str = merged_at&.strftime('%b %Y')
-    if kind == 'github_pr' && authored_by_user
-      { label: "Authored & merged #{WHAT_BY_TYPE.fetch(writeup_type, 'the fix')}", detail: "#{repo} · #{when_str}", verified: true, url: url }
-    elsif kind == 'github_pr' && snapshot['reviewed']
-      { label: 'Reviewed the change', detail: "#{repo} · #{when_str}", verified: true, url: url }
-    elsif kind == 'github_issue' && snapshot['participated']
-      { label: 'Participated in the investigation', detail: repo, verified: true, url: url }
-    end
+    result =
+      if kind == 'github_pr' && authored_by_user
+        { label: "Authored & merged #{WHAT_BY_TYPE.fetch(writeup_type, 'the fix')}", detail: badge_detail(when_str), verified: true, url: public_url }
+      elsif kind == 'github_pr' && snapshot['reviewed']
+        { label: 'Reviewed the change', detail: badge_detail(when_str), verified: true, url: public_url }
+      elsif kind == 'github_issue' && snapshot['participated']
+        { label: 'Participated in the investigation', detail: badge_detail(nil), verified: true, url: public_url }
+      end
+    result&.compact
   end
 
   private
+
+  def badge_detail(when_str)
+    label = private? ? 'private GitHub project' : repo
+    when_str ? "#{label} · #{when_str}" : label
+  end
+
+  def public_url
+    private? ? nil : url
+  end
 
   def url_is_http
     return if url.blank?

@@ -73,8 +73,16 @@ export interface Source {
   verified?: boolean
   /** Why this didn't earn a verification badge, e.g. "Not merged yet." */
   failureReason?: string
+  /** Set when `failureReason` is actionable rather than a dead end — currently only the GitHub App not being installed yet. */
+  failureCode?: 'app_not_installed'
   /** A temporary problem re-checking this on republish (expired sign-in, rate limit…) — the previous result still stands. */
   refreshWarning?: string
+  /** A GitHub PR/issue behind a private repo. Only the author ever sees its real title — everyone else sees "private GitHub project". */
+  private?: boolean
+  /** The repo's owner login, when `private` — for "Install Ledger on <owner>". */
+  owner?: string
+  /** Where to send the author to install the Ledger GitHub App, when `failureCode` is `app_not_installed`. */
+  installUrl?: string
   excerpt?: SourceExcerpt
 }
 

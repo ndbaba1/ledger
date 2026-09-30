@@ -99,23 +99,25 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(evidence).not_to have_key('failureReason')
     end
 
-    it 'fetches fine but redacts a private repo — no title, detail or repo name stored' do
+    it 'fetches a private repo fine but asks GithubApp before trusting anything about it' do
       stub_pull_request(60, body: pr_body(user_id: 1001, login: 'octocat', private_repo: true))
+      stub_installation_missing('acme', 'checkout')
 
       post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/60' }
 
       expect(response).to have_http_status(:created)
       evidence = json['evidence'].last
       expect(evidence['status']).to eq('failed')
-      expect(evidence['failureReason']).to eq('Private repo — not supported yet.')
+      expect(evidence['failureCode']).to eq('app_not_installed')
       expect(evidence['title']).to eq('GitHub PR #60')
       expect(evidence['title']).not_to include('Revert pool size')
       expect(evidence['detail']).to eq('')
     end
 
-    it 'stores a plain link unverified for a private repo (404), explaining why' do
+    it 'asks GithubApp when the OAuth client 404s (typical for a private repo it cannot see)' do
       stub_request(:get, 'https://api.github.com/repos/acme/private-repo/pulls/7')
         .to_return(status: 404, body: { message: 'Not Found' }.to_json, headers: { 'Content-Type' => 'application/json' })
+      stub_installation_missing('acme', 'private-repo')
 
       post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/private-repo/pull/7' }
 
@@ -123,7 +125,10 @@ RSpec.describe 'Writeup evidence API', type: :request do
       evidence = json['evidence'].last
       expect(evidence['status']).to eq('failed')
       expect(evidence['detail']).to eq('')
-      expect(evidence['failureReason']).to eq('Not found, or a private repo (not supported yet).')
+      expect(evidence['failureCode']).to eq('app_not_installed')
+      expect(evidence['failureReason']).to eq("Ledger can't see this repo. Install the Ledger app on acme to verify private work.")
+      expect(evidence['installUrl']).to start_with("https://github.com/apps/#{GithubApp::SLUG}/installations/new")
+      expect(evidence['owner']).to eq('acme')
     end
 
     it 'reports an expired GitHub sign-in' do
@@ -152,6 +157,75 @@ RSpec.describe 'Writeup evidence API', type: :request do
 
       evidence = json['evidence'].last
       expect(evidence['url']).to eq('https://github.com/acme/checkout/pull/63')
+    end
+  end
+
+  describe 'POST /api/v1/writeups/:id/evidence — private repos with the GitHub App installed' do
+    it 'verifies a merged private PR you authored, with a lock-worthy real title and a private badge detail' do
+      stub_pull_request(70, body: pr_body(user_id: 1001, login: 'octocat', private_repo: true))
+      stub_installation_found('acme', 'checkout')
+      stub_installation_token
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/70')
+        .with(headers: { 'Authorization' => 'Bearer ghs_installation_token' })
+        .to_return(status: 200, body: pr_body(user_id: 1001, login: 'octocat').to_json, headers: { 'Content-Type' => 'application/json' })
+
+      post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/70' }
+
+      expect(response).to have_http_status(:created)
+      evidence = json['evidence'].last
+      expect(evidence['status']).to eq('fetched')
+      expect(evidence['authoredByMe']).to be true
+      expect(evidence['private']).to be true
+      expect(evidence['title']).to include('Revert pool size')
+      expect(evidence['detail']).to match(/private GitHub project/)
+      expect(evidence).not_to have_key('failureReason')
+    end
+
+    it "does not verify someone else's private PR, and stores no title" do
+      stub_pull_request(71, body: pr_body(user_id: 1001, login: 'octocat', private_repo: true))
+      stub_installation_found('acme', 'checkout')
+      stub_installation_token
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/71')
+        .with(headers: { 'Authorization' => 'Bearer ghs_installation_token' })
+        .to_return(status: 200, body: pr_body(user_id: 2002, login: 'someone-else').to_json, headers: { 'Content-Type' => 'application/json' })
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/71/reviews')
+        .with(query: { 'per_page' => '100' }, headers: { 'Authorization' => 'Bearer ghs_installation_token' })
+        .to_return(status: 200, body: [].to_json, headers: { 'Content-Type' => 'application/json' })
+
+      post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/71' }
+
+      expect(response).to have_http_status(:created)
+      evidence = json['evidence'].last
+      expect(evidence['status']).to eq('failed')
+      expect(evidence['failureReason']).to eq("You didn't author or approve this PR.")
+      expect(evidence['title']).to eq('GitHub PR #71')
+      expect(evidence['title']).not_to include('Revert pool size')
+      expect(evidence['detail']).to eq('')
+    end
+  end
+
+  describe 'POST /api/v1/writeups/:id/evidence/:key/recheck' do
+    it 're-runs the verifier once the app has been installed since' do
+      stub_pull_request(72, body: pr_body(user_id: 1001, login: 'octocat', private_repo: true))
+      stub_installation_missing('acme', 'checkout')
+      post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/72' }
+      key = json['evidence'].last['key']
+      expect(json['evidence'].last['failureCode']).to eq('app_not_installed')
+
+      stub_pull_request(72, body: pr_body(user_id: 1001, login: 'octocat', private_repo: true))
+      stub_installation_found('acme', 'checkout')
+      stub_installation_token
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/72')
+        .with(headers: { 'Authorization' => 'Bearer ghs_installation_token' })
+        .to_return(status: 200, body: pr_body(user_id: 1001, login: 'octocat').to_json, headers: { 'Content-Type' => 'application/json' })
+
+      post_json "/api/v1/writeups/#{writeup.id}/evidence/#{key}/recheck"
+
+      expect(response).to have_http_status(:ok)
+      evidence = json['evidence'].last
+      expect(evidence['status']).to eq('fetched')
+      expect(evidence['authoredByMe']).to be true
+      expect(evidence).not_to have_key('failureCode')
     end
   end
 
@@ -185,17 +259,18 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(evidence).not_to have_key('failureReason')
     end
 
-    it 'redacts a private repo behind the issue' do
+    it 'asks GithubApp before trusting anything about a private repo behind the issue' do
       stub_request(:get, 'https://api.github.com/repos/acme/checkout/issues/81')
         .to_return(status: 200, body: { title: 'Secret bug', created_at: '2026-09-01T00:00:00Z', user: { id: 1001, login: 'octocat' } }.to_json,
                    headers: { 'Content-Type' => 'application/json' })
       stub_repository(private_repo: true)
+      stub_installation_missing('acme', 'checkout')
 
       post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/issues/81' }
 
       evidence = json['evidence'].last
       expect(evidence['status']).to eq('failed')
-      expect(evidence['failureReason']).to eq('Private repo — not supported yet.')
+      expect(evidence['failureCode']).to eq('app_not_installed')
       expect(evidence['title']).to eq('GitHub issue #81')
       expect(evidence['title']).not_to include('Secret bug')
     end

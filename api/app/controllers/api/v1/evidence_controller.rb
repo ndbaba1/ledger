@@ -20,6 +20,15 @@ module Api
         render json: WriteupSerializer.call(@writeup.reload)
       end
 
+      # Re-runs the verifier for one piece of evidence in place — used after
+      # installing the GitHub App, or just to try again, without re-pasting
+      # the URL (which would otherwise bounce off DuplicateLink).
+      def recheck
+        evidence = @writeup.evidence.find_by!(key: params[:key])
+        GithubEvidenceVerifier.refresh(evidence, current_user)
+        render json: WriteupSerializer.call(@writeup.reload)
+      end
+
       private
 
       def render_evidence_error(error)

@@ -18,6 +18,8 @@ services:
       context: ./api
       dockerfile: Dockerfile.dev
     command: sh -c "bin/rails db:prepare && bin/rails s -b 0.0.0.0"
+    # Includes GITHUB_APP_ID, GITHUB_APP_SLUG and GITHUB_APP_PRIVATE_KEY_BASE64
+    # (private-repo verification via the GitHub App) alongside everything else.
     env_file: .env
     ports:
       - "3000:3000"
