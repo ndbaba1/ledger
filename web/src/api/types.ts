@@ -69,6 +69,8 @@ export interface Source {
   hops: number
   /** The current user authored this artifact (used for verification badges). */
   authoredByMe?: boolean
+  /** A verified PR (authored & merged, or reviewed & merged) or issue (participated in). */
+  verified?: boolean
   /** Why this didn't earn a verification badge, e.g. "Not merged yet." */
   failureReason?: string
   excerpt?: SourceExcerpt
@@ -230,6 +232,8 @@ export interface PublicPost {
   result?: ResultMetric
   lesson?: string
   badges: Badge[]
+  /** Every piece of evidence on the post, verified or not. */
+  evidence?: Badge[]
   publishedAt: string
   /** Employer line shown on the post, if the author chose to show one. */
   employerLine?: string

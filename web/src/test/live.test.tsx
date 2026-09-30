@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LedgerApi } from '../api/client'
 import type { ExploreResult, Profile, PostThread, PublicPost, User, Writeup } from '../api/types'
@@ -244,5 +244,81 @@ describe('living documents: questions, editing and revisions', () => {
     await screen.findByRole('heading', { level: 1 })
     expect(screen.queryByRole('link', { name: /Edit post/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/History ·/)).not.toBeInTheDocument()
+  })
+})
+
+describe('the post page rail', () => {
+  it('always shows the author card, even with no verified evidence and no other posts', async () => {
+    const authorWithProfile: User = { ...author, headline: 'Staff engineer · payments', stack: ['go', 'postgres', 'kafka', 'terraform', 'redis', 'envoy', 'grpc'] }
+    await renderLive(`#/u/${author.handle}/${post.slug}`, () => ({
+      me: () => Promise.resolve(me),
+      getPost: () => Promise.resolve({ post: { ...post, evidence: [], badges: [] }, author: authorWithProfile }),
+      getProfile: () => Promise.resolve(profile(authorWithProfile)),
+      getThread: () => Promise.resolve(thread),
+    }))
+
+    const rail = await screen.findByRole('complementary', { name: 'Author, evidence and more write-ups' })
+    expect(within(rail).getByRole('heading', { name: 'Hannah L.' })).toBeInTheDocument()
+    expect(within(rail).getByText('@hannahl')).toBeInTheDocument()
+    expect(within(rail).getByText('Staff engineer · payments')).toBeInTheDocument()
+    // Capped at 6 chips even though the author has 7 stack tags.
+    expect(within(rail).getAllByText(/^(go|postgres|kafka|terraform|redis|envoy|grpc)$/)).toHaveLength(6)
+    expect(within(rail).getByRole('link', { name: 'View profile' })).toHaveAttribute('href', '#/u/hannahl')
+
+    expect(within(rail).queryByRole('heading', { name: 'Evidence' })).not.toBeInTheDocument()
+    expect(within(rail).queryByRole('heading', { name: /More from/ })).not.toBeInTheDocument()
+  })
+
+  it('lists every piece of evidence, verified and not', async () => {
+    const evidence: PublicPost['evidence'] = [
+      { label: 'Authored & merged the fix', detail: 'acme/checkout · Sep 2026', verified: true, url: 'https://github.com/acme/checkout/pull/9' },
+      { label: 'GitHub PR #11', verified: false, url: 'https://github.com/acme/checkout/pull/11' },
+    ]
+    await renderLive(`#/u/${author.handle}/${post.slug}`, () => ({
+      me: () => Promise.resolve(me),
+      getPost: () => Promise.resolve({ post: { ...post, evidence }, author }),
+      getProfile: () => Promise.resolve(profile(author)),
+      getThread: () => Promise.resolve(thread),
+    }))
+
+    const evidenceSection = await screen.findByRole('heading', { name: 'Evidence' })
+    const rail = within(evidenceSection.closest('section')!)
+    expect(rail.getByText('Authored & merged the fix')).toBeInTheDocument()
+    expect(rail.getByText('acme/checkout · Sep 2026')).toBeInTheDocument()
+    expect(rail.getByText('GitHub PR #11')).toBeInTheDocument()
+    expect(rail.getByText('not verified')).toBeInTheDocument()
+    expect(rail.getByText('Each badge is checked with GitHub when the post is published.')).toBeInTheDocument()
+    expect(rail.getByRole('link', { name: /GitHub PR #11/ })).toHaveAttribute('href', 'https://github.com/acme/checkout/pull/11')
+  })
+
+  it('lists section headings under "On this page", including Follow-ups and Ask the author', async () => {
+    const twoSections: PublicPost = {
+      ...post,
+      sections: [
+        { heading: 'Problem', kind: 'text', body: 'It multiplied.' },
+        { heading: 'Root cause', kind: 'text', body: 'A retry storm.' },
+      ],
+      followUps: [{ answer: 'Yes, exactly that.' }],
+    }
+    await renderLive(`#/u/${author.handle}/${post.slug}`, () => ({
+      me: () => Promise.resolve(me),
+      getPost: () => Promise.resolve({ post: twoSections, author }),
+      getProfile: () => Promise.resolve(profile(author)),
+      getThread: () => Promise.resolve(thread),
+    }))
+
+    const nav = await screen.findByRole('heading', { name: 'On this page' })
+    const onThisPage = within(nav.closest('nav')!)
+    const path = `#/u/${author.handle}/${post.slug}`
+    expect(onThisPage.getByRole('link', { name: 'Problem' })).toHaveAttribute('href', `${path}#problem`)
+    expect(onThisPage.getByRole('link', { name: 'Root cause' })).toHaveAttribute('href', `${path}#root-cause`)
+    expect(onThisPage.getByRole('link', { name: 'Follow-ups' })).toHaveAttribute('href', `${path}#follow-ups`)
+    expect(onThisPage.getByRole('link', { name: 'Ask the author' })).toHaveAttribute('href', `${path}#ask-the-author`)
+
+    // The anchors it points to actually exist on the page.
+    expect(document.getElementById('problem')).toBeInTheDocument()
+    expect(document.getElementById('root-cause')).toBeInTheDocument()
+    expect(document.getElementById('follow-ups')).toBeInTheDocument()
+    expect(document.getElementById('ask-the-author')).toBeInTheDocument()
   })
 })

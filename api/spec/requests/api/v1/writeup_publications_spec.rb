@@ -11,7 +11,18 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     post_json "/api/v1/writeups/#{writeup.id}/publish"
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(json['error']).to include('A title', 'Problem', 'Root cause', 'Solution', 'An MR, PR or issue as evidence')
+    expect(json['error']).to include('A title', 'Problem', 'Root cause', 'Solution', 'A verified PR you authored or reviewed')
+  end
+
+  it 'blocks publishing when the only evidence is an unverified PR or a plain link' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+    create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: false, repo: 'acme/checkout')
+    create(:evidence, writeup: writeup, kind: 'link', key: 'S2', url: 'https://example.com/notes')
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(json['error']).to include('A verified PR you authored or reviewed')
   end
 
   it 'publishes a complete write-up to the profile and returns a PublicPost' do

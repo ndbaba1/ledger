@@ -12,12 +12,12 @@ describe('write-up rules', () => {
     expect(toLines('- Kafka\n\n• Vendor  \n  * Cron job')).toEqual(['Kafka', 'Vendor', 'Cron job'])
   })
 
-  it('requires the type’s key sections and evidence', () => {
+  it('requires the type’s key sections and a verified PR', () => {
     const blank = { ...EMPTY_FIELDS, type: 'incident' as const, status: 'draft' as const, evidence: [] }
-    expect(publishBlockers(blank)).toEqual(['A title', 'Problem', 'Root cause', 'Solution', 'An MR, PR or issue as evidence'])
+    expect(publishBlockers(blank)).toEqual(['A title', 'Problem', 'Root cause', 'Solution', 'A verified PR you authored or reviewed'])
   })
 
-  it('keeps designs unpublishable until shipped with code, rollout and a result', () => {
+  it('keeps designs unpublishable until shipped with rollout, a result and a verified PR', () => {
     const proposal = {
       ...EMPTY_FIELDS,
       title: 'Edge rate limiting',
@@ -31,8 +31,22 @@ describe('write-up rules', () => {
       'Marked as shipped',
       'Rollout',
       'A result after launch',
-      'An MR or PR that built it',
+      'A verified PR you authored or reviewed',
     ])
+  })
+
+  it('an unverified PR does not count', () => {
+    const withUnverifiedPr = {
+      ...EMPTY_FIELDS,
+      title: 'Edge rate limiting',
+      symptom: 'x',
+      rootCause: 'x',
+      fix: 'x',
+      type: 'incident' as const,
+      status: 'draft' as const,
+      evidence: [{ key: 'S1', kind: 'github_pr' as const, title: 'PR', detail: '', status: 'fetched' as const, hops: 0, verified: false }],
+    }
+    expect(publishBlockers(withUnverifiedPr)).toEqual(['A verified PR you authored or reviewed'])
   })
 })
 
@@ -53,7 +67,7 @@ describe('mock API: write-ups', () => {
 
   it('publishes a shipped design as a team record with its evidence', async () => {
     const api = newApi()
-    await api.addWriteupEvidence('w_ratelimit', 'https://gitlab.com/platform/edge/-/merge_requests/88')
+    await api.addWriteupEvidence('w_ratelimit', 'https://github.com/acme/edge/pull/88')
     await api.setWriteupStatus('w_ratelimit', 'shipped')
     await api.saveWriteup('w_ratelimit', {
       fix: 'Shadow mode for a week, then enforced per tenant tier.',
@@ -90,7 +104,7 @@ describe('writing in the app', () => {
     const publish = screen.getByRole('button', { name: 'Publish to Platform Eng' })
     expect(publish).toBeDisabled()
     const checklist = screen.getByRole('region', { name: 'Ready to publish' })
-    expect(within(checklist).getByText('An MR, PR or issue as evidence')).toBeInTheDocument()
+    expect(within(checklist).getByText('A verified PR you authored or reviewed')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Evidence link'), 'https://github.com/acme/api/pull/412')
     await user.click(screen.getByRole('button', { name: 'Add' }))

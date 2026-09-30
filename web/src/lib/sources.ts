@@ -60,6 +60,10 @@ export function sourceFromUrl(rawUrl: string, existing: Source[]): Source {
   const next = existing.reduce((max, s) => Math.max(max, Number(s.key.slice(1)) || 0), 0) + 1
   const parsed = new URL(url)
   const ref = shortRef(kind, parsed)
+  // The mock has no real GitHub to check against, so a pasted PR is simply
+  // trusted as one you authored and merged — the same happy path the real
+  // backend's GithubEvidenceVerifier confirms for a live account.
+  const isGithubPr = kind === 'github_pr'
   return {
     key: `S${next}`,
     kind,
@@ -68,6 +72,7 @@ export function sourceFromUrl(rawUrl: string, existing: Source[]): Source {
     status: FETCHABLE.has(kind) ? 'fetched' : 'linked',
     url,
     hops: 0,
+    ...(isGithubPr ? { authoredByMe: true, verified: true } : {}),
   }
 }
 

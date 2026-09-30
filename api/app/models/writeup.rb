@@ -53,10 +53,8 @@ class Writeup < ApplicationRecord
       blockers << 'Marked as shipped' unless status == 'shipped'
       blockers << 'Rollout' unless field_filled?('fix')
       blockers << 'A result after launch' unless result_complete?
-      blockers << 'An MR or PR that built it' unless evidence.any? { |e| Evidence::CODE_KINDS.include?(e.kind) }
-    else
-      blockers << 'An MR, PR or issue as evidence' unless evidence.any? { |e| Evidence::PROOF_KINDS.include?(e.kind) }
     end
+    blockers << 'A verified PR you authored or reviewed' unless evidence.any? { |e| e.kind == 'github_pr' && e.verified? }
     blockers
   end
 

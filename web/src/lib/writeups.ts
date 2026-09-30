@@ -188,10 +188,6 @@ export const EMPTY_FIELDS: WriteupFields = {
   signals: [],
 }
 
-/** Evidence that the work happened: code changes or the tracked issue. */
-const PROOF_KINDS = new Set(['gitlab_mr', 'github_pr', 'gitlab_issue', 'github_issue'])
-const CODE_KINDS = new Set(['gitlab_mr', 'github_pr'])
-
 export interface Requirement {
   label: string
   done: boolean
@@ -212,16 +208,11 @@ export function publishRequirements(w: Pick<Writeup, keyof WriteupFields | 'type
     reqs.push({ label: 'Marked as shipped', done: w.status === 'shipped' })
     reqs.push({ label: 'Rollout', done: filled('fix') })
     reqs.push({ label: 'A result after launch', done: Boolean(w.result?.label && w.result.before && w.result.after) })
-    reqs.push({
-      label: 'An MR or PR that built it',
-      done: w.evidence.some((e) => CODE_KINDS.has(e.kind)),
-    })
-  } else {
-    reqs.push({
-      label: 'An MR, PR or issue as evidence',
-      done: w.evidence.some((e) => PROOF_KINDS.has(e.kind)),
-    })
   }
+  reqs.push({
+    label: 'A verified PR you authored or reviewed',
+    done: w.evidence.some((e) => e.kind === 'github_pr' && e.verified),
+  })
   return reqs
 }
 

@@ -3,9 +3,6 @@ class Evidence < ApplicationRecord
 
   KINDS = %w[github_pr github_issue link].freeze
   STATUSES = %w[fetched linked failed].freeze
-  # Evidence that counts as proof the work happened, for publishBlockers.
-  PROOF_KINDS = %w[github_pr github_issue].freeze
-  CODE_KINDS = %w[github_pr].freeze
 
   belongs_to :writeup, inverse_of: :evidence
 

@@ -8,12 +8,21 @@ import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { KindPill, PostContent } from '../components/PostContent'
 import { HitButton, PublicQA } from '../components/PublicQA'
-import type { PostThread, PublicPost } from '../api/types'
+import type { PostThread, PublicPost, User } from '../api/types'
 import { ErrorState, Loading } from '../components/States'
 import { features } from '../lib/features'
-import { shortDate } from '../lib/format'
+import { shortDate, slugifyHeading } from '../lib/format'
 import { postMinutes } from '../lib/publicPost'
 import { useQuery } from '../lib/useAsync'
+
+/** Section headings for the "On this page" nav, in reading order. */
+function onThisPageHeadings(post: PublicPost): string[] {
+  return [
+    ...post.sections.map((s) => s.heading),
+    ...(post.followUps?.length ? ['Follow-ups'] : []),
+    ...(features.publicQA ? ['Ask the author'] : []),
+  ]
+}
 
 export function PostScreen() {
   const { handle = '', slug = '' } = useParams()
@@ -48,6 +57,34 @@ export function PostScreen() {
     return () => clearTimeout(t)
   }, [location.hash, data.data])
 
+  const [activeAnchor, setActiveAnchor] = useState<string>()
+
+  // Highlights the "On this page" entry for whichever section is nearest
+  // the top of the viewport. Tracks visibility across callbacks (only
+  // changed entries are reported) rather than trusting any single one.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined' || !data.data) return
+    const current = postOverride ?? data.data[0].post
+    const ids = onThisPageHeadings(current).map(slugifyHeading)
+    const elements = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => Boolean(el))
+    if (elements.length === 0) return
+
+    const visible = new Set<string>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id)
+          else visible.delete(entry.target.id)
+        }
+        const active = ids.find((id) => visible.has(id))
+        if (active) setActiveAnchor(active)
+      },
+      { rootMargin: '-15% 0px -70% 0px', threshold: 0 },
+    )
+    elements.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [data.data, postOverride])
+
   if (data.error)
     return (
       <PublicLayout>
@@ -68,6 +105,10 @@ export function PostScreen() {
   const revisions = post.revisions ?? []
   const updatedAt = revisions[0]?.createdAt
   const askersById = new Map(currentThread.askers.map((u) => [u.id, u]))
+  const onThisPage = onThisPageHeadings(post)
+  // Live posts return every piece of evidence, verified or not; mock posts
+  // only ever have the already-verified `badges` — which renders the same way.
+  const evidence = post.evidence ?? post.badges
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
   const partOf = features.projects ? profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug)) : undefined
 
@@ -144,7 +185,7 @@ export function PostScreen() {
           />
 
           {post.followUps?.length ? (
-            <section className="post-section">
+            <section id="follow-ups" className="post-section">
               <h2 className="post-section__label">Follow-ups</h2>
               <ul className="followups">
                 {post.followUps.map((f, i) => {
@@ -215,23 +256,25 @@ export function PostScreen() {
           )}
         </article>
 
-        <aside className="post-rail" aria-label="Evidence and more write-ups">
-          {post.badges.length > 0 && (
-            <section className="stack gap-12" aria-labelledby="evidence-title">
+        <aside className="post-rail" aria-label="Author, evidence and more write-ups">
+          <AuthorCard author={author} />
+
+          {evidence.length > 0 && (
+            <section className="stack gap-12 rail-section" aria-labelledby="evidence-title">
               <h2 id="evidence-title" className="post-section__label">
                 Evidence
               </h2>
               <ul className="evidence-list">
-                {post.badges.map((b) => {
+                {evidence.map((b, i) => {
                   const body = (
                     <>
                       <span className="evidence-list__label">{b.label}</span>
-                      {b.detail && <span className="evidence-list__detail">{b.detail}</span>}
+                      <span className="evidence-list__detail">{b.verified ? b.detail : 'not verified'}</span>
                     </>
                   )
                   return (
-                    <li key={b.label + b.detail} className="evidence-list__item">
-                      <Icon name="check" size={15} strokeWidth={2.5} className="text-green" />
+                    <li key={b.url ?? i} className={`evidence-list__item${b.verified ? '' : ' evidence-list__item--unverified'}`}>
+                      <Icon name={b.verified ? 'check' : 'link'} size={15} strokeWidth={2.5} className={b.verified ? 'text-green' : 'muted'} />
                       {b.url ? (
                         <a href={b.url} target="_blank" rel="noreferrer" className="evidence-list__body">
                           {body}
@@ -243,12 +286,35 @@ export function PostScreen() {
                   )
                 })}
               </ul>
-              <p className="small muted">Checked against GitLab and GitHub when published. Private work is verified without showing the code or company.</p>
+              <p className="small muted">Each badge is checked with GitHub when the post is published.</p>
             </section>
           )}
 
+          {onThisPage.length > 0 && (
+            <nav className="rail-section" aria-labelledby="on-this-page-title">
+              <h2 id="on-this-page-title" className="post-section__label">
+                On this page
+              </h2>
+              <ul className="on-this-page">
+                {onThisPage.map((heading) => {
+                  const id = slugifyHeading(heading)
+                  return (
+                    <li key={id}>
+                      <Link
+                        to={`${location.pathname}#${id}`}
+                        className={`on-this-page__link${activeAnchor === id ? ' on-this-page__link--active' : ''}`}
+                      >
+                        {heading}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </nav>
+          )}
+
           {more.length > 0 && (
-            <section className="stack gap-12" aria-labelledby="more-title">
+            <section className="stack gap-12 rail-section" aria-labelledby="more-title">
               <h2 id="more-title" className="post-section__label">
                 More from @{author.handle}
               </h2>
@@ -263,5 +329,31 @@ export function PostScreen() {
         </aside>
       </div>
     </PublicLayout>
+  )
+}
+
+/** Who wrote this, always shown even when there's no evidence or other posts to fill the rail. */
+function AuthorCard({ author }: { author: User }) {
+  return (
+    <section className="author-card" aria-labelledby="author-card-title">
+      <Avatar user={author} size="lg" />
+      <h2 id="author-card-title" className="author-card__name">
+        {author.name}
+      </h2>
+      <span className="small muted">@{author.handle}</span>
+      {author.headline && <p className="small author-card__headline">{author.headline}</p>}
+      {author.stack && author.stack.length > 0 && (
+        <div className="row gap-6 wrap">
+          {author.stack.slice(0, 6).map((s) => (
+            <span key={s} className="chip">
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+      <Link to={`/u/${author.handle}`} className="btn btn--ghost btn--sm">
+        View profile
+      </Link>
+    </section>
   )
 }

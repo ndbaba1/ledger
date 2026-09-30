@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { PostSection, RecordType, ResultMetric } from '../api/types'
+import { slugifyHeading } from '../lib/format'
 import { Icon } from './Icon'
 import { Markdown } from './Inline'
 
@@ -43,7 +44,7 @@ export function PostContent({ decision, sections, result, lesson, extra, render 
       )}
 
       {sections.map((s) => (
-        <section key={s.heading} className="post-section">
+        <section key={s.heading} id={slugifyHeading(s.heading)} className="post-section">
           <h2 className="post-section__label">{s.heading}</h2>
           <SectionBody section={s} render={render} />
         </section>

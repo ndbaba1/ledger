@@ -75,6 +75,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
 
     it 'does not award the reviewed badge for an approval on an unmerged PR' do
       writeup.update!(title: 'Checkout p99 latency spike')
+      create(:evidence, writeup: writeup, key: 'S1', kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
       stub_pull_request(52, body: pr_body(user_id: 2002, login: 'someone-else', merged_at: nil))
       stub_reviews(52, [{ state: 'APPROVED', user: { id: 1001, login: 'octocat' } }])
 
@@ -84,7 +85,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(evidence['failureReason']).to eq("Authored by someone-else — you're signed in as octocat.")
 
       post_json "/api/v1/writeups/#{writeup.id}/publish"
-      expect(json['badges']).to be_empty
+      expect(json['badges'].length).to eq(1)
     end
 
     it 'awards the reviewed badge once the approved PR is merged' do

@@ -101,7 +101,7 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
   }
 
   return (
-    <section className="pqa" aria-labelledby="pqa-title">
+    <section id="ask-the-author" className="pqa" aria-labelledby="pqa-title">
       <div className="row gap-10 wrap">
         <h2 id="pqa-title" className="post-section__label">
           Ask the author

@@ -101,7 +101,7 @@ describe('Ledger app', () => {
     expect(screen.getByRole('heading', { name: 'Root cause' })).toBeInTheDocument()
     expect(screen.getByText('Tables agent_ro could write to')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Lesson' })).toBeInTheDocument()
-    const evidence = screen.getByRole('complementary', { name: 'Evidence and more write-ups' })
+    const evidence = screen.getByRole('complementary', { name: 'Author, evidence and more write-ups' })
     expect(within(evidence).getByRole('link', { name: /Maintainer/ })).toHaveAttribute(
       'href',
       'https://github.com/vaultkit-inc/agent-db-scan',

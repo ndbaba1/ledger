@@ -2473,6 +2473,27 @@ a.ref:hover {
   background: var(--surface);
   border-left: 1px solid var(--line);
 }
+.author-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.author-card__name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+.author-card__headline {
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.author-card .chip {
+  font-size: 12px;
+}
+.author-card .btn {
+  margin-top: 4px;
+}
 .evidence-list {
   list-style: none;
   margin: 0;
@@ -2510,6 +2531,37 @@ a.evidence-list__body:hover .evidence-list__label {
   font-size: 13px;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+.evidence-list__item--unverified .evidence-list__label {
+  color: var(--muted);
+}
+.evidence-list__item--unverified a.evidence-list__body:hover .evidence-list__label {
+  color: var(--text);
+}
+.on-this-page {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.on-this-page__link {
+  display: block;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--muted);
+  border-left: 2px solid transparent;
+  padding-left: 12px;
+  margin-left: -13px;
+}
+.on-this-page__link:hover {
+  color: var(--text);
+}
+.on-this-page__link--active {
+  color: var(--text);
+  border-left-color: var(--blue);
+  font-weight: 600;
 }
 .more-card {
   display: flex;
@@ -2567,6 +2619,18 @@ a.evidence-list__body:hover .evidence-list__label {
   align-items: baseline;
 }
 
+@media (min-width: 1024px) {
+  .post-page {
+    align-items: start;
+  }
+  .post-rail {
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+}
+
 @media (max-width: 1023px) {
   .post-page {
     grid-template-columns: minmax(0, 1fr);
@@ -2575,6 +2639,9 @@ a.evidence-list__body:hover .evidence-list__label {
     border-left: none;
     border-top: 1px solid var(--line);
     padding: 28px 24px 48px;
+  }
+  .post-rail .rail-section {
+    display: none;
   }
   .post-main {
     padding: 24px 24px 40px;

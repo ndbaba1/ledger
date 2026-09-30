@@ -30,3 +30,11 @@ export function readMinutes(words: number): number {
 export function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length
 }
+
+/** A stable anchor id for a section heading, e.g. "Root cause" → "root-cause". */
+export function slugifyHeading(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
