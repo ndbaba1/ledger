@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import { PublicLayout } from '../app/PublicLayout'
@@ -30,7 +30,23 @@ export function PostScreen() {
     setThread(data.data?.[2])
     setPostOverride(undefined)
   }, [data.data])
-  const [banner, setBanner] = useState(Boolean((location.state as { justPublished?: boolean } | null)?.justPublished))
+  const navState = location.state as { justPublished?: boolean; justUpdated?: boolean } | null
+  const [banner, setBanner] = useState(Boolean(navState?.justPublished || navState?.justUpdated))
+  const justUpdated = Boolean(navState?.justUpdated)
+  const highlighted = useRef<string>()
+
+  // Deep-links to a question (#q-<id>) scroll to it and highlight it briefly.
+  useEffect(() => {
+    const id = location.hash.replace('#', '')
+    if (!id || !data.data || highlighted.current === id) return
+    const el = document.getElementById(id)
+    if (!el) return
+    highlighted.current = id
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('qa__thread--highlight')
+    const t = setTimeout(() => el.classList.remove('qa__thread--highlight'), 2500)
+    return () => clearTimeout(t)
+  }, [location.hash, data.data])
 
   if (data.error)
     return (
@@ -62,12 +78,20 @@ export function PostScreen() {
             <span className="truncate" aria-current="page">
               {post.title}
             </span>
+            {isMe && post.writeupId && (
+              <Link to={`/write/${post.writeupId}`} className="btn btn--ghost btn--sm push-right">
+                <Icon name="pencil" size={13} />
+                Edit post
+              </Link>
+            )}
           </nav>
 
           {banner && (
             <div className="banner banner--green" role="status">
               <Icon name="check" size={16} />
-              <span>Your post is live. Share the link — the verification badges travel with it.</span>
+              <span>
+                {justUpdated ? 'Your update is live.' : 'Your post is live. Share the link — the verification badges travel with it.'}
+              </span>
               <button type="button" className="icon-btn" aria-label="Dismiss" onClick={() => setBanner(false)}>
                 <Icon name="x" size={14} />
               </button>
@@ -95,7 +119,14 @@ export function PostScreen() {
               <span>
                 <strong className="text">{author.name}</strong>
                 {post.employerLine && ` ${post.employerLine}`} · published{' '}
-                <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time> · {postMinutes(post)} min read
+                <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time>
+                {post.updatedAt && (
+                  <>
+                    {' '}
+                    · updated <time dateTime={post.updatedAt}>{shortDate(post.updatedAt)}</time>
+                  </>
+                )}{' '}
+                · {postMinutes(post)} min read
                 {post.context && <> · {post.context}</>}
               </span>
             </div>
@@ -142,6 +173,23 @@ export function PostScreen() {
                 Edit redactions
               </Link>
             </div>
+          )}
+
+          {post.history && post.history.length > 0 && (
+            <details className="post-history">
+              <summary>
+                <Icon name="history" size={14} />
+                History · {post.history.length} change{post.history.length === 1 ? '' : 's'}
+              </summary>
+              <ul className="post-history__list">
+                {post.history.map((h) => (
+                  <li key={h.at + h.summary}>
+                    <time dateTime={h.at}>{shortDate(h.at)}</time>
+                    <span>{h.summary}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </article>
 

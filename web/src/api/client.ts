@@ -17,6 +17,7 @@ import type {
   InvitePreview,
   SignalMatch,
   PostThread,
+  PendingQuestion,
   TopicPage,
   ExploreParams,
   ExploreResult,
@@ -67,8 +68,12 @@ export interface LedgerApi {
   setWriteupStatus(id: ID, status: WriteupStatus): Promise<Writeup>
   /** Fails with the list of what's missing when the write-up isn't ready. */
   publishWriteup(id: ID): Promise<TeamRecord>
-  /** Publishes straight to the author's public profile. Fails the same way as `publishWriteup`. */
-  publishWriteupToProfile(id: ID): Promise<PublicPost>
+  /**
+   * Publishes straight to the author's public profile, or — once it already
+   * has a post — republishes to that same post. `summary` is the required
+   * one-line "What changed?" note on a republish; ignored the first time.
+   */
+  publishWriteupToProfile(id: ID, summary?: string): Promise<PublicPost>
 
   listRecords(): Promise<TeamRecord[]>
   getRecord(id: ID): Promise<TeamRecord>
@@ -124,6 +129,9 @@ export interface LedgerApi {
   foldPublic(handle: string, slug: string, questionId: ID): Promise<{ thread: PostThread; post: PublicPost }>
   /** Toggles the viewer's "I hit this too". */
   toggleHit(handle: string, slug: string): Promise<PostThread>
+
+  /** Pending questions on my own posts, oldest first — for the header badge and /me/questions. */
+  myQuestions(): Promise<PendingQuestion[]>
 
   getTopic(tag: string): Promise<TopicPage>
 }

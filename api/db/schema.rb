@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_30_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_30_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -44,6 +44,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_100000) do
     t.index ["post_id"], name: "index_hits_on_post_id"
     t.index ["user_id", "post_id"], name: "index_hits_on_user_id_and_post_id", unique: true
     t.index ["user_id"], name: "index_hits_on_user_id"
+  end
+
+  create_table "post_questions", force: :cascade do |t|
+    t.bigint "post_id", null: false
+    t.bigint "asker_id", null: false
+    t.string "body", null: false
+    t.string "status", default: "pending", null: false
+    t.text "answer_body"
+    t.datetime "answered_at"
+    t.boolean "folded", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["asker_id", "created_at"], name: "index_post_questions_on_asker_id_and_created_at"
+    t.index ["asker_id"], name: "index_post_questions_on_asker_id"
+    t.index ["post_id", "status"], name: "index_post_questions_on_post_id_and_status"
+    t.index ["post_id"], name: "index_post_questions_on_post_id"
+  end
+
+  create_table "post_revisions", force: :cascade do |t|
+    t.bigint "post_id", null: false
+    t.string "summary", null: false
+    t.jsonb "sections_snapshot", default: [], null: false
+    t.datetime "created_at", null: false
+    t.index ["post_id", "created_at"], name: "index_post_revisions_on_post_id_and_created_at"
+    t.index ["post_id"], name: "index_post_revisions_on_post_id"
   end
 
   create_table "posts", force: :cascade do |t|
@@ -111,6 +136,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_100000) do
   add_foreign_key "evidence", "writeups"
   add_foreign_key "hits", "posts"
   add_foreign_key "hits", "users"
+  add_foreign_key "post_questions", "posts"
+  add_foreign_key "post_questions", "users", column: "asker_id"
+  add_foreign_key "post_revisions", "posts"
   add_foreign_key "posts", "users"
   add_foreign_key "posts", "writeups"
   add_foreign_key "writeups", "users"

@@ -99,7 +99,7 @@ describe('live mode', () => {
     expect(screen.queryByText('Promote a team record')).not.toBeInTheDocument()
   })
 
-  it('the post page has no Q&A, but keeps "I hit this too"', async () => {
+  it('the post page has public Q&A and keeps "I hit this too"', async () => {
     await renderLive('#/u/hannahl/retries-outage', () => ({
       me: () => Promise.resolve(me),
       getPost: () => Promise.resolve({ post, author }),
@@ -108,7 +108,7 @@ describe('live mode', () => {
     }))
 
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(post.title)
-    expect(screen.queryByRole('heading', { name: 'Ask the author' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Ask the author' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /I hit this too/ })).toBeInTheDocument()
   })
 
@@ -164,5 +164,85 @@ describe('live mode', () => {
     // Clicking it never navigated into the app (e.g. to /new) — it only ever
     // starts the GitHub sign-in round trip.
     expect(window.location.hash).toBe('#/')
+  })
+})
+
+describe('living documents: questions, editing and revisions', () => {
+  const asker: User = { id: 'u3', name: 'Priya K.', handle: 'priyak', initials: 'PK', avatarHue: 40 }
+  const pendingQuestion = { id: 'q1', body: 'What version of Postgres?', at: '2026-09-20T00:00:00Z', asker, post: { slug: post.slug, title: post.title } }
+
+  it('shows a count badge next to "My profile" when I have pending questions', async () => {
+    await renderLive('#/', () => ({
+      me: () => Promise.resolve(me),
+      explore: () => Promise.resolve(emptyExplore),
+      myQuestions: () => Promise.resolve([pendingQuestion]),
+    }))
+
+    const badge = await screen.findByRole('link', { name: /1 question.*waiting for an answer/ })
+    expect(badge).toHaveAttribute('href', '#/me/questions')
+  })
+
+  it('shows no badge when nothing is waiting', async () => {
+    await renderLive('#/', () => ({
+      me: () => Promise.resolve(me),
+      explore: () => Promise.resolve(emptyExplore),
+      myQuestions: () => Promise.resolve([]),
+    }))
+
+    await screen.findByRole('link', { name: 'My profile' })
+    expect(screen.queryByRole('link', { name: /waiting for an answer/ })).not.toBeInTheDocument()
+  })
+
+  it('/me/questions lists what is waiting, oldest first, and links to the question on the post', async () => {
+    await renderLive('#/me/questions', () => ({
+      me: () => Promise.resolve(me),
+      myQuestions: () => Promise.resolve([pendingQuestion]),
+    }))
+
+    expect(await screen.findByRole('heading', { name: 'Questions' })).toBeInTheDocument()
+    const row = await screen.findByRole('link', { name: 'What version of Postgres?' })
+    expect(row).toHaveAttribute('href', `#/u/${me.handle}/${post.slug}#q-q1`)
+    expect(screen.getByText('Priya K.')).toBeInTheDocument()
+  })
+
+  it('/me/questions shows an empty state when nothing is waiting', async () => {
+    await renderLive('#/me/questions', () => ({
+      me: () => Promise.resolve(me),
+      myQuestions: () => Promise.resolve([]),
+    }))
+
+    expect(await screen.findByText('No questions waiting.')).toBeInTheDocument()
+  })
+
+  it('shows an "Edit post" link and the update byline once a post has been revised', async () => {
+    const mine = { ...post, authorId: me.id, writeupId: 'w1', updatedAt: '2026-01-05T00:00:00Z', history: [{ at: '2026-01-05T00:00:00Z', summary: 'Clarified the fix' }] }
+    await renderLive(`#/u/${me.handle}/${post.slug}`, () => ({
+      me: () => Promise.resolve(me),
+      getPost: () => Promise.resolve({ post: mine, author: me }),
+      getProfile: () => Promise.resolve(profile(me)),
+      getThread: () => Promise.resolve(thread),
+    }))
+
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(post.title)
+    expect(screen.getByRole('link', { name: /Edit post/ })).toHaveAttribute('href', '#/write/w1')
+    expect(screen.getByText(/updated/)).toBeInTheDocument()
+
+    const history = screen.getByText(/History · 1 change/)
+    expect(history).toBeInTheDocument()
+    history.click()
+    expect(screen.getByText('Clarified the fix')).toBeInTheDocument()
+  })
+
+  it('has no "Edit post" link or history on someone else’s post', async () => {
+    await renderLive('#/u/hannahl/retries-outage', () => ({
+      me: () => Promise.resolve(me),
+      getPost: () => Promise.resolve({ post, author }),
+      getProfile: () => Promise.resolve(profile(author)),
+      getThread: () => Promise.resolve(thread),
+    }))
+
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('link', { name: /Edit post/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/History ·/)).not.toBeInTheDocument()
   })
 })

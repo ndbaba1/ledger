@@ -238,6 +238,17 @@ export interface PublicPost {
   hitCount?: number
   /** Answers the author folded into the post from public questions. */
   followUps?: string[]
+  /** The write-up this post was published from. Only ever your own. */
+  writeupId?: ID
+  /** Set once this post has been edited and republished at least once. */
+  updatedAt?: string
+  /** Every republish and folded-in answer, newest first. Internal — not rendered as a diff. */
+  history?: PostRevisionEntry[]
+}
+
+export interface PostRevisionEntry {
+  at: string
+  summary: string
 }
 
 export type PublicQuestionStatus = 'pending' | 'answered' | 'dismissed'
@@ -261,6 +272,15 @@ export interface PostThread {
   mine: PublicQuestion[]
   hitCount: number
   hitByMe: boolean
+}
+
+/** A question waiting for me to answer, on one of my own posts. */
+export interface PendingQuestion {
+  id: ID
+  body: string
+  at: string
+  asker: User
+  post: { slug: string; title: string }
 }
 
 export interface TopicPage {
@@ -345,6 +365,8 @@ export interface Writeup extends WriteupFields {
   type: RecordType
   status: WriteupStatus
   evidence: Source[]
+  /** The slug of the post this published to, once it has. Publishing again updates that same post. */
+  postSlug?: string
   authorId: ID
   createdAt: string
   updatedAt: string

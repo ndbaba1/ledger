@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import { PublicLayout } from '../app/PublicLayout'
-import { useSession } from '../app/session'
+import { useMe } from '../app/session'
 import { Icon } from '../components/Icon'
 import { KindMeta, ListBox, ListHeader, ListRow } from '../components/ListBox'
 import { Empty, ErrorState, Loading } from '../components/States'
@@ -11,7 +11,7 @@ import { useQuery } from '../lib/useAsync'
 /** Live mode's stand-in for the workspace: a signed-in user's own drafts and published posts. */
 export function MyWriteupsScreen() {
   const api = useApi()
-  const { me } = useSession()
+  const me = useMe()!
   const data = useQuery(() => Promise.all([api.listWriteups(), api.getProfile(me.handle)]), [api, me.handle])
   const [drafts, profile] = data.data ?? [undefined, undefined]
 

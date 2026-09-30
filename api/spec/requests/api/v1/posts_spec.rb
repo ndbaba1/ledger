@@ -19,7 +19,7 @@ RSpec.describe 'Post, thread and hit endpoints', type: :request do
   end
 
   describe 'GET .../thread' do
-    it 'always returns empty questions and askers in v1' do
+    it 'returns an empty thread when nobody has asked anything yet' do
       get "/api/v1/users/hannahl/posts/#{post_record.slug}/thread"
       expect(response).to have_http_status(:ok)
       expect(json).to eq('questions' => [], 'askers' => [], 'mine' => [], 'hitCount' => 0, 'hitByMe' => false)

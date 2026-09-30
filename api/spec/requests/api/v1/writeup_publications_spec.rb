@@ -50,16 +50,66 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     expect(verified).to eq(1)
   end
 
-  it 're-publishing an already-published write-up just returns the existing post' do
+  it 'republishing requires a "what changed" summary, keeps the same slug and records a revision' do
     writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
     create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
     post_json "/api/v1/writeups/#{writeup.id}/publish"
     first_slug = json['slug']
 
     post_json "/api/v1/writeups/#{writeup.id}/publish"
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(json['error']).to match(/what changed/i)
+
+    writeup.update!(fields: writeup.fields.merge('fix' => 'Derived pool size from worker count instead.'))
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/42')
+      .to_return(status: 200, body: {
+        title: 'Revert pool size', merged_at: '2026-09-01T00:00:00Z',
+        user: { id: user.github_id, login: user.github_login }, additions: 5, deletions: 5,
+        base: { repo: { private: false } }
+      }.to_json, headers: { 'Content-Type' => 'application/json' })
+    post_json "/api/v1/writeups/#{writeup.id}/publish", params: { summary: 'Clarified the fix' }
 
     expect(response).to have_http_status(:ok)
     expect(json['slug']).to eq(first_slug)
     expect(Post.count).to eq(1)
+    expect(json['updatedAt']).to be_present
+    expect(json['history']).to eq([{ 'at' => json['updatedAt'], 'summary' => 'Clarified the fix' }])
+
+    post = Post.find_by(slug: first_slug)
+    expect(post.revisions.count).to eq(1)
+    expect(post.revisions.first.summary).to eq('Clarified the fix')
+  end
+
+  it 'rejects a change summary over 140 characters' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+    create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish", params: { summary: 'x' * 141 }
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(json['error']).to match(/140 characters/)
+  end
+
+  it 'drops a badge that no longer verifies on republish, but still publishes' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+    evidence = create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: true,
+                                  repo: 'acme/checkout', number: 9, url: 'https://github.com/acme/checkout/pull/9',
+                                  snapshot: { 'reviewed' => false })
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+    expect(json['badges']).to include(hash_including('label' => 'Authored & merged the fix'))
+
+    # The PR is now reported as unmerged — the badge should drop, not block the republish.
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/9')
+      .to_return(status: 200, body: {
+        title: evidence.title, merged_at: nil,
+        user: { id: user.github_id, login: user.github_login }, additions: 5, deletions: 5,
+        base: { repo: { private: false } }
+      }.to_json, headers: { 'Content-Type' => 'application/json' })
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish", params: { summary: 'Reworded the summary' }
+
+    expect(response).to have_http_status(:ok)
+    expect(json['badges'] || []).not_to include(hash_including('label' => 'Authored & merged the fix'))
+    expect(json['droppedBadges']).to include(evidence.title)
   end
 end

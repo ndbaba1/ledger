@@ -4,6 +4,8 @@ class Post < ApplicationRecord
   belongs_to :user
   belongs_to :writeup
   has_many :hits, dependent: :destroy
+  has_many :questions, class_name: 'PostQuestion', dependent: :destroy
+  has_many :revisions, -> { order(created_at: :desc) }, class_name: 'PostRevision', dependent: :destroy
 
   validates :slug, :title, :summary, :type, :published_at, presence: true
   validates :slug, uniqueness: { scope: :user_id }

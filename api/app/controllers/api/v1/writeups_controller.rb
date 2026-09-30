@@ -22,7 +22,6 @@ module Api
 
       def update
         writeup = owned_writeup!
-        raise Unprocessable, 'This write-up is already published.' if writeup.published?
 
         permitted = params.permit(
           :title, :context, :symptom, :rootCause, :fix, :lesson,

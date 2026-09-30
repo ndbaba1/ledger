@@ -8,6 +8,13 @@ class PostBuilder
     new(writeup).build(at)
   end
 
+  # Republishing: refreshes an existing post's content and badges from the
+  # write-up's current fields. Keeps slug, published_at and follow_ups —
+  # a content edit doesn't touch the URL or the folded-in Q&A answers.
+  def self.apply(post, writeup)
+    new(writeup).apply(post)
+  end
+
   def self.slugify(text)
     ActiveSupport::Inflector.transliterate(text.to_s)
       .downcase.strip
@@ -40,6 +47,18 @@ class PostBuilder
       follow_ups: [],
       published_at: at
     )
+  end
+
+  def apply(post)
+    post.title = @writeup.title
+    post.summary = (field('lesson').presence || field('rootCause')).to_s
+    post.context = field('context').presence
+    post.decision = @writeup.type == 'decision' ? field('rootCause') : nil
+    post.sections = sections.select { |s| s['body'].to_s.strip.present? }
+    post.result = field('result')
+    post.lesson = field('lesson').presence
+    post.badges = badges
+    post
   end
 
   # Mirrors `sectionsFor` in web/src/lib/publicPost.ts exactly (including

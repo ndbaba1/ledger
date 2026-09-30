@@ -1,5 +1,5 @@
 import { NotFoundError, UnauthorizedError, type LedgerApi } from './client'
-import type { ExploreParams, ID, ProfileEdit, PublicPost, WriteupFields, WriteupStatus } from './types'
+import type { ExploreParams, ID, ProfileEdit, PublicPost, PostThread, WriteupFields, WriteupStatus } from './types'
 
 export interface HttpApiOptions {
   /** e.g. '/api/v1' */
@@ -64,6 +64,16 @@ export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
     toggleHit: (handle: string, slug: string) => post(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/hit`),
     getTopic: (tag: string) => get(`/topics/${encodeURIComponent(tag)}`),
 
+    askPublic: (handle: string, slug: string, body: string) =>
+      post<PostThread>(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions`, { body }),
+    answerPublic: (handle: string, slug: string, questionId: ID, body: string) =>
+      post<PostThread>(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions/${questionId}/answer`, { body }),
+    dismissPublic: (handle: string, slug: string, questionId: ID) =>
+      post<PostThread>(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions/${questionId}/dismiss`),
+    foldPublic: (handle: string, slug: string, questionId: ID) =>
+      post<{ thread: PostThread; post: PublicPost }>(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions/${questionId}/fold`),
+    myQuestions: () => get('/me/questions'),
+
     listWriteups: () => get('/writeups'),
     createWriteup: (type: string) => post('/writeups', { type }),
     getWriteup: (id: ID) => get(`/writeups/${id}`),
@@ -71,7 +81,7 @@ export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
     addWriteupEvidence: (id: ID, url: string) => post(`/writeups/${id}/evidence`, { url }),
     removeWriteupEvidence: (id: ID, key: string) => del(`/writeups/${id}/evidence/${encodeURIComponent(key)}`),
     setWriteupStatus: (id: ID, status: WriteupStatus) => patch(`/writeups/${id}/status`, { status }),
-    publishWriteupToProfile: (id: ID) => post<PublicPost>(`/writeups/${id}/publish`),
+    publishWriteupToProfile: (id: ID, summary?: string) => post<PublicPost>(`/writeups/${id}/publish`, summary ? { summary } : undefined),
   }
 
   return new Proxy(v1 as unknown as LedgerApi, {

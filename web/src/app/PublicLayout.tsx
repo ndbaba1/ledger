@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Icon } from '../components/Icon'
 import { features } from '../lib/features'
 import { Logo } from './AppShell'
 import { signInWithGithub, signOut } from './githubAuth'
-import { useMe } from './session'
+import { useMe, usePendingQuestions } from './session'
 
 /** Chrome for public pages — explore, profiles and posts — as a visitor sees them. */
 export function PublicLayout({ children }: { children: ReactNode }) {
   const me = useMe()
   const location = useLocation()
+  const { questionCount } = usePendingQuestions()
 
   return (
     <div className="public">
@@ -24,6 +26,12 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             <NavLink to={`/u/${me.handle}`} className="public__link">
               My profile
             </NavLink>
+          )}
+          {me && features.publicQA && questionCount > 0 && (
+            <Link to="/me/questions" className="public__link public__questions" aria-label={`${questionCount} question${questionCount === 1 ? '' : 's'} waiting for an answer`}>
+              <Icon name="message" size={15} />
+              <span className="public__questions-count">{questionCount}</span>
+            </Link>
           )}
         </nav>
         <div className="row gap-8 push-right">

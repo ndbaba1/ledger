@@ -6,6 +6,7 @@ import type {
   WorkspaceRole,
   WorkspaceSettings,
   PostThread,
+  PendingQuestion,
   TopicPage,
   ExploreResult,
   FeedItem,
@@ -941,6 +942,21 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
       }),
 
     getThread: (handle, slug) => run(() => thread(handle, slug)),
+
+    myQuestions: () =>
+      run(() => {
+        const me = db.users.find((u) => u.id === seed.ME_ID)!
+        const rows: PendingQuestion[] = []
+        for (const post of db.posts.filter((p) => p.authorId === seed.ME_ID)) {
+          const list = db.publicQuestions[`${me.handle}/${post.slug}`] ?? []
+          for (const q of list) {
+            if (q.status !== 'pending') continue
+            const asker = db.users.find((u) => u.id === q.askerId)
+            if (asker) rows.push({ id: q.id, body: q.body, at: q.at, asker, post: { slug: post.slug, title: post.title } })
+          }
+        }
+        return rows.sort((a, b) => a.at.localeCompare(b.at))
+      }),
 
     askPublic: (handle, slug, body) =>
       run(() => {

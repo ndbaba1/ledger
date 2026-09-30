@@ -23,6 +23,7 @@ Rails.application.routes.draw do
       resource :csrf_token, only: [:show]
       get 'me', to: 'me#show'
       patch 'me', to: 'me#update'
+      get 'me/questions', to: 'my_questions#index'
       get 'explore', to: 'explore#index'
 
       resources :writeups, only: %i[index create show update] do
@@ -35,6 +36,13 @@ Rails.application.routes.draw do
         resources :posts, only: [:show], param: :slug do
           resource :thread, only: [:show], controller: 'post_threads'
           resource :hit, only: [:create], controller: 'post_hits'
+          resources :questions, only: [:create], controller: 'post_questions' do
+            member do
+              post :answer
+              post :dismiss
+              post :fold
+            end
+          end
         end
       end
 

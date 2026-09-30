@@ -21,6 +21,12 @@ interface WorkspaceState {
   refreshInbox: () => void
 }
 
+/** Pending questions on my own posts, for the header badge. */
+interface QuestionsState {
+  questionCount: number
+  refreshQuestions: () => void
+}
+
 interface Session {
   me: User
   workspace: Workspace
@@ -30,12 +36,14 @@ interface Session {
 
 const ViewerContext = createContext<Viewer | null>(null)
 const WorkspaceContext = createContext<WorkspaceState | null>(null)
+const QuestionsContext = createContext<QuestionsState | null>(null)
 
 export function SessionProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   const api = useApi()
   const [viewer, setViewer] = useState<Viewer>()
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [inboxCount, setInboxCount] = useState(0)
+  const [questionCount, setQuestionCount] = useState(0)
   const [error, setError] = useState<Error>()
 
   const setMe = useCallback((me: User) => setViewer((v) => (v ? { ...v, me } : v)), [])
@@ -67,10 +75,24 @@ export function SessionProvider({ children, fallback }: { children: ReactNode; f
     if (viewer?.me) refreshInbox()
   }, [viewer, refreshInbox])
 
+  const refreshQuestions = useCallback(() => {
+    if (!features.publicQA) return
+    api
+      .myQuestions()
+      .then((qs) => setQuestionCount(qs.length))
+      .catch(() => {})
+  }, [api])
+
+  useEffect(() => {
+    if (viewer?.me) refreshQuestions()
+    else setQuestionCount(0)
+  }, [viewer, refreshQuestions])
+
   const workspaceValue = useMemo<WorkspaceState>(
     () => ({ workspace, inboxCount, refreshInbox }),
     [workspace, inboxCount, refreshInbox],
   )
+  const questionsValue = useMemo<QuestionsState>(() => ({ questionCount, refreshQuestions }), [questionCount, refreshQuestions])
 
   if (error) throw error
   // Live mode has no workspace to wait for — only the viewer blocks render.
@@ -78,7 +100,9 @@ export function SessionProvider({ children, fallback }: { children: ReactNode; f
 
   return (
     <ViewerContext.Provider value={viewer}>
-      <WorkspaceContext.Provider value={workspaceValue}>{children}</WorkspaceContext.Provider>
+      <WorkspaceContext.Provider value={workspaceValue}>
+        <QuestionsContext.Provider value={questionsValue}>{children}</QuestionsContext.Provider>
+      </WorkspaceContext.Provider>
     </ViewerContext.Provider>
   )
 }
@@ -101,6 +125,13 @@ export function useSetMe(): (me: User) => void {
 export function useMaybeWorkspace(): Workspace | null {
   const state = useContext(WorkspaceContext)
   return state?.workspace ?? null
+}
+
+/** Pending questions on my own posts, for the header badge. Zero and inert when signed out. */
+export function usePendingQuestions(): QuestionsState {
+  const state = useContext(QuestionsContext)
+  if (!state) throw new Error('usePendingQuestions must be used inside <SessionProvider>')
+  return state
 }
 
 /** Workspace-only screens: throws if nobody's signed in, or there's no workspace. Pair with <RequireAuth>. */

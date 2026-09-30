@@ -25,7 +25,66 @@ class GithubEvidenceVerifier
     end
   end
 
+  # Re-checks an already-stored PR/issue against GitHub's current state (a PR
+  # can be un-merged, a review can be dismissed) and updates it in place —
+  # never raises, so a failed re-check just drops the badge rather than
+  # blocking a republish. Plain links have nothing to re-verify.
+  def self.refresh(evidence, user)
+    return unless evidence.kind.in?(%w[github_pr github_issue])
+
+    new(evidence.writeup, evidence.url, user).refresh(evidence)
+  end
+
+  def refresh(evidence)
+    if evidence.kind == 'github_pr' && (m = match(PR_PATH))
+      refresh_pull_request(evidence, m)
+    elsif evidence.kind == 'github_issue' && (m = match(ISSUE_PATH))
+      refresh_issue(evidence, m)
+    end
+  end
+
   private
+
+  def refresh_pull_request(evidence, m)
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    pr = client.pull_request(nwo, m[:number])
+
+    if pr.base.repo.private
+      evidence.update!(status: 'failed', authored_by_user: false, failure_reason: 'Private repo — not supported yet.')
+      return
+    end
+
+    merged = pr.merged_at.present?
+    authored = pr.user.id == @user.github_id && merged
+    reviewed = !authored && merged && approved_by_user?(nwo, m[:number])
+
+    evidence.update!(
+      status: 'fetched', authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
+      failure_reason: pr_badge_note(pr.user.id, pr.user.login, merged, authored, reviewed),
+      snapshot: evidence.snapshot.merge('mergedAt' => pr.merged_at&.iso8601, 'reviewed' => reviewed)
+    )
+  rescue Octokit::Error, Faraday::Error => e
+    evidence.update!(status: 'failed', authored_by_user: false, failure_reason: failure_reason_for(e))
+  end
+
+  def refresh_issue(evidence, m)
+    nwo = "#{m[:owner]}/#{m[:repo]}"
+    issue = client.issue(nwo, m[:number])
+
+    if client.repository(nwo).private
+      evidence.update!(status: 'failed', failure_reason: 'Private repo — not supported yet.')
+      return
+    end
+
+    participated = issue.user.id == @user.github_id || commented_by_user?(nwo, m[:number])
+    evidence.update!(
+      status: 'fetched', verified_at: Time.current,
+      failure_reason: issue_badge_note(issue.user.login, participated),
+      snapshot: evidence.snapshot.merge('participated' => participated)
+    )
+  rescue Octokit::Error, Faraday::Error => e
+    evidence.update!(status: 'failed', failure_reason: failure_reason_for(e))
+  end
 
   # Accepts github.com and www.github.com, and ignores a trailing path
   # segment (/files, /commits, /checks…), query string and #anchor.

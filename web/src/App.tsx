@@ -12,6 +12,7 @@ import { CasesScreen } from './screens/CasesScreen'
 import { DraftScreen } from './screens/DraftScreen'
 import { InboxScreen } from './screens/InboxScreen'
 import { LandingScreen } from './screens/LandingScreen'
+import { MeQuestionsScreen } from './screens/MeQuestionsScreen'
 import { MyWriteupsScreen } from './screens/MyWriteupsScreen'
 import { NewWriteupScreen } from './screens/NewWriteupScreen'
 import { PostScreen } from './screens/PostScreen'
@@ -84,6 +85,16 @@ export function AppRoutes() {
         </Route>
       )}
       {features.workspace && <Route path="join/:token" element={<JoinScreen />} />}
+      {features.publicQA && (
+        <Route
+          path="me/questions"
+          element={
+            <RequireAuth>
+              <MeQuestionsScreen />
+            </RequireAuth>
+          }
+        />
+      )}
       <Route path="t/:tag" element={<TopicScreen />} />
       <Route path="u/:handle" element={<ProfileScreen />} />
       {features.projects && <Route path="u/:handle/projects/:slug" element={<ProjectScreen />} />}

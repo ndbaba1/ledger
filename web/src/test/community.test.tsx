@@ -50,6 +50,17 @@ describe('mock API: public Q&A', () => {
   })
 })
 
+describe('mock API: my questions', () => {
+  it('lists pending questions on my own posts, oldest first, with the post and asker', async () => {
+    const api = newApi()
+    const mine = await api.myQuestions()
+    expect(mine.length).toBeGreaterThan(0)
+    expect(mine.every((q) => q.post && q.asker)).toBe(true)
+    const ats = mine.map((q) => q.at)
+    expect(ats).toEqual([...ats].sort())
+  })
+})
+
 describe('mock API: topics', () => {
   it('lists a topic’s posts most-hit first with related topics', async () => {
     const t = await newApi().getTopic('postgres')
@@ -90,6 +101,18 @@ describe('community features in the app', () => {
     const add = await within(qa).findAllByRole('button', { name: 'Add to post' })
     await user.click(add[add.length - 1])
     expect(await screen.findByRole('heading', { name: 'Follow-ups' })).toBeInTheDocument()
+  })
+
+  it('shows a header badge for pending questions and links to /me/questions', async () => {
+    window.location.hash = '#/'
+    const user = userEvent.setup()
+    render(<App api={newApi()} />)
+
+    const badge = await screen.findByRole('link', { name: /questions? waiting for an answer/ })
+    await user.click(badge)
+    expect(await screen.findByRole('heading', { name: 'Questions' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Waiting for you' })).toBeInTheDocument()
+    expect(screen.getByText('· 1')).toBeInTheDocument()
   })
 
   it('opens a topic page from a post tag', async () => {

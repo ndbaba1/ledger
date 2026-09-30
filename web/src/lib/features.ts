@@ -9,6 +9,6 @@ export const features = {
   workspace: !isLive,
   /** Bodies of work grouped from several records, on profiles and posts. */
   projects: !isLive,
-  /** "Ask the author" on a post. */
-  publicQA: !isLive,
+  /** "Ask the author" on a post. Has a real backend in both mock and live mode. */
+  publicQA: true,
 }

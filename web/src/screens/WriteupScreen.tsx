@@ -127,22 +127,24 @@ function Editor({ initial }: { initial: Writeup }) {
 
   // Version 1 of the backend publishes straight to the profile; unbuilt
   // screens (team records) stay on the mock.
+  const alreadyPublished = Boolean(w.postSlug)
+  const [changeSummary, setChangeSummary] = useState('')
   const status = useMutation((s: WriteupStatus) => api.setWriteupStatus(w.id, s))
   const publish = useMutation(async () => {
     await api.saveWriteup(w.id, fields)
-    return features.workspace ? api.publishWriteup(w.id) : api.publishWriteupToProfile(w.id)
+    return features.workspace ? api.publishWriteup(w.id) : api.publishWriteupToProfile(w.id, changeSummary.trim())
   })
 
   const onPublish = async () => {
     const result = await publish.run()
     if (!result) return
-    if ('slug' in result) navigate(`/u/${me.handle}/${result.slug}`, { state: { justPublished: true } })
+    if ('slug' in result) navigate(`/u/${me.handle}/${result.slug}`, { state: alreadyPublished ? { justUpdated: true } : { justPublished: true } })
     else navigate(`/records/${result.id}`, { state: { justPublished: true } })
   }
 
   const previewRecord = writeupToRecord({ ...current }, { id: 'preview', publishedAt: w.updatedAt, authorId: me.id })
   const isDesign = w.type === 'design'
-  const canPublish = missing === 0 && !publish.pending
+  const canPublish = missing === 0 && !publish.pending && (!alreadyPublished || changeSummary.trim().length > 0)
 
   if (w.publishedRecordId) {
     return (
@@ -337,7 +339,7 @@ function Editor({ initial }: { initial: Writeup }) {
 
           <section className="stack gap-10 side-section" aria-labelledby="w-ready">
             <h2 id="w-ready" className="eyebrow">
-              Ready to publish
+              {alreadyPublished ? 'Ready to update' : 'Ready to publish'}
             </h2>
             <ul className="checklist">
               {requirements.map((r) => (
@@ -348,16 +350,39 @@ function Editor({ initial }: { initial: Writeup }) {
                 </li>
               ))}
             </ul>
+            {alreadyPublished && missing === 0 && (
+              <label className="stack gap-4">
+                <span className="small muted">What changed?</span>
+                <input
+                  id="w-change-summary"
+                  className="input"
+                  maxLength={140}
+                  placeholder="e.g. Clarified the root cause"
+                  value={changeSummary}
+                  onChange={(e) => setChangeSummary(e.target.value)}
+                />
+              </label>
+            )}
             <FieldError message={publish.error} />
             <button type="button" className="btn btn--primary" onClick={onPublish} disabled={!canPublish}>
-              {publish.pending ? 'Publishing…' : workspace ? `Publish to ${workspace.name}` : 'Publish to your profile'}
+              {publish.pending
+                ? alreadyPublished
+                  ? 'Updating…'
+                  : 'Publishing…'
+                : workspace
+                  ? `Publish to ${workspace.name}`
+                  : alreadyPublished
+                    ? 'Publish update'
+                    : 'Publish to your profile'}
             </button>
             <p className="small muted">
               {missing > 0
                 ? `${missing} thing${missing === 1 ? '' : 's'} left. Drafts stay private to you.`
-                : workspace
-                  ? 'Teammates will see it in records and search. You can promote it to public afterwards.'
-                  : 'Anyone can find it on your profile and in search.'}
+                : alreadyPublished
+                  ? 'Updates the post readers already see, at the same link.'
+                  : workspace
+                    ? 'Teammates will see it in records and search. You can promote it to public afterwards.'
+                    : 'Anyone can find it on your profile and in search.'}
             </p>
           </section>
         </aside>

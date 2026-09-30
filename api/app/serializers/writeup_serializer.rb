@@ -18,6 +18,7 @@ module WriteupSerializer
       result: fields['result'],
       signals: fields['signals'] || [],
       evidence: writeup.evidence.map { |e| EvidenceSerializer.call(e) },
+      postSlug: writeup.post&.slug,
       authorId: writeup.user_id.to_s,
       createdAt: writeup.created_at.iso8601,
       updatedAt: writeup.updated_at.iso8601

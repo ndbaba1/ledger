@@ -205,7 +205,7 @@ function AnsweredQuestion({
   const api = useApi()
   const fold = useMutation(() => api.foldPublic(handle, slug, q.id))
   return (
-    <li className="qa__thread">
+    <li id={`q-${q.id}`} className="qa__thread">
       <div className="qa__msg">
         {asker ? <Avatar user={asker} size="sm" /> : <span className="avatar avatar--sm" />}
         <div className="stack gap-4">
@@ -285,7 +285,7 @@ function PendingForAuthor({
   }
 
   return (
-    <li className="qa__thread">
+    <li id={`q-${q.id}`} className="qa__thread">
       <div className="qa__msg">
         {asker ? <Avatar user={asker} size="sm" /> : <span className="avatar avatar--sm" />}
         <div className="stack gap-4">
