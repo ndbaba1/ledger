@@ -126,7 +126,13 @@ export interface LedgerApi {
   /** Author only: answer, dismiss, or fold an answer into the post. */
   answerPublic(handle: string, slug: string, questionId: ID, body: string): Promise<PostThread>
   dismissPublic(handle: string, slug: string, questionId: ID): Promise<PostThread>
-  foldPublic(handle: string, slug: string, questionId: ID): Promise<{ thread: PostThread; post: PublicPost }>
+  /** `edits` lets the author reword the question/answer before it's added; the thread itself keeps the originals. */
+  foldPublic(
+    handle: string,
+    slug: string,
+    questionId: ID,
+    edits?: { question: string; answer: string },
+  ): Promise<{ thread: PostThread; post: PublicPost }>
   /** Toggles the viewer's "I hit this too". */
   toggleHit(handle: string, slug: string): Promise<PostThread>
 

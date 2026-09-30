@@ -38,6 +38,7 @@ describe('mock API: public Q&A', () => {
       {
         question: 'Does agent-db-scan check privileges granted through `PUBLIC` on schemas, or only tables?',
         answer: 'Yes — schema `USAGE` and `CREATE` via PUBLIC are both reported.',
+        askerId: 'u_mei',
       },
     ])
     expect(post.revisions?.[0].summary).toMatch(/^Added a follow-up:/)
@@ -106,6 +107,8 @@ describe('community features in the app', () => {
 
     const add = await within(qa).findAllByRole('button', { name: 'Add to post' })
     await user.click(add[add.length - 1])
+    const submitFold = await within(qa).findAllByRole('button', { name: 'Add to post' })
+    await user.click(submitFold[submitFold.length - 1])
     const followUpsHeading = await screen.findByRole('heading', { name: 'Follow-ups' })
     const followUps = within(followUpsHeading.closest('section')!)
     expect(followUps.getByText('Does agent-db-scan check privileges granted through `PUBLIC` on schemas, or only tables?')).toBeInTheDocument()
@@ -113,6 +116,38 @@ describe('community features in the app', () => {
     const history = screen.getByText(/History · 1 change/)
     history.click()
     expect(screen.getByText(/^Added a follow-up:/)).toBeInTheDocument()
+  })
+
+  it('lets the author edit the wording before folding, keeping the thread unchanged, and credits the asker', async () => {
+    window.location.hash = `#/u/${MINE.join('/')}`
+    const user = userEvent.setup()
+    render(<App api={newApi()} />)
+
+    const qa = await screen.findByRole('region', { name: 'Ask the author' })
+    // pq1 is already answered in the seed data — asked by Hannah L.
+    expect(within(qa).getByText('Does NOINHERIT break anything if the login still needs a group role for connection limits?')).toBeInTheDocument()
+
+    await user.click(within(qa).getAllByRole('button', { name: 'Add to post' })[0])
+    const question = within(qa).getByLabelText('Question')
+    const answer = within(qa).getByLabelText('Answer')
+    await user.clear(question)
+    await user.type(question, 'Does NOINHERIT affect connection limits?')
+    await user.clear(answer)
+    await user.type(answer, 'No — connection limits are unaffected.')
+    await user.click(within(qa).getByRole('button', { name: 'Add to post' }))
+
+    // The thread still shows the original wording.
+    expect(within(qa).getByText('Does NOINHERIT break anything if the login still needs a group role for connection limits?')).toBeInTheDocument()
+    expect(within(qa).getByText(/Connection limits and/)).toBeInTheDocument()
+
+    // Follow-ups shows the edited wording, credited to the asker.
+    const followUpsHeading = await screen.findByRole('heading', { name: 'Follow-ups' })
+    const followUps = within(followUpsHeading.closest('section')!)
+    expect(followUps.getByText('Does NOINHERIT affect connection limits?')).toBeInTheDocument()
+    expect(followUps.getByText('No — connection limits are unaffected.')).toBeInTheDocument()
+    expect(followUps.queryByText(/group role for connection limits/)).not.toBeInTheDocument()
+    const askedBy = followUps.getByRole('link', { name: 'Asked by Hannah L.' })
+    expect(askedBy).toHaveAttribute('href', '#/u/hannahl')
   })
 
   it('shows no answered-question count on a post nobody has asked about yet', async () => {

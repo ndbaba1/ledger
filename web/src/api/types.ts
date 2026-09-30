@@ -248,6 +248,8 @@ export interface PublicPost {
 export interface FollowUp {
   question?: string
   answer: string
+  /** Who asked it. Missing on follow-ups folded in before this was tracked. */
+  askerId?: ID
 }
 
 export interface PostRevision {

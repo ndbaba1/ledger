@@ -41,15 +41,22 @@ module Api
       end
 
       # POST .../questions/:id/fold — author only, answered questions only.
+      # Accepts optional {question, answer} overrides so the author can edit
+      # the wording before it's added; the Q&A thread itself (question.body,
+      # question.answer_body) never changes.
       def fold
         question = authors_question!
         raise Unprocessable, 'Answer the question before folding it in.' unless question.answered?
 
         post = question.post
         unless question.folded?
+          edited_question = params[:question].to_s.strip.presence || question.body
+          edited_answer = params[:answer].to_s.strip.presence || question.answer_body
           question.update!(folded: true)
-          post.update!(follow_ups: post.follow_ups + [{ 'question' => question.body, 'answer' => question.answer_body }])
-          post.revisions.create!(summary: "Added a follow-up: #{question.body[0, 60]}", sections_snapshot: post.sections)
+          post.update!(follow_ups: post.follow_ups + [{
+            'question' => edited_question, 'answer' => edited_answer, 'asker_id' => question.asker_id.to_s
+          }])
+          post.revisions.create!(summary: "Added a follow-up: #{edited_question[0, 60]}", sections_snapshot: post.sections)
         end
 
         render json: { thread: thread_json(post), post: PostSerializer.call(post) }

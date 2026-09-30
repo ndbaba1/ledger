@@ -2167,6 +2167,12 @@ a.ref:hover {
   line-height: 1.7;
   color: var(--text-3);
 }
+.fold-editor {
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
 .qa__waiting {
   margin-left: 42px;
   font-size: 14px;

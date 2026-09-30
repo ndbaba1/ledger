@@ -210,7 +210,27 @@ function AnsweredQuestion({
   onPost: (p: PublicPost) => void
 }) {
   const api = useApi()
-  const fold = useMutation(() => api.foldPublic(handle, slug, q.id))
+  const [editing, setEditing] = useState(false)
+  const [question, setQuestion] = useState(q.body)
+  const [answerText, setAnswerText] = useState(q.answer?.body ?? '')
+  const fold = useMutation((edits?: { question: string; answer: string }) => api.foldPublic(handle, slug, q.id, edits))
+
+  const cancel = () => {
+    setEditing(false)
+    setQuestion(q.body)
+    setAnswerText(q.answer?.body ?? '')
+  }
+
+  const submitFold = async (e: FormEvent) => {
+    e.preventDefault()
+    const res = await fold.run({ question: question.trim(), answer: answerText.trim() })
+    if (res) {
+      onThread(res.thread)
+      onPost(res.post)
+      setEditing(false)
+    }
+  }
+
   return (
     <li id={`q-${q.id}`} className="qa__thread">
       <div className="qa__msg">
@@ -236,20 +256,9 @@ function AnsweredQuestion({
                   added to the post
                 </span>
               ) : (
-                isAuthor && (
-                  <button
-                    type="button"
-                    className="btn btn--sm"
-                    disabled={fold.pending}
-                    title="Adds this answer to the post under Follow-ups"
-                    onClick={async () => {
-                      const res = await fold.run()
-                      if (res) {
-                        onThread(res.thread)
-                        onPost(res.post)
-                      }
-                    }}
-                  >
+                isAuthor &&
+                !editing && (
+                  <button type="button" className="btn btn--sm" title="Adds this answer to the post under Follow-ups" onClick={() => setEditing(true)}>
                     Add to post
                   </button>
                 )
@@ -259,7 +268,27 @@ function AnsweredQuestion({
           <p className="qa__a">
             <Inline text={q.answer.body} />
           </p>
-          <FieldError message={fold.error} />
+          {isAuthor && editing && !q.folded && (
+            <form className="fold-editor stack gap-8" onSubmit={submitFold}>
+              <label className="stack gap-4">
+                <span className="small muted">Question</span>
+                <input className="input" value={question} onChange={(e) => setQuestion(e.target.value)} />
+              </label>
+              <label className="stack gap-4">
+                <span className="small muted">Answer</span>
+                <textarea className="input" rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
+              </label>
+              <FieldError message={fold.error} />
+              <div className="row gap-8">
+                <button type="submit" className="btn btn--primary btn--sm" disabled={!question.trim() || !answerText.trim() || fold.pending}>
+                  Add to post
+                </button>
+                <button type="button" className="btn btn--ghost btn--sm" onClick={cancel}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
     </li>

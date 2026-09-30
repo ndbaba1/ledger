@@ -986,16 +986,18 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         return thread(handle, slug)
       }),
 
-    foldPublic: (handle, slug, questionId) =>
+    foldPublic: (handle, slug, questionId, edits) =>
       run(() => {
         const q = authorsQuestion(handle, slug, questionId)
         if (q.status !== 'answered' || !q.answer) throw new Error('Answer the question before folding it in.')
         const { post } = postBy(handle, slug)
         if (!q.folded) {
+          const question = edits?.question.trim() || q.body
+          const answer = edits?.answer.trim() || q.answer.body
           q.folded = true
-          post.followUps = [...(post.followUps ?? []), { question: q.body, answer: q.answer.body }]
+          post.followUps = [...(post.followUps ?? []), { question, answer, askerId: q.askerId }]
           post.revisions = [
-            { id: `rev_${Date.now().toString(36)}`, summary: `Added a follow-up: ${q.body.slice(0, 60)}`, createdAt: now().toISOString() },
+            { id: `rev_${Date.now().toString(36)}`, summary: `Added a follow-up: ${question.slice(0, 60)}`, createdAt: now().toISOString() },
             ...(post.revisions ?? []),
           ]
         }

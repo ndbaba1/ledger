@@ -70,8 +70,11 @@ export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
       post<PostThread>(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions/${questionId}/answer`, { body }),
     dismissPublic: (handle: string, slug: string, questionId: ID) =>
       post<PostThread>(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions/${questionId}/dismiss`),
-    foldPublic: (handle: string, slug: string, questionId: ID) =>
-      post<{ thread: PostThread; post: PublicPost }>(`/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions/${questionId}/fold`),
+    foldPublic: (handle: string, slug: string, questionId: ID, edits?: { question: string; answer: string }) =>
+      post<{ thread: PostThread; post: PublicPost }>(
+        `/users/${encodeURIComponent(handle)}/posts/${encodeURIComponent(slug)}/questions/${questionId}/fold`,
+        edits,
+      ),
     myQuestions: () => get('/me/questions'),
 
     listWriteups: () => get('/writeups'),

@@ -67,6 +67,7 @@ export function PostScreen() {
   const isMe = me?.id === author.id
   const revisions = post.revisions ?? []
   const updatedAt = revisions[0]?.createdAt
+  const askersById = new Map(currentThread.askers.map((u) => [u.id, u]))
   const more = profile.posts.filter((p) => p.slug !== post.slug).slice(0, 3)
   const partOf = features.projects ? profile.projects?.find((p) => p.records.some((r) => r.postSlug === post.slug)) : undefined
 
@@ -146,14 +147,22 @@ export function PostScreen() {
             <section className="post-section">
               <h2 className="post-section__label">Follow-ups</h2>
               <ul className="followups">
-                {post.followUps.map((f, i) => (
-                  <li key={i}>
-                    {f.question && <strong className="followups__q">{f.question}</strong>}
-                    <span className="followups__a">
-                      <Inline text={f.answer} />
-                    </span>
-                  </li>
-                ))}
+                {post.followUps.map((f, i) => {
+                  const asker = f.askerId ? askersById.get(f.askerId) : undefined
+                  return (
+                    <li key={i}>
+                      {f.question && <strong className="followups__q">{f.question}</strong>}
+                      {asker && (
+                        <Link to={`/u/${asker.handle}`} className="small muted followups__asker">
+                          Asked by {asker.name}
+                        </Link>
+                      )}
+                      <span className="followups__a">
+                        <Inline text={f.answer} />
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             </section>
           ) : null}

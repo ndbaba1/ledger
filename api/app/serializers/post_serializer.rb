@@ -2,7 +2,7 @@ module PostSerializer
   # Matches the `PublicPost` shape in web/src/api/types.ts.
   def self.call(post)
     revisions = post.revisions.map { |r| { id: r.id.to_s, summary: r.summary, createdAt: r.created_at.iso8601 } }
-    follow_ups = post.follow_ups.map { |f| { question: f['question'], answer: f['answer'] }.compact }
+    follow_ups = post.follow_ups.map { |f| { question: f['question'], answer: f['answer'], askerId: f['asker_id'] }.compact }
     {
       slug: post.slug,
       writeupId: post.writeup_id.to_s,

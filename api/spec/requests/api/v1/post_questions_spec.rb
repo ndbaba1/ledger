@@ -151,11 +151,11 @@ RSpec.describe 'Public Q&A on a post', type: :request do
       post_json "#{base}/questions/#{question.id}/fold"
 
       expect(response).to have_http_status(:ok)
-      expect(json['post']['followUps']).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16' }])
+      expect(json['post']['followUps']).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16', 'askerId' => asker.id.to_s }])
       expect(json['thread']['questions'].find { |q| q['id'] == question.id.to_s }['folded']).to eq(true)
 
       post_record.reload
-      expect(post_record.follow_ups).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16' }])
+      expect(post_record.follow_ups).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16', 'asker_id' => asker.id.to_s }])
       expect(post_record.revisions.count).to eq(1)
       expect(post_record.revisions.first.summary).to eq('Added a follow-up: What version of Postgres?')
     end
@@ -167,8 +167,28 @@ RSpec.describe 'Public Q&A on a post', type: :request do
       post_json "#{base}/questions/#{question.id}/fold"
 
       post_record.reload
-      expect(post_record.follow_ups).to eq([{ 'question' => 'What version of Postgres?', 'answer' => '16' }])
+      expect(post_record.follow_ups.length).to eq(1)
       expect(post_record.revisions.count).to eq(1)
+    end
+
+    it 'lets the author edit the question and answer before folding, without touching the thread' do
+      question.update!(status: 'answered', answer_body: '16', answered_at: Time.current)
+      sign_in_as(author)
+
+      post_json "#{base}/questions/#{question.id}/fold", params: { question: 'Which Postgres version?', answer: 'Version 16.' }
+
+      expect(response).to have_http_status(:ok)
+      expect(json['post']['followUps']).to eq([{ 'question' => 'Which Postgres version?', 'answer' => 'Version 16.', 'askerId' => asker.id.to_s }])
+
+      folded = json['thread']['questions'].find { |q| q['id'] == question.id.to_s }
+      expect(folded['body']).to eq('What version of Postgres?')
+      expect(folded['answer']['body']).to eq('16')
+
+      question.reload
+      expect(question.body).to eq('What version of Postgres?')
+      expect(question.answer_body).to eq('16')
+
+      expect(post_record.reload.revisions.first.summary).to eq('Added a follow-up: Which Postgres version?')
     end
   end
 end
