@@ -16,6 +16,27 @@ RSpec.describe 'Post, thread and hit endpoints', type: :request do
       get '/api/v1/users/hannahl/posts/nope'
       expect(response).to have_http_status(:not_found)
     end
+
+    it 'includes verified and unverified evidence, but never failed evidence' do
+      writeup = post_record.writeup
+      create(:evidence, writeup: writeup, key: 'S1', kind: 'github_pr', authored_by_user: true,
+                         repo: 'acme/checkout', url: 'https://github.com/acme/checkout/pull/1')
+      create(:evidence, writeup: writeup, key: 'S2', kind: 'github_pr', authored_by_user: false,
+                         repo: 'acme/checkout', url: 'https://github.com/acme/checkout/pull/2')
+      create(:evidence, writeup: writeup, key: 'S3', kind: 'link', status: 'linked', url: 'https://example.com/notes')
+      create(:evidence, writeup: writeup, key: 'S4', kind: 'github_pr', status: 'failed',
+                         failure_reason: 'Private repo — not supported yet.', url: 'https://github.com/acme/secret/pull/9')
+
+      get "/api/v1/users/hannahl/posts/#{post_record.slug}"
+
+      urls = json['post']['evidence'].map { |e| e['url'] }
+      expect(urls).to contain_exactly(
+        'https://github.com/acme/checkout/pull/1',
+        'https://github.com/acme/checkout/pull/2',
+        'https://example.com/notes'
+      )
+      expect(json['post']['evidence'].map { |e| e['verified'] }).to contain_exactly(true, false, false)
+    end
   end
 
   describe 'GET .../thread' do

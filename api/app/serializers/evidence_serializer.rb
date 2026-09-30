@@ -11,7 +11,8 @@ module EvidenceSerializer
       hops: 0,
       authoredByMe: evidence.authored_by_user,
       verified: evidence.verified?,
-      failureReason: evidence.failure_reason.presence
+      failureReason: evidence.failure_reason.presence,
+      refreshWarning: evidence.refresh_warning.presence
     }.compact
   end
 end

@@ -61,6 +61,24 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     expect(verified).to eq(1)
   end
 
+  it 'republishing a post with attached PR evidence does not raise an unknown attribute error' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+    create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+    expect(response).to have_http_status(:created)
+
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/42')
+      .to_return(status: 200, body: {
+        title: 'Revert pool size', merged_at: '2026-09-01T00:00:00Z',
+        user: { id: user.github_id, login: user.github_login }, additions: 5, deletions: 5,
+        base: { repo: { private: false } }
+      }.to_json, headers: { 'Content-Type' => 'application/json' })
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish", params: { summary: 'Fixed a typo' }
+
+    expect(response).to have_http_status(:ok)
+  end
+
   it 'republishing requires a "what changed" summary, keeps the same slug and records a revision' do
     writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
     create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
@@ -90,6 +108,24 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     post = Post.find_by(slug: first_slug)
     expect(post.revisions.count).to eq(1)
     expect(post.revisions.first.summary).to eq('Clarified the fix')
+  end
+
+  it 'keeps the badge and sets a refresh_warning, visible on the write-up, when re-checking fails temporarily' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+    create(:evidence, writeup: writeup, kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+
+    stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/42').to_return(status: 401)
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish", params: { summary: 'Fixed a typo' }
+
+    expect(response).to have_http_status(:ok)
+    expect(json['badges']).to include(hash_including('label' => 'Authored & merged the fix'))
+
+    get "/api/v1/writeups/#{writeup.id}"
+    evidence = json['evidence'].first
+    expect(evidence['refreshWarning']).to eq('Your GitHub sign-in expired — sign in again.')
+    expect(evidence['authoredByMe']).to eq(true)
   end
 
   it 'rejects a change summary over 140 characters' do

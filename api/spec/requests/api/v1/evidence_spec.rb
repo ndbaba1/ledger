@@ -48,7 +48,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
 
       evidence = json['evidence'].last
       expect(evidence['authoredByMe']).to be false
-      expect(evidence['failureReason']).to eq("Authored by octocat — you're signed in as octocat.")
+      expect(evidence['failureReason']).to eq("Authored by octocat, and not approved by you — you're signed in as octocat.")
     end
 
     it 'explains a merged PR authored by someone else' do
@@ -59,7 +59,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
 
       evidence = json['evidence'].last
       expect(evidence['authoredByMe']).to be false
-      expect(evidence['failureReason']).to eq("Authored by someone-else — you're signed in as octocat.")
+      expect(evidence['failureReason']).to eq("Authored by someone-else, and not approved by you — you're signed in as octocat.")
     end
 
     it 'explains a PR by the signed-in user that is not merged yet' do
@@ -82,7 +82,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
       post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/52' }
       evidence = json['evidence'].last
       expect(evidence['authoredByMe']).to be false
-      expect(evidence['failureReason']).to eq("Authored by someone-else — you're signed in as octocat.")
+      expect(evidence['failureReason']).to eq('Not merged yet.')
 
       post_json "/api/v1/writeups/#{writeup.id}/publish"
       expect(json['badges'].length).to eq(1)
@@ -122,7 +122,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(response).to have_http_status(:created)
       evidence = json['evidence'].last
       expect(evidence['status']).to eq('failed')
-      expect(evidence['detail']).to eq('acme/private-repo')
+      expect(evidence['detail']).to eq('')
       expect(evidence['failureReason']).to eq('Not found, or a private repo (not supported yet).')
     end
 
@@ -136,13 +136,13 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(evidence['failureReason']).to eq('Your GitHub sign-in expired — sign in again.')
     end
 
-    it 'reports GitHub rate-limiting' do
+    it 'reports GitHub refusing the request' do
       stub_pull_request(62, status: 403, body: { message: 'rate limited' })
 
       post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/62' }
 
       evidence = json['evidence'].last
-      expect(evidence['failureReason']).to eq('GitHub is rate-limiting us — try again shortly.')
+      expect(evidence['failureReason']).to eq('GitHub refused the request — try again shortly, or sign in again.')
     end
 
     it 'accepts www.github.com and normalizes to the canonical URL, ignoring a trailing /files' do

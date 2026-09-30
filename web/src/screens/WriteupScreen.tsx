@@ -505,6 +505,11 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
                 <Icon name="alert" size={11} /> {e.failureReason}
               </span>
             )}
+            {e.refreshWarning && (
+              <span className="evidence-edit__warning" title="Couldn't re-check this on the last republish — the previous result still stands.">
+                <Icon name="alert" size={11} /> {e.refreshWarning}
+              </span>
+            )}
           </li>
         ))}
       </ul>

@@ -73,6 +73,8 @@ export interface Source {
   verified?: boolean
   /** Why this didn't earn a verification badge, e.g. "Not merged yet." */
   failureReason?: string
+  /** A temporary problem re-checking this on republish (expired sign-in, rate limit…) — the previous result still stands. */
+  refreshWarning?: string
   excerpt?: SourceExcerpt
 }
 

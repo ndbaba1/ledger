@@ -2964,6 +2964,12 @@ a.evidence-list__body:hover .evidence-list__label {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.evidence-edit__warning {
+  grid-column: 2 / -1;
+  color: var(--amber);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 
 .segmented--compact {
   gap: 0;

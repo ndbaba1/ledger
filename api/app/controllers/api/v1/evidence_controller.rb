@@ -4,6 +4,8 @@ module Api
       before_action :require_user!
       before_action :set_writeup
 
+      rescue_from GithubEvidenceVerifier::InvalidLink, GithubEvidenceVerifier::DuplicateLink, with: :render_evidence_error
+
       def create
         url = params[:url].to_s.strip
         raise Unprocessable, "That doesn't look like a link. Paste a full https:// URL." unless parseable_url?(url)
@@ -19,6 +21,10 @@ module Api
       end
 
       private
+
+      def render_evidence_error(error)
+        render json: { error: error.message }, status: :unprocessable_content
+      end
 
       def set_writeup
         @writeup = Writeup.find(params[:writeup_id])
