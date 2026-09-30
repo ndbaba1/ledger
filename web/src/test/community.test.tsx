@@ -111,7 +111,7 @@ describe('community features in the app', () => {
     await user.click(submitFold[submitFold.length - 1])
     const followUpsHeading = await screen.findByRole('heading', { name: 'Follow-ups' })
     const followUps = within(followUpsHeading.closest('section')!)
-    expect(followUps.getByText('Does agent-db-scan check privileges granted through `PUBLIC` on schemas, or only tables?')).toBeInTheDocument()
+    expect(followUps.getByText(/Does agent-db-scan check privileges granted through/)).toBeInTheDocument()
 
     const history = screen.getByText(/History · 1 change/)
     history.click()

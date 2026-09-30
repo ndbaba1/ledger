@@ -5,7 +5,7 @@ import { PublicLayout } from '../app/PublicLayout'
 import { useMe } from '../app/session'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { Inline } from '../components/Inline'
+import { Inline, Markdown } from '../components/Inline'
 import { KindPill, PostContent } from '../components/PostContent'
 import { HitButton, PublicQA } from '../components/PublicQA'
 import type { PostThread, PublicPost, User } from '../api/types'
@@ -192,15 +192,19 @@ export function PostScreen() {
                   const asker = f.askerId ? askersById.get(f.askerId) : undefined
                   return (
                     <li key={i}>
-                      {f.question && <strong className="followups__q">{f.question}</strong>}
+                      {f.question && (
+                        <strong className="followups__q">
+                          <Inline text={f.question} />
+                        </strong>
+                      )}
                       {asker && (
                         <Link to={`/u/${asker.handle}`} className="small muted followups__asker">
                           Asked by {asker.name}
                         </Link>
                       )}
-                      <span className="followups__a">
-                        <Inline text={f.answer} />
-                      </span>
+                      <div className="followups__a">
+                        <Markdown text={f.answer} paragraphClass="" />
+                      </div>
                     </li>
                   )
                 })}

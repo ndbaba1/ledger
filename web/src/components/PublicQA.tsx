@@ -6,10 +6,13 @@ import { signInWithGithub } from '../app/githubAuth'
 import { useMe } from '../app/session'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
-import { Inline } from './Inline'
+import { Markdown } from './Inline'
+import { MarkdownField } from './MarkdownField'
 import { FieldError } from './States'
 import { relativeTime } from '../lib/format'
 import { useMutation } from '../lib/useAsync'
+
+const QUESTION_MAX_LENGTH = 600
 
 interface Props {
   handle: string
@@ -79,7 +82,7 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
   const answered = thread.questions.filter((q) => q.status === 'answered')
   const pending = thread.questions.filter((q) => q.status === 'pending')
   const first = author.name.split(' ')[0]
-  const askInputRef = useRef<HTMLInputElement>(null)
+  const askInputRef = useRef<HTMLTextAreaElement>(null)
 
   // Signed-in state can only change via a full page navigation (the GitHub
   // round trip), so this only ever runs once, right after landing back here.
@@ -90,8 +93,8 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
 
   const goSignIn = () => signInWithGithub(`${location.pathname}${location.search}#ask`)
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault()
     if (!me) return goSignIn()
     const next = await ask.run(body)
     if (next) {
@@ -158,32 +161,30 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
       )}
 
       {!isAuthor && (
-        <form className="stack gap-6" onSubmit={submit}>
-          <div className="qa__ask">
-            <label htmlFor="pqa-ask" className="sr-only">
-              Ask {first} a question
-            </label>
-            <input
-              id="pqa-ask"
-              ref={askInputRef}
-              className="input qa__input"
-              placeholder={`Ask ${first} a question…`}
-              value={body}
-              maxLength={600}
-              onFocus={() => {
-                if (!me) goSignIn()
-              }}
-              onChange={(e) => {
-                setBody(e.target.value)
-                ask.clearError()
-              }}
-            />
+        <form className="stack gap-8" onSubmit={submit}>
+          <MarkdownField
+            id="pqa-ask"
+            ref={askInputRef}
+            label={`Ask ${first} a question`}
+            placeholder={`Ask ${first} a question…`}
+            value={body}
+            maxLength={QUESTION_MAX_LENGTH}
+            onChange={(v) => {
+              setBody(v)
+              ask.clearError()
+            }}
+            onFocus={() => {
+              if (!me) goSignIn()
+            }}
+            onSubmit={() => submit()}
+          />
+          <FieldError message={ask.error} />
+          <div className="row gap-8 wrap">
             <button type="submit" className="btn btn--ask" disabled={Boolean(me) && (!body.trim() || ask.pending)}>
               Ask
             </button>
+            <p className="small muted">{me ? `Questions appear here once ${first} answers. Signed in as a verified GitHub user.` : 'Sign in with GitHub to ask.'}</p>
           </div>
-          <FieldError message={ask.error} />
-          <p className="small muted">{me ? `Questions appear here once ${first} answers. Signed in as a verified GitHub user.` : 'Sign in with GitHub to ask.'}</p>
         </form>
       )}
     </section>
@@ -221,8 +222,8 @@ function AnsweredQuestion({
     setAnswerText(q.answer?.body ?? '')
   }
 
-  const submitFold = async (e: FormEvent) => {
-    e.preventDefault()
+  const submitFold = async (e?: FormEvent) => {
+    e?.preventDefault()
     const res = await fold.run({ question: question.trim(), answer: answerText.trim() })
     if (res) {
       onThread(res.thread)
@@ -239,7 +240,9 @@ function AnsweredQuestion({
           <span className="qa__who">
             {asker?.name ?? 'An engineer'} <span className="qa__meta">{relativeTime(q.at)}</span>
           </span>
-          <p className="qa__q">{q.body}</p>
+          <div className="qa__q">
+            <Markdown text={q.body} paragraphClass="" />
+          </div>
         </div>
       </div>
       {q.answer && (
@@ -265,19 +268,13 @@ function AnsweredQuestion({
               )}
             </span>
           </div>
-          <p className="qa__a">
-            <Inline text={q.answer.body} />
-          </p>
+          <div className="qa__a">
+            <Markdown text={q.answer.body} paragraphClass="" />
+          </div>
           {isAuthor && editing && !q.folded && (
-            <form className="fold-editor stack gap-8" onSubmit={submitFold}>
-              <label className="stack gap-4">
-                <span className="small muted">Question</span>
-                <input className="input" value={question} onChange={(e) => setQuestion(e.target.value)} />
-              </label>
-              <label className="stack gap-4">
-                <span className="small muted">Answer</span>
-                <textarea className="input" rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
-              </label>
+            <form className="fold-editor stack gap-10" onSubmit={submitFold}>
+              <MarkdownField id={`fold-q-${q.id}`} label="Question" value={question} onChange={setQuestion} onSubmit={() => submitFold()} />
+              <MarkdownField id={`fold-a-${q.id}`} label="Answer" value={answerText} onChange={setAnswerText} onSubmit={() => submitFold()} />
               <FieldError message={fold.error} />
               <div className="row gap-8">
                 <button type="submit" className="btn btn--primary btn--sm" disabled={!question.trim() || !answerText.trim() || fold.pending}>
@@ -314,8 +311,8 @@ function PendingForAuthor({
   const dismiss = useMutation((id: ID) => api.dismissPublic(handle, slug, id))
   const replyId = `pqa-reply-${q.id}`
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault()
     const next = await answer.run(reply)
     if (next) onThread(next)
   }
@@ -328,16 +325,13 @@ function PendingForAuthor({
           <span className="qa__who">
             {asker?.name ?? 'An engineer'} <span className="qa__meta">{relativeTime(q.at)}</span>
           </span>
-          <p className="qa__q">
-            <Inline text={q.body} />
-          </p>
+          <div className="qa__q">
+            <Markdown text={q.body} paragraphClass="" />
+          </div>
         </div>
       </div>
       <form className="qa__answer stack gap-8" onSubmit={submit}>
-        <label htmlFor={replyId} className="sr-only">
-          Your answer
-        </label>
-        <textarea id={replyId} className="input" rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Answer publicly…" />
+        <MarkdownField id={replyId} label="Your answer" value={reply} onChange={setReply} onSubmit={() => submit()} placeholder="Answer publicly…" />
         <FieldError message={answer.error ?? dismiss.error} />
         <div className="row gap-8">
           <button type="submit" className="btn btn--sm" disabled={!reply.trim() || answer.pending}>
