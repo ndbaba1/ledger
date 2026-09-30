@@ -42,6 +42,8 @@ class Writeup < ApplicationRecord
     fields[key.to_s]
   end
 
+  EVIDENCE_BLOCKER = 'At least one piece of evidence Ledger could check with GitHub.'
+
   # Mirrors `publishBlockers` in web/src/lib/writeups.ts: the labels of
   # whatever is still missing before this can be published.
   def publish_blockers
@@ -54,11 +56,21 @@ class Writeup < ApplicationRecord
       blockers << 'Rollout' unless field_filled?('fix')
       blockers << 'A result after launch' unless result_complete?
     end
-    blockers << 'A verified PR you authored or reviewed' unless evidence.any? { |e| e.kind == 'github_pr' && e.verified? }
+    blockers << EVIDENCE_BLOCKER unless evidence_requirement_met?
     blockers
   end
 
   private
+
+  # A design still needs specifically a verified PR (it's shipped code); any
+  # other type just needs one piece of verified evidence — a PR or an issue.
+  def evidence_requirement_met?
+    if type == 'design'
+      evidence.any? { |e| e.kind == 'github_pr' && e.verified? }
+    else
+      evidence.any?(&:verified?)
+    end
+  end
 
   def field_filled?(key)
     value = fields[key]

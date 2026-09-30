@@ -183,7 +183,7 @@ export function PublicQA({ handle, slug, author, isAuthor, thread, onThread, onP
             <button type="submit" className="btn btn--ask" disabled={Boolean(me) && (!body.trim() || ask.pending)}>
               Ask
             </button>
-            <p className="small muted">{me ? `Questions appear here once ${first} answers. Signed in as a verified GitHub user.` : 'Sign in with GitHub to ask.'}</p>
+            <p className="small muted">{me ? `Questions appear here once ${first} answers. Signed in with GitHub.` : 'Sign in with GitHub to ask.'}</p>
           </div>
         </form>
       )}

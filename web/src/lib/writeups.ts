@@ -209,9 +209,11 @@ export function publishRequirements(w: Pick<Writeup, keyof WriteupFields | 'type
     reqs.push({ label: 'Rollout', done: filled('fix') })
     reqs.push({ label: 'A result after launch', done: Boolean(w.result?.label && w.result.before && w.result.after) })
   }
+  // A design still needs specifically a verified PR (it's shipped code); any
+  // other type just needs one piece of verified evidence — a PR or an issue.
   reqs.push({
-    label: 'A verified PR you authored or reviewed',
-    done: w.evidence.some((e) => e.kind === 'github_pr' && e.verified),
+    label: 'At least one piece of evidence Ledger could check with GitHub.',
+    done: w.type === 'design' ? w.evidence.some((e) => e.kind === 'github_pr' && e.verified) : w.evidence.some((e) => e.verified),
   })
   return reqs
 }

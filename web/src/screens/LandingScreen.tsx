@@ -62,13 +62,13 @@ export function LandingScreen() {
       <div className="explore">
         <section className="hero" aria-labelledby="hero-title">
           <h1 id="hero-title" className="page-title">
-            Explore write-ups
+            Explore engineering work
           </h1>
-          {!me && <p className="small muted">Engineering write-ups, each verified against the PRs that fixed it.</p>}
+          <p className="small muted">Incidents, investigations, decisions and designs, each linked to the PRs, issues and docs behind it.</p>
           <form className="hero__search" role="search" onSubmit={submit}>
             <Icon name="search" size={20} />
             <label htmlFor="explore-q" className="sr-only">
-              Search public write-ups
+              Search public records
             </label>
             <input
               id="explore-q"
@@ -97,7 +97,7 @@ export function LandingScreen() {
         <div className="explore__body">
           <div className="explore__feed">
             {result.error && <ErrorState error={result.error} onRetry={result.reload} />}
-            {result.loading && !result.data && <Loading label="Loading write-ups" />}
+            {result.loading && !result.data && <Loading label="Loading records" />}
             {result.data && (
               <FeedList
                 labelledBy="feed-title"
@@ -106,13 +106,13 @@ export function LandingScreen() {
                   <>
                     <Icon name={q ? 'search' : 'trend'} size={16} />
                     <h2 id="feed-title" className="feed__title">
-                      {q ? 'Results' : 'Latest write-ups'}
+                      {q ? 'Results' : 'Latest records'}
                     </h2>
                     <span className="feed__count small muted" aria-live="polite">
                       ·{' '}
                       {filtering
                         ? `${result.data.items.length} of ${result.data.total}${q ? ` matching “${q}”` : ''}${tag ? ` tagged ${tag}` : ''}`
-                        : `${result.data.total} write-ups`}
+                        : `${result.data.total} records`}
                     </span>
                     {filtering && (
                       <button
@@ -134,7 +134,7 @@ export function LandingScreen() {
                 footer={
                   result.data.items.length === 0 && (
                     <div className="feed__empty">
-                      <Empty title="No write-ups match yet">
+                      <Empty title="No records match yet">
                         Solved something like this? <Link to="/new">Write it up</Link> — yours could be the first.
                       </Empty>
                     </div>

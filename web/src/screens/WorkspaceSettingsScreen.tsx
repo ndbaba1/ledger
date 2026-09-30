@@ -808,7 +808,7 @@ function PublishingTab({ s, canManage, onChange }: { s: WorkspaceSettings; canMa
           </div>
           <p className="small muted">
             {s.policy.publicPromotion === 'allowed'
-              ? 'Engineers keep verified credit for their work. Code, teammates and internal links stay private.'
+              ? 'Engineers keep credit for their work, checked against GitHub. Code, teammates and internal links stay private.'
               : 'Records stay inside the workspace. Existing public posts aren’t removed.'}
           </p>
         </Choice>

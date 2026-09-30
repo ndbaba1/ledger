@@ -11,7 +11,7 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     post_json "/api/v1/writeups/#{writeup.id}/publish"
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(json['error']).to include('A title', 'Problem', 'Root cause', 'Solution', 'A verified PR you authored or reviewed')
+    expect(json['error']).to include('A title', 'Problem', 'Root cause', 'Solution', 'At least one piece of evidence Ledger could check with GitHub.')
   end
 
   it 'blocks publishing when the only evidence is an unverified PR or a plain link' do
@@ -22,7 +22,33 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     post_json "/api/v1/writeups/#{writeup.id}/publish"
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(json['error']).to include('A verified PR you authored or reviewed')
+    expect(json['error']).to include('At least one piece of evidence Ledger could check with GitHub.')
+  end
+
+  it 'publishes an incident whose only verified evidence is a participated-in issue' do
+    writeup = create(:writeup, user: user, title: 'Checkout p99 latency spike')
+    create(:evidence, writeup: writeup, kind: 'github_issue', repo: 'acme/checkout', snapshot: { 'participated' => true })
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+
+    expect(response).to have_http_status(:created)
+  end
+
+  it 'still requires a verified PR specifically for a design, not just any evidence' do
+    writeup = create(:writeup, :design, user: user, status: 'shipped',
+                                fields: { 'symptom' => 'Stop noisy tenants.', 'rootCause' => 'Rate limit at the edge.',
+                                          'fix' => 'Rolled out to 100%.', 'result' => { 'label' => 'p99', 'before' => '310ms', 'after' => '40ms' } })
+    create(:evidence, writeup: writeup, kind: 'github_issue', repo: 'acme/checkout',
+                       url: 'https://github.com/acme/checkout/issues/1', snapshot: { 'participated' => true })
+
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(json['error']).to include('At least one piece of evidence Ledger could check with GitHub.')
+
+    create(:evidence, writeup: writeup, key: 'S2', kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
+    post_json "/api/v1/writeups/#{writeup.id}/publish"
+    expect(response).to have_http_status(:created)
   end
 
   it 'publishes a complete write-up to the profile and returns a PublicPost' do

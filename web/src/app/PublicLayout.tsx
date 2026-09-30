@@ -15,7 +15,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <div className="public">
       <header className="public__head">
-        <Link to="/" aria-label="Ledger — explore write-ups">
+        <Link to="/" aria-label="Ledger — explore records">
           <Logo />
         </Link>
         <nav className="public__nav" aria-label="Public">

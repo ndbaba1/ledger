@@ -38,8 +38,8 @@ describe('public landing page', () => {
   it('opens at the root with the feed and a search box', async () => {
     window.location.hash = '#/'
     render(<App api={newApi()} />)
-    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Explore write-ups')
-    const feed = await screen.findByRole('region', { name: 'Latest write-ups' })
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Explore engineering work')
+    const feed = await screen.findByRole('region', { name: 'Latest records' })
     expect(await within(feed).findByText('Kafka consumer lag that only appeared on Monday mornings')).toBeInTheDocument()
     expect(within(feed).getByText('Offline-first delivery tracking for drivers with patchy signal')).toBeInTheDocument()
   })
@@ -48,7 +48,7 @@ describe('public landing page', () => {
     window.location.hash = '#/'
     const user = userEvent.setup()
     render(<App api={newApi()} />)
-    await user.type(await screen.findByLabelText('Search public write-ups'), 'retries{Enter}')
+    await user.type(await screen.findByLabelText('Search public records'), 'retries{Enter}')
     expect(await screen.findByText(/matching “retries”/)).toBeInTheDocument()
     const feed = screen.getByRole('region', { name: 'Results' })
     const titles = within(feed).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
@@ -61,7 +61,7 @@ describe('public landing page', () => {
     await user.click(await screen.findByRole('button', { name: 'Filter' }))
     await user.click(await screen.findByRole('button', { name: 'Designs' }))
     expect(screen.getByRole('button', { name: /Designs/, expanded: false })).toBeInTheDocument()
-    const designs = await screen.findByRole('region', { name: 'Latest write-ups' })
+    const designs = await screen.findByRole('region', { name: 'Latest records' })
     expect(within(designs).getAllByText('Design').length).toBeGreaterThan(0)
     expect(within(designs).queryByText('Incident')).not.toBeInTheDocument()
 

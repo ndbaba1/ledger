@@ -10,7 +10,7 @@ module Api
 
       def create
         type = params[:type]
-        raise Unprocessable, 'Unknown write-up type.' unless Writeup::TYPES.include?(type)
+        raise Unprocessable, 'Unknown record type.' unless Writeup::TYPES.include?(type)
 
         writeup = current_user.writeups.create!(type: type)
         render json: WriteupSerializer.call(writeup), status: :created

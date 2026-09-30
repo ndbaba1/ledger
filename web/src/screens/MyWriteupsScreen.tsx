@@ -20,7 +20,7 @@ export function MyWriteupsScreen() {
       <div className="page page--narrow">
         <header className="page-head">
           <div>
-            <h1 className="page-title">Your write-ups</h1>
+            <h1 className="page-title">Your records</h1>
             <p className="page-sub">Drafts stay private to you until you publish them to your profile.</p>
           </div>
           <Link to="/new" className="btn btn--primary">
@@ -30,7 +30,7 @@ export function MyWriteupsScreen() {
         </header>
 
         {data.error && <ErrorState error={data.error} onRetry={data.reload} />}
-        {!data.data && !data.error && <Loading label="Loading your write-ups" />}
+        {!data.data && !data.error && <Loading label="Loading your records" />}
 
         {drafts && profile && (
           <div className="stack gap-24">
@@ -51,7 +51,7 @@ export function MyWriteupsScreen() {
                 <ListRow
                   key={w.id}
                   to={`/write/${w.id}`}
-                  title={w.title || 'Untitled write-up'}
+                  title={w.title || 'Untitled record'}
                   meta={
                     <>
                       <KindMeta type={w.type} />

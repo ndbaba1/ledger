@@ -46,7 +46,7 @@ export function TopicScreen() {
             {topic.data.tag}
           </h1>
           <p className="topic__sub">
-            {items.length} verified write-up{items.length === 1 ? '' : 's'}
+            {items.length} record{items.length === 1 ? '' : 's'}
             {totalHits > 0 && ` · ${totalHits} engineers hit these problems`} ·{' '}
             {byType.map(([t, n]) => `${n} ${t}${n === 1 ? '' : 's'}`).join(', ')}
           </p>

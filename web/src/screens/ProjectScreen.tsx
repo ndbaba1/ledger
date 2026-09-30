@@ -48,8 +48,8 @@ export function ProjectScreen() {
           <span className="eyebrow">Project</span>
           <h1 className="page-title">{project.title}</h1>
           <p className="small muted">
-            The name is {author.name.split(' ')[0]}’s. Everything else on this page was counted or quoted by Ledger from verified
-            work{project.employerLine ? ` ${project.employerLine}` : ''}.
+            The name is {author.name.split(' ')[0]}’s. Everything else on this page was counted or quoted by Ledger from work
+            checked against GitHub{project.employerLine ? ` ${project.employerLine}` : ''}.
           </p>
         </header>
 
@@ -67,7 +67,7 @@ export function ProjectScreen() {
               labelledBy="project-posts"
               items={posts.map((post) => ({ post, author }))}
               showAuthor={false}
-              header={<ListHeader id="project-posts" icon={<Icon name="book" size={16} />} title="Public write-ups" count={posts.length} />}
+              header={<ListHeader id="project-posts" icon={<Icon name="book" size={16} />} title="Public records" count={posts.length} />}
             />
           </div>
         )}
@@ -80,7 +80,7 @@ export function ProjectScreen() {
             }
             footer={
               <p className="feed__note small muted">
-                Verified by Ledger inside the company. Titles pass through the same redaction as posts; the content stays private.
+                Checked against GitHub inside the company. Titles pass through the same redaction as posts; the content stays private.
               </p>
             }
           >

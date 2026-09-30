@@ -263,7 +263,7 @@ export function PostScreen() {
           )}
         </article>
 
-        <aside className="post-rail" aria-label="Author, evidence and more write-ups">
+        <aside className="post-rail" aria-label="Author, evidence and more records">
           <AuthorCard author={author} />
 
           {(verifiedGroups.length > 0 || flatEvidence.length > 0) && (
@@ -302,7 +302,7 @@ export function PostScreen() {
                   })}
                 </ul>
               )}
-              <p className="small muted">Each badge is checked with GitHub when the post is published.</p>
+              <p className="small muted">Each piece of evidence is checked with GitHub when the record is published.</p>
             </section>
           )}
 

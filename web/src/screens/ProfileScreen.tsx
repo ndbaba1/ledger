@@ -124,7 +124,7 @@ export function ProfileScreen() {
               <ListHeader
                 id="profile-posts"
                 icon={<Icon name="book" size={16} />}
-                title="Write-ups"
+                title="Records"
                 count={tab === 'all' ? posts.length : `${visible.length} of ${posts.length}`}
               >
                 {posts.length > 0 && (
@@ -144,7 +144,7 @@ export function ProfileScreen() {
             footer={
               visible.length === 0 && (
                 <div className="feed__empty">
-                  <Empty title="No write-ups yet">
+                  <Empty title="No records yet">
                     {isMe ? (
                       features.workspace ? (
                         <>
@@ -163,13 +163,13 @@ export function ProfileScreen() {
           />
         </div>
 
-        <aside className="profile__side stack gap-16" aria-label="Verified activity">
+        <aside className="profile__side stack gap-16" aria-label="Proof of work">
           <div className="card stack gap-14">
             <h2 className="side-title">Proof of work</h2>
             <div className={repos !== undefined ? 'grid-3 grid-3--tight' : 'grid-2 grid-2--tight'}>
               <div className="stat">
                 <span className="stat__n">{posts.length}</span>
-                <span className="small muted">write-ups</span>
+                <span className="small muted">records</span>
               </div>
               <div className="stat">
                 <span className="stat__n text-green">{verifiedPRs ?? verifiedFallback}</span>
@@ -184,8 +184,8 @@ export function ProfileScreen() {
             </div>
             <p className="small muted">
               {features.workspace
-                ? 'Badges are checked against the source when a post is published. Private work shows as verified without revealing code or company.'
-                : 'Each badge is checked with GitHub when the post is published.'}
+                ? 'Badges are checked against the source when a record is published. Private work still earns the checkmark, without revealing code or company.'
+                : 'Each piece of evidence is checked with GitHub when the record is published.'}
             </p>
           </div>
           {user.previously && user.previously.length > 0 && (

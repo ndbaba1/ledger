@@ -65,7 +65,7 @@ describe('live mode', () => {
     expect(await screen.findByRole('button', { name: 'Sign in with GitHub' })).toBeInTheDocument()
     expect(screen.queryByText('Open workspace')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Write' })).not.toBeInTheDocument()
-    expect(screen.getByText('Engineering write-ups, each verified against the PRs that fixed it.')).toBeInTheDocument()
+    expect(screen.getByText('Incidents, investigations, decisions and designs, each linked to the PRs, issues and docs behind it.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'How it works' })).toBeInTheDocument()
   })
 
@@ -75,7 +75,8 @@ describe('live mode', () => {
     expect(await screen.findByRole('link', { name: 'My profile' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Write' })).toHaveAttribute('href', '#/new')
     expect(screen.queryByText('Open workspace')).not.toBeInTheDocument()
-    expect(screen.queryByText('Engineering write-ups, each verified against the PRs that fixed it.')).not.toBeInTheDocument()
+    // The subtitle shows for everyone now; only the "How it works" panel is signed-out-only.
+    expect(screen.getByText('Incidents, investigations, decisions and designs, each linked to the PRs, issues and docs behind it.')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'How it works' })).not.toBeInTheDocument()
   })
 
@@ -257,7 +258,7 @@ describe('the post page rail', () => {
       getThread: () => Promise.resolve(thread),
     }))
 
-    const rail = await screen.findByRole('complementary', { name: 'Author, evidence and more write-ups' })
+    const rail = await screen.findByRole('complementary', { name: 'Author, evidence and more records' })
     expect(within(rail).getByRole('heading', { name: 'Hannah L.' })).toBeInTheDocument()
     expect(within(rail).getByText('@hannahl')).toBeInTheDocument()
     expect(within(rail).getByText('Staff engineer · payments')).toBeInTheDocument()
@@ -282,7 +283,7 @@ describe('the post page rail', () => {
     const rail = within(evidenceSection.closest('section')!)
     expect(rail.getByText('GitHub PR #11')).toBeInTheDocument()
     expect(rail.getByText('not verified')).toBeInTheDocument()
-    expect(rail.getByText('Each badge is checked with GitHub when the post is published.')).toBeInTheDocument()
+    expect(rail.getByText('Each piece of evidence is checked with GitHub when the record is published.')).toBeInTheDocument()
     expect(rail.getByRole('link', { name: /GitHub PR #11/ })).toHaveAttribute('href', 'https://github.com/acme/checkout/pull/11')
   })
 

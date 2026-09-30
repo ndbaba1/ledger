@@ -184,6 +184,6 @@ describe('community features in the app', () => {
     render(<App api={newApi()} />)
     await user.click(await screen.findByRole('link', { name: '#retries' }))
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('#retries')
-    expect(screen.getByText(/verified write-ups?/)).toBeInTheDocument()
+    expect(screen.getByText(/\d+ records?/)).toBeInTheDocument()
   })
 })
