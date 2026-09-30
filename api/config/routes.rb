@@ -57,4 +57,9 @@ Rails.application.routes.draw do
       resources :topics, only: [:show], param: :tag
     end
   end
+
+  # The SPA's own router (a HashRouter) never sends its routes to the server,
+  # but this is a safety net for any other path — everything not already
+  # claimed above falls through to index.html and lets the frontend decide.
+  get '*path', to: 'static#index', constraints: ->(req) { !req.path.start_with?('/api/', '/auth/') }
 end

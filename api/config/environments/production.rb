@@ -18,14 +18,23 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # config.assume_ssl = true
+  # Render terminates TLS in front of us and forwards plain HTTP, so tell
+  # Rails to treat every request as already secure and to enforce that.
+  # DISABLE_FORCE_SSL=1 is only for smoke-testing the production image over
+  # plain HTTP on a laptop — it must never be set on Render.
+  unless ENV['DISABLE_FORCE_SSL']
+    config.assume_ssl = true
+    config.force_ssl = true
 
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
+    # Skip http-to-https redirect for the default health check endpoint.
+    config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
+  end
 
-  # Skip http-to-https redirect for the default health check endpoint.
-  # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
+  # Render's edge proxy connects to us from an internal, private-network
+  # address, which Rails' default trusted proxy list already covers — this
+  # just makes explicit that request.ip is trusted to come from
+  # X-Forwarded-For rather than the socket peer.
+  config.action_dispatch.trusted_proxies = ActionDispatch::RemoteIp::TRUSTED_PROXIES
 
   # Log to STDOUT with the current request id as a default log tag.
   config.log_tags = [ :request_id ]
@@ -40,8 +49,10 @@ Rails.application.configure do
   # Don't log any deprecations.
   config.active_support.report_deprecations = false
 
-  # Replace the default in-process memory cache store with a durable alternative.
-  config.cache_store = :solid_cache_store
+  # A single instance for now, so Rack::Attack's counters (and GithubApp's
+  # installation-lookup cache) don't need to be shared or durable — an
+  # in-process memory store is fine and skips Solid Cache's extra database.
+  config.cache_store = :memory_store, { size: 64.megabytes }
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
   config.active_job.queue_adapter = :solid_queue

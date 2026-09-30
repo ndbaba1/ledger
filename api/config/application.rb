@@ -43,7 +43,8 @@ module Api
 
     # Same-origin cookie session (frontend and API share an origin through the
     # dev proxy / nginx), so we don't need token auth or CORS.
-    config.session_store :cookie_store, key: '_ledger_session', same_site: :lax
+    config.session_store :cookie_store, key: '_ledger_session', same_site: :lax, httponly: true,
+                                         secure: Rails.env.production?
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use config.session_store, config.session_options
 

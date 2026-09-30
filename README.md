@@ -145,3 +145,88 @@ section headings against the same fixture.
 ## Frontend
 
 See `web/README.md` for the screen list, project layout and mock data.
+
+## Deploying
+
+Ledger deploys to [Render](https://render.com) as a single Docker web service
+plus a managed Postgres database, defined in `render.yaml` at the repo root (a
+[Blueprint](https://render.com/docs/blueprint-spec)). It's invite-only for
+now — no public sign-up flow, no custom domain.
+
+### First deploy
+
+1. Push this repo to GitHub and connect it in the Render dashboard: **New** →
+   **Blueprint**, pick the repo. Render reads `render.yaml` and proposes the
+   `ledger` web service and the `ledger-db` Postgres database.
+2. Apply the blueprint. The first deploy will fail health checks — it's
+   missing the secrets below, which `render.yaml` deliberately leaves unset
+   (`sync: false`) rather than committing them to the repo.
+3. On the `ledger` service's **Environment** tab in the Render dashboard, set:
+
+   | Variable | Where it comes from |
+   | --- | --- |
+   | `SECRET_KEY_BASE` | `openssl rand -hex 64` |
+   | `APP_URL` | The service's `onrender.com` URL, e.g. `https://ledger-xxxx.onrender.com` (no trailing slash) |
+   | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | The **production** GitHub OAuth App — see below |
+   | `GITHUB_APP_ID` / `GITHUB_APP_SLUG` / `GITHUB_APP_PRIVATE_KEY_BASE64` | The **production** GitHub App — see below |
+   | `GITHUB_APP_WEBHOOK_SECRET` | Optional; only needed if you ever turn the app's webhook on |
+   | `ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY` / `_DETERMINISTIC_KEY` / `_KEY_DERIVATION_SALT` | `bin/rails db:encryption:init`, run locally — it just prints three values, no database needed. Required: `github_token` is encrypted at rest, and sign-in writes it on every login. |
+   | `SENTRY_DSN` | Optional; from a Sentry project, if you want error reporting |
+
+   `DATABASE_URL`, `RAILS_ENV`, `RAILS_LOG_TO_STDOUT` and
+   `RAILS_SERVE_STATIC_FILES` are already set by `render.yaml`.
+4. Trigger a manual deploy once the secrets are in place. Render runs
+   `bin/rails db:prepare` (the blueprint's pre-deploy command) before every
+   deploy, so the schema is always current.
+
+### Creating the production GitHub OAuth App
+
+Same steps as [the development one](#creating-a-github-oauth-app), against
+your `onrender.com` URL instead of `localhost:8080`:
+
+1. https://github.com/settings/developers → **New OAuth App**.
+2. **Homepage URL**: your service's URL, e.g. `https://ledger-xxxx.onrender.com`.
+3. **Authorization callback URL**: `https://ledger-xxxx.onrender.com/auth/github/callback`.
+4. Put the client ID and secret in `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`
+   on Render.
+
+### Creating the production GitHub App
+
+Same steps as [development](#creating-the-github-app-private-repos), against
+your `onrender.com` URL:
+
+1. https://github.com/settings/apps → **New GitHub App**.
+2. **Homepage URL**: `https://ledger-xxxx.onrender.com`.
+3. **Setup URL**: `https://ledger-xxxx.onrender.com/api/v1/github/app/setup`,
+   with **Redirect on update** checked.
+4. **Webhook**: uncheck **Active** — same reasoning as development, no
+   webhook is needed.
+5. **Repository permissions**: `Pull requests` and `Issues`, both read-only.
+6. Generate a private key, base64-encode it
+   (`base64 -i your-app.private-key.pem`), and set `GITHUB_APP_ID`,
+   `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY_BASE64` on Render. Unlike
+   development, production refuses to boot if this key is missing or
+   invalid, rather than silently falling back to a throwaway one.
+
+### Rails console on Render
+
+On the `ledger` service page, open the **Shell** tab and run
+`bin/rails console`. (Or install the [Render CLI](https://render.com/docs/cli)
+and run `render ssh`, then the same command.)
+
+### What's different from local Docker
+
+- One image serves both frontend and API: `api/Dockerfile` builds `web/` (in
+  live mode — no mock data bundled) and copies it into Rails' `public/`;
+  Rails serves those static files directly, falling back to `index.html` for
+  anything not handled by `/api` or `/auth`.
+- Render terminates TLS in front of the app; Rails is configured to trust
+  that and enforce HTTPS itself (`config.assume_ssl`, `config.force_ssl`),
+  except for the `/up` health check.
+- Rate limiting (Rack::Attack) and the GitHub App's installation-lookup cache
+  use an in-process memory store — fine for the single instance this runs as
+  today, but it resets on every deploy/restart and wouldn't be shared if this
+  ever scales to more than one instance.
+- `db/seeds.rb` does nothing in production; a real deploy starts with no
+  sample data. Run `bin/rails ledger:demo` on a throwaway/staging deploy if
+  you want it anyway.

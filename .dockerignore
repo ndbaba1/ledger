@@ -1,0 +1,31 @@
+# Build context for api/Dockerfile is the repo root (it needs both api/ and
+# web/). See https://docs.docker.com/engine/reference/builder/#dockerignore-file
+
+/.git/
+/.gitignore
+
+# Secrets — never let these into a build context.
+/.env*
+/api/config/master.key
+/api/config/credentials/*.key
+
+# Bundler config and CI/dev-only files.
+/api/.bundle
+/api/.github
+/api/config/deploy*.yml
+/api/.kamal
+/api/.devcontainer
+
+# Logs, tempfiles and pidfiles, but keep the directories.
+/api/log/*
+/api/tmp/*
+!/api/log/.keep
+!/api/tmp/.keep
+/api/tmp/pids/*
+!/api/tmp/pids/.keep
+
+# Built/installed artifacts — rebuilt fresh inside the image.
+/api/vendor/bundle
+/web/node_modules
+/web/dist
+/web/dist-ssr

@@ -1,14 +1,27 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t api .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name api api
+# This Dockerfile is designed for production, not development (see
+# api/Dockerfile.dev and compose.yaml for that). Build context is the repo
+# root, since it needs both api/ and web/:
+# docker build -f api/Dockerfile -t ledger .
+# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from api/config/master.key> --name ledger ledger
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 
-# Make sure RUBY_VERSION matches the Ruby version in .ruby-version
+# Make sure RUBY_VERSION matches the Ruby version in api/.ruby-version. Declared
+# before any FROM so it's in scope for the ruby base image below.
 ARG RUBY_VERSION=3.3.8
+
+# Builds the frontend as a static bundle (live mode: talks to this same API,
+# no mock data) to copy into Rails' public/ below.
+FROM node:22-alpine AS frontend
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ .
+RUN VITE_API=http npm run build
+
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 # Rails app lives here
@@ -36,8 +49,8 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Install application gems
-COPY vendor/* ./vendor/
-COPY Gemfile Gemfile.lock ./
+COPY api/vendor/* ./vendor/
+COPY api/Gemfile api/Gemfile.lock ./
 
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
@@ -45,7 +58,11 @@ RUN bundle install && \
     bundle exec bootsnap precompile -j 1 --gemfile
 
 # Copy application code
-COPY . .
+COPY api/ .
+
+# The built frontend: Rails serves it as static files from public/, with a
+# fallback route to index.html for everything else (config/routes.rb).
+COPY --from=frontend /web/dist/. ./public/
 
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
