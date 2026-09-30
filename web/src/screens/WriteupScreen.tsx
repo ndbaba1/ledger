@@ -542,10 +542,10 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
                 <Icon name="alert" size={11} /> {e.failureReason}
               </span>
             )}
-            {e.failureCode === 'app_not_installed' && (
+            {(e.failureCode === 'app_not_installed' || e.failureCode === 'repo_not_in_installation') && (
               <span className="row gap-6 evidence-edit__actions">
                 <a href={e.installUrl} className="btn btn--primary btn--sm">
-                  Install Ledger on {e.owner}
+                  {e.failureCode === 'app_not_installed' ? `Install Ledger on ${e.owner}` : 'Give Ledger access to this repo'}
                 </a>
                 <button
                   type="button"

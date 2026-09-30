@@ -3,7 +3,7 @@ class Evidence < ApplicationRecord
 
   KINDS = %w[github_pr github_issue link].freeze
   STATUSES = %w[fetched linked failed].freeze
-  FAILURE_CODES = %w[app_not_installed].freeze
+  FAILURE_CODES = %w[app_not_installed repo_not_in_installation].freeze
 
   belongs_to :writeup, inverse_of: :evidence
 

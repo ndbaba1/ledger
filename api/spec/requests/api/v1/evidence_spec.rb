@@ -202,6 +202,40 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(evidence['title']).not_to include('Revert pool size')
       expect(evidence['detail']).to eq('')
     end
+
+    it "installed on the owner but not shared with this repo → failed evidence, not a 500" do
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/72')
+        .to_return(status: 404, body: { message: 'Not Found' }.to_json, headers: { 'Content-Type' => 'application/json' })
+      stub_installation_found('acme', 'checkout')
+      stub_installation_token
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/pulls/72')
+        .with(headers: { 'Authorization' => 'Bearer ghs_installation_token' })
+        .to_return(status: 404, body: { message: 'Not Found' }.to_json, headers: { 'Content-Type' => 'application/json' })
+      stub_request(:get, 'https://api.github.com/app/installations/4242')
+        .to_return(status: 200, body: { id: 4242, account: { login: 'acme', type: 'Organization' } }.to_json,
+                   headers: { 'Content-Type' => 'application/json' })
+
+      post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/72' }
+
+      expect(response).to have_http_status(:created)
+      evidence = json['evidence'].last
+      expect(evidence['status']).to eq('failed')
+      expect(evidence['failureCode']).to eq('repo_not_in_installation')
+      expect(evidence['failureReason']).to eq("Ledger's app is installed on acme but can't see this repo. Add it under Repository access.")
+      expect(evidence['installUrl']).to start_with('https://github.com/organizations/acme/settings/installations/4242')
+      expect(evidence['title']).to eq('GitHub PR #72')
+    end
+  end
+
+  describe 'POST /api/v1/writeups/:id/evidence — safety net' do
+    it "422s instead of 500ing when an Octokit error the verifier doesn't specifically handle escapes it" do
+      allow_any_instance_of(GithubEvidenceVerifier).to receive(:call).and_raise(Octokit::Error.new)
+
+      post_json "/api/v1/writeups/#{writeup.id}/evidence", params: { url: 'https://github.com/acme/checkout/pull/1' }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json['error']).to eq("Couldn't check that link with GitHub. Try again.")
+    end
   end
 
   describe 'POST /api/v1/writeups/:id/evidence/:key/recheck' do

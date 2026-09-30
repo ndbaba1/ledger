@@ -62,6 +62,17 @@ class GithubApp
       owner_id ? "#{base}/permissions?target_id=#{owner_id}" : base
     end
 
+    # Where to send someone to add a repo to an *existing* installation (an
+    # installation limited to selected repos, that doesn't yet include this
+    # one). Organizations and personal accounts use different settings paths.
+    def installation_settings_url(installation_id, owner)
+      if installation_account_type(installation_id) == 'Organization'
+        "https://github.com/organizations/#{owner}/settings/installations/#{installation_id}"
+      else
+        "https://github.com/settings/installations/#{installation_id}"
+      end
+    end
+
     # A signed, expiring token identifying who asked to install the app and
     # for which write-up — round-tripped through GitHub's installation flow
     # via the `state` query param, and verified in GithubAppSetupsController.
@@ -94,6 +105,20 @@ class GithubApp
 
     def private_key
       @private_key ||= OpenSSL::PKey::RSA.new(Base64.decode64(PRIVATE_KEY_BASE64))
+    end
+
+    # Cached like everything else here; falls back to the personal-account
+    # URL shape on any error, rather than raising out of an error path itself.
+    def installation_account_type(installation_id)
+      key = "github_app/installation_account_type/#{installation_id}"
+      cached = Rails.cache.read(key)
+      return cached if cached
+
+      type = jwt_client.installation(installation_id).account.type
+      Rails.cache.write(key, type, expires_in: INSTALLATION_CACHE_TTL)
+      type
+    rescue Octokit::Error
+      'User'
     end
   end
 end

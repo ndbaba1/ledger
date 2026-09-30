@@ -5,6 +5,10 @@ module Api
       before_action :set_writeup
 
       rescue_from GithubEvidenceVerifier::InvalidLink, GithubEvidenceVerifier::DuplicateLink, with: :render_evidence_error
+      # Last-resort safety net: GithubEvidenceVerifier rescues every GitHub
+      # call it makes, but an unanticipated Octokit error (a new status code,
+      # a bug in a fallback path) should still fail as "try again", not 500.
+      rescue_from Octokit::Error, with: :render_github_error
 
       def create
         url = params[:url].to_s.strip
@@ -33,6 +37,11 @@ module Api
 
       def render_evidence_error(error)
         render json: { error: error.message }, status: :unprocessable_content
+      end
+
+      def render_github_error(error)
+        Rails.logger.error("GitHub API error verifying evidence: #{error.class}: #{error.message}")
+        render json: { error: "Couldn't check that link with GitHub. Try again." }, status: :unprocessable_content
       end
 
       def set_writeup

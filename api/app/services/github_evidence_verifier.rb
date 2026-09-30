@@ -15,9 +15,16 @@
 #   signed-in user authored, approved or participated in it themselves — and
 #   even then, only the author ever sees the title. Everyone else sees a
 #   generic "private GitHub project" badge.
-# - A repo the app isn't installed on yet is not a failure to report loudly:
-#   it's an actionable one (install_url), re-checked on demand or the moment
-#   the app is installed (see Api::V1::GithubAppSetupsController).
+# - A repo the app isn't installed on yet — or is installed but not shared
+#   with this repo (an installation can be limited to selected repos, and a
+#   404 through its token can't be told apart from the PR/issue being gone) —
+#   is not a failure to report loudly: it's actionable (install_url),
+#   re-checked on demand or the moment the app is installed/updated (see
+#   Api::V1::Github::App::SetupsController).
+# No Octokit error should ever reach the controller unhandled: every method
+# that calls GitHub rescues Octokit::NotFound and *TEMPORARY_ERRORS (which
+# includes the Octokit::Error base class). EvidenceController also keeps its
+# own rescue as a last-resort safety net.
 class GithubEvidenceVerifier
   # Raised to the controller, which returns 422 with the message.
   class InvalidLink < StandardError; end
@@ -30,16 +37,20 @@ class GithubEvidenceVerifier
   PR_PATH = %r{\A/(?<owner>[^/]+)/(?<repo>[^/]+)/pull/(?<number>\d+)(?:/.*)?\z}
   ISSUE_PATH = %r{\A/(?<owner>[^/]+)/(?<repo>[^/]+)/issues/(?<number>\d+)(?:/.*)?\z}
 
+  # Octokit::Error covers every HTTP-level failure GitHub can hand back
+  # (Unauthorized, Forbidden, TooManyRequests, ServerError, and anything else
+  # in that family) except NotFound, which every caller rescues separately —
+  # this is deliberately the broad catch-all so no GitHub error class can slip
+  # through unhandled. temporary_reason_for maps it to a message by class,
+  # with a generic fallback for anything not specifically called out there.
   TEMPORARY_ERRORS = [
-    Octokit::Unauthorized,
-    Octokit::TooManyRequests,
-    Octokit::Forbidden,
-    Octokit::ServerError,
+    Octokit::Error,
     Faraday::Error,
     TemporaryFailure
   ].freeze
 
   APP_NOT_INSTALLED = 'app_not_installed'
+  REPO_NOT_IN_INSTALLATION = 'repo_not_in_installation'
 
   def initialize(writeup, url, user)
     @writeup = writeup
@@ -156,7 +167,7 @@ class GithubEvidenceVerifier
       )
     end
   rescue Octokit::NotFound
-    mark_gone!(evidence, 'PR', m[:number])
+    keep_badge_repo_not_in_installation!(evidence, m[:owner], installation_id)
   rescue *TEMPORARY_ERRORS => e
     evidence.update!(refresh_warning: temporary_reason_for(e))
   end
@@ -186,7 +197,7 @@ class GithubEvidenceVerifier
       )
     end
   rescue Octokit::NotFound
-    mark_gone!(evidence, 'issue', m[:number])
+    keep_badge_repo_not_in_installation!(evidence, m[:owner], installation_id)
   rescue *TEMPORARY_ERRORS => e
     evidence.update!(refresh_warning: temporary_reason_for(e))
   end
@@ -206,15 +217,22 @@ class GithubEvidenceVerifier
     end
   end
 
-  # Deleted, or no longer visible even with the app installed: a definite
-  # answer, so the badge goes.
-  def mark_gone!(evidence, noun, number)
-    evidence.update!(
-      status: 'failed', authored_by_user: false, merged_at: nil,
-      title: "GitHub #{noun} ##{number}", detail: '', repo: nil, snapshot: {},
-      private: false, owner: nil, failure_code: nil, install_url: nil,
-      failure_reason: 'Not found, or a private repo Ledger can’t see.', refresh_warning: nil
-    )
+  # The installation exists but this particular repo 404s through it — either
+  # it was never shared with the installation, or GitHub can't tell that apart
+  # from the PR/issue itself being gone (it deliberately returns the same 404
+  # either way). Treated the same as "not installed": not a definite answer,
+  # so whatever badge exists is left alone rather than dropped.
+  def keep_badge_repo_not_in_installation!(evidence, owner, installation_id)
+    if evidence.failure_code == REPO_NOT_IN_INSTALLATION
+      evidence.update!(
+        failure_reason: repo_not_in_installation_reason(owner),
+        install_url: GithubApp.installation_settings_url(installation_id, owner), refresh_warning: nil
+      )
+    else
+      evidence.update!(
+        refresh_warning: "Ledger's app can no longer see #{evidence.repo} — badge kept from #{format_month(evidence.verified_at)}."
+      )
+    end
   end
 
   # Accepts http(s)://github.com and www.github.com; ignores a trailing path
@@ -321,7 +339,7 @@ class GithubEvidenceVerifier
       )
     end
   rescue Octokit::NotFound
-    failed_evidence('github_pr', url, number, 'Not found, or a private repo Ledger can’t see.')
+    repo_not_in_installation_evidence('github_pr', url, number, m[:owner], installation_id)
   rescue *TEMPORARY_ERRORS => e
     failed_evidence('github_pr', url, number, temporary_reason_for(e))
   end
@@ -352,7 +370,7 @@ class GithubEvidenceVerifier
       )
     end
   rescue Octokit::NotFound
-    failed_evidence('github_issue', url, number, 'Not found, or a private repo Ledger can’t see.')
+    repo_not_in_installation_evidence('github_issue', url, number, m[:owner], installation_id)
   rescue *TEMPORARY_ERRORS => e
     failed_evidence('github_issue', url, number, temporary_reason_for(e))
   end
@@ -386,6 +404,24 @@ class GithubEvidenceVerifier
 
   def app_not_installed_reason(owner)
     "Ledger can't see this repo. Install the Ledger app on #{owner} to verify private work."
+  end
+
+  # The app is installed on this owner, but not shared with this specific
+  # repo (installation limited to selected repositories) — or GitHub can't
+  # tell that apart from the PR/issue itself being gone, and 404s either way.
+  # Also actionable: the editor offers to add repo access and check again.
+  def repo_not_in_installation_evidence(kind, url, number, owner, installation_id)
+    create_evidence!(
+      kind: kind, url: url,
+      title: "GitHub #{kind == 'github_pr' ? 'PR' : 'issue'} ##{number}", detail: '',
+      status: 'failed', repo: nil, number: number, private: true, owner: owner,
+      failure_code: REPO_NOT_IN_INSTALLATION, failure_reason: repo_not_in_installation_reason(owner),
+      install_url: GithubApp.installation_settings_url(installation_id, owner)
+    )
+  end
+
+  def repo_not_in_installation_reason(owner)
+    "Ledger's app is installed on #{owner} but can't see this repo. Add it under Repository access."
   end
 
   # Author-only: the public API must not return failed evidence (see
