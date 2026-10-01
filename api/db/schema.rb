@@ -10,9 +10,27 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_30_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "draft_requests", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "writeup_id"
+    t.string "source_url", null: false
+    t.string "template"
+    t.string "status", default: "drafting", null: false
+    t.string "error"
+    t.string "note"
+    t.boolean "drafted_from_private", default: false, null: false
+    t.boolean "counts_toward_cap", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "created_at"], name: "index_draft_requests_on_user_id_and_created_at"
+    t.index ["user_id", "source_url", "status"], name: "index_draft_requests_on_user_id_and_source_url_and_status"
+    t.index ["user_id"], name: "index_draft_requests_on_user_id"
+    t.index ["writeup_id"], name: "index_draft_requests_on_writeup_id"
+  end
 
   create_table "evidence", force: :cascade do |t|
     t.bigint "writeup_id", null: false
@@ -121,6 +139,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_150000) do
     t.string "website"
     t.string "linkedin"
     t.string "company"
+    t.datetime "private_drafting_consent_at"
     t.index ["github_id"], name: "index_users_on_github_id", unique: true
     t.index ["handle"], name: "index_users_on_handle", unique: true
   end
@@ -133,11 +152,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_150000) do
     t.jsonb "fields", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "draft_source_url"
+    t.string "draft_model"
+    t.string "draft_prompt_version"
+    t.datetime "drafted_at"
+    t.boolean "drafted_from_private", default: false, null: false
+    t.jsonb "draft_sections_meta", default: {}, null: false
     t.index ["status"], name: "index_writeups_on_status"
     t.index ["type"], name: "index_writeups_on_type"
     t.index ["user_id"], name: "index_writeups_on_user_id"
   end
 
+  add_foreign_key "draft_requests", "users"
+  add_foreign_key "draft_requests", "writeups"
   add_foreign_key "evidence", "writeups"
   add_foreign_key "hits", "posts"
   add_foreign_key "hits", "users"
