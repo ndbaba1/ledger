@@ -178,4 +178,78 @@ RSpec.describe GithubSourceContext do
       expect(evidence.verified?).to be false
     end
   end
+
+  describe 'issue state and close reason' do
+    it "labels the source issue's state, close reason and close date" do
+      stub_issue(80, body: { title: 'Flaky test', body: 'It fails sometimes', created_at: '2026-09-01T00:00:00Z',
+                             state: 'closed', state_reason: 'completed', closed_at: '2026-09-28T00:00:00Z', user: { id: 2002, login: 'someone-else' } })
+      stub_comments(80, [])
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/issues/80/timeline')
+        .with(query: hash_including({})).to_return(status: 200, body: [].to_json, headers: { 'Content-Type' => 'application/json' })
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/issues/80', user).call
+
+      expect(result.text).to include('[ISSUE #80]', 'state: closed (completed) on 2026-09-28')
+    end
+
+    it 'labels an open issue, with no close reason or date' do
+      stub_issue(81, body: { title: 'Flaky test', body: 'It fails sometimes', created_at: '2026-09-01T00:00:00Z', state: 'open', user: { id: 2002, login: 'someone-else' } })
+      stub_comments(81, [])
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/issues/81/timeline')
+        .with(query: hash_including({})).to_return(status: 200, body: [].to_json, headers: { 'Content-Type' => 'application/json' })
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/issues/81', user).call
+
+      expect(result.text).to include('[ISSUE #81]', 'state: open')
+      expect(result.issue_state).to eq('open')
+      expect(result.fix_allowed?).to be false
+      expect(result.fix_missing_reason).to eq('Issue still open.')
+    end
+
+    it "labels a linked issue's state too, read-only" do
+      stub_pr(42, body: pr_body(number: 42, body: 'Fixes #12 for real this time'))
+      stub_reviews(42, [])
+      stub_comments(42, [])
+      stub_issue(12, body: { title: 'Checkout crashes', body: 'Steps to repro', created_at: '2026-09-01T00:00:00Z',
+                             state: 'closed', state_reason: 'not_planned', closed_at: '2026-09-15T00:00:00Z', user: { id: 2002, login: 'someone-else' } })
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/pull/42', user).call
+
+      expect(result.text).to include('[ISSUE #12]', 'state: closed (not_planned) on 2026-09-15')
+    end
+
+    it 'marks completed+closed with a user-authored merged linked PR as fix-allowed' do
+      stub_issue(80, body: { title: 'Flaky test', body: 'It fails sometimes', created_at: '2026-09-01T00:00:00Z',
+                             state: 'closed', state_reason: 'completed', closed_at: '2026-09-28T00:00:00Z', user: { id: 2002, login: 'someone-else' } })
+      stub_comments(80, [])
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/issues/80/timeline')
+        .with(query: hash_including({}))
+        .to_return(status: 200, body: [{ event: 'cross-referenced',
+                                          source: { issue: { number: 99, pull_request: { url: 'x' }, repository: { name: 'checkout', owner: { login: 'acme' } } } } }].to_json,
+                   headers: { 'Content-Type' => 'application/json' })
+      stub_pr(99, body: pr_body(number: 99, title: 'Fix flaky test', body: 'Added a retry', user_id: 1001, login: 'octocat'))
+      stub_reviews(99, [])
+      stub_comments(99, [])
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/issues/80', user).call
+
+      expect(result.kind).to eq(:issue)
+      expect(result.user_merged_pr_present).to be true
+      expect(result.fix_allowed?).to be true
+    end
+
+    it 'marks completed+closed with no user-authored PR as not fix-allowed' do
+      stub_issue(80, body: { title: 'Flaky test', body: 'It fails sometimes', created_at: '2026-09-01T00:00:00Z',
+                             state: 'closed', state_reason: 'completed', closed_at: '2026-09-28T00:00:00Z', user: { id: 2002, login: 'someone-else' } })
+      stub_comments(80, [])
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/issues/80/timeline')
+        .with(query: hash_including({})).to_return(status: 200, body: [].to_json, headers: { 'Content-Type' => 'application/json' })
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/issues/80', user).call
+
+      expect(result.user_merged_pr_present).to be false
+      expect(result.fix_allowed?).to be false
+      expect(result.fix_missing_reason).to eq('No merged PR of yours closed this issue.')
+    end
+  end
 end

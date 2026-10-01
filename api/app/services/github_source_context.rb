@@ -21,8 +21,27 @@ class GithubSourceContext
   INLINE_REF = %r{(?:#{CLOSES_KEYWORD}\s*:?\s*)(?:(?<owner>[\w.-]+)/(?<repo>[\w.-]+))?#(?<number>\d+)}
   URL_REF = %r{https?://(?:www\.)?github\.com/(?<owner>[\w.-]+)/(?<repo>[\w.-]+)/issues/(?<number>\d+)}
 
-  Result = Struct.new(:text, :labels, :blank, keyword_init: true) do
+  # issue_state/issue_state_reason/user_merged_pr_present are only set when
+  # the anchor itself is an issue (kind == :issue) — they gate whether
+  # DraftWriter may let a `fix` section claim a fix at all (see #fix_allowed?
+  # and app/prompts/draft_v2.md's "closed issue" rules). A PR-sourced draft
+  # is never gated: starting from a PR already implies the work happened.
+  Result = Struct.new(:text, :labels, :blank, :kind, :issue_state, :issue_state_reason, :user_merged_pr_present, keyword_init: true) do
     def blank? = blank
+
+    def fix_allowed?
+      return true unless kind == :issue
+
+      issue_state == 'closed' && issue_state_reason == 'completed' && user_merged_pr_present
+    end
+
+    def fix_missing_reason
+      return nil if fix_allowed?
+      return 'Issue still open.' unless issue_state == 'closed'
+      return 'Closed without a fix.' if issue_state_reason == 'not_planned'
+
+      'No merged PR of yours closed this issue.'
+    end
   end
 
   def initialize(writeup, url, user)
@@ -30,6 +49,7 @@ class GithubSourceContext
     @user = user
     @parsed = GithubEvidenceVerifier.parse_url(url) or raise ArgumentError, 'not a GitHub PR or issue URL'
     @clients = {}
+    @user_merged_pr_present = false
   end
 
   # Cheap check: the anchor's own title/body and top-level comments/reviews
@@ -54,7 +74,11 @@ class GithubSourceContext
     anchor_body = @parsed[:kind] == :pr ? fetch_pull_request.body : fetch_issue.body
     has_comments = chunks.any? { |c| c[:trim] && c[:text].to_s.strip.present? }
     blank = body_blank?(anchor_body) && !has_comments
-    Result.new(text: assemble(chunks), labels: chunks.map { |c| c[:label] }.uniq, blank: blank)
+    Result.new(
+      text: assemble(chunks), labels: chunks.map { |c| c[:label] }.uniq, blank: blank,
+      kind: @parsed[:kind], issue_state: anchor_issue_state, issue_state_reason: anchor_issue_state_reason,
+      user_merged_pr_present: @user_merged_pr_present
+    )
   rescue *GithubEvidenceVerifier::TEMPORARY_ERRORS => e
     raise GithubEvidenceVerifier::TemporaryFailure, e.message
   end
@@ -76,7 +100,7 @@ class GithubSourceContext
   def issue_chunks
     issue = fetch_issue
     [
-      { label: "ISSUE ##{@parsed[:number]}", text: body_text(issue), trim: false, at: issue.created_at },
+      { label: "ISSUE ##{@parsed[:number]}", text: issue_body_text(issue), trim: false, at: issue.created_at },
       *comment_chunks(@parsed[:owner], @parsed[:repo], @parsed[:number]),
       *linked_pr_chunks
     ]
@@ -88,6 +112,14 @@ class GithubSourceContext
 
   def fetch_issue
     @issue ||= client_for!(@parsed[:owner], @parsed[:repo]).issue(nwo(@parsed[:owner], @parsed[:repo]), @parsed[:number])
+  end
+
+  def anchor_issue_state
+    fetch_issue.state if @parsed[:kind] == :issue
+  end
+
+  def anchor_issue_state_reason
+    fetch_issue.state_reason if @parsed[:kind] == :issue
   end
 
   # ---- reviews / comments, reusable for the anchor and for linked PRs ---
@@ -141,7 +173,7 @@ class GithubSourceContext
       next unless client
 
       issue = client.issue(nwo(ref[:owner], ref[:repo]), ref[:number])
-      { label: "ISSUE ##{ref[:number]}", text: body_text(issue), trim: false, at: issue.created_at }
+      { label: "ISSUE ##{ref[:number]}", text: issue_body_text(issue), trim: false, at: issue.created_at }
     rescue Octokit::NotFound
       nil
     end
@@ -154,7 +186,10 @@ class GithubSourceContext
   def linked_pr_chunks
     linked_pr_refs.flat_map do |ref|
       pr_url = "https://github.com/#{ref[:owner]}/#{ref[:repo]}/pull/#{ref[:number]}"
-      next [] unless attach_and_verified?(pr_url)
+      evidence = attach_evidence(pr_url)
+      next [] unless evidence&.verified?
+
+      @user_merged_pr_present ||= evidence.authored_by_user?
 
       client = client_for(ref[:owner], ref[:repo])
       next [] unless client
@@ -183,13 +218,13 @@ class GithubSourceContext
     []
   end
 
-  def attach_and_verified?(pr_url)
+  def attach_evidence(pr_url)
     GithubEvidenceVerifier.new(@writeup, pr_url, @user).call
-    Evidence.find_by(writeup_id: @writeup.id, url: pr_url)&.verified? || false
+    Evidence.find_by(writeup_id: @writeup.id, url: pr_url)
   rescue GithubEvidenceVerifier::DuplicateLink
-    Evidence.find_by(writeup_id: @writeup.id, url: pr_url)&.verified? || false
+    Evidence.find_by(writeup_id: @writeup.id, url: pr_url)
   rescue GithubEvidenceVerifier::InvalidLink
-    false
+    nil
   end
 
   def extract_refs(text)
@@ -242,6 +277,20 @@ class GithubSourceContext
   # ---- text assembly ---------------------------------------------------------
 
   def body_text(obj) = "#{obj.title}\n\n#{obj.body}".strip
+
+  # Prepended to the source issue's and every linked issue's text, e.g.
+  # "state: closed (completed) on 2026-09-28" or "state: open" — see
+  # app/prompts/draft_v2.md's rules on what an issue's state does and
+  # doesn't license a draft to claim.
+  def issue_body_text(issue) = "#{issue_state_line(issue)}\n\n#{body_text(issue)}"
+
+  def issue_state_line(issue)
+    return 'state: open' unless issue.state == 'closed'
+
+    reason = issue.state_reason
+    date = issue.closed_at&.strftime('%Y-%m-%d')
+    "state: closed#{reason ? " (#{reason})" : ''}#{date ? " on #{date}" : ''}"
+  end
 
   def body_blank?(body) = body.to_s.strip.empty?
 

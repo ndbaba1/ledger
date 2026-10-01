@@ -7,8 +7,8 @@
 class DraftWriter
   class Failed < StandardError; end
 
-  PROMPT_VERSION = 'v1'
-  PROMPT_PATH = Rails.root.join('app/prompts/draft_v1.md')
+  PROMPT_VERSION = 'v2'
+  PROMPT_PATH = Rails.root.join('app/prompts/draft_v2.md')
   TIMEOUT = 60
   DRAFT_MAX_TOKENS = 8192
   PICK_MAX_TOKENS = 64
@@ -16,7 +16,13 @@ class DraftWriter
   Result = Struct.new(:template, :title, :sections, :model, :prompt_version, keyword_init: true)
 
   def self.model_name
-    ENV.fetch('ANTHROPIC_MODEL', 'claude-sonnet-5')
+    ENV['ANTHROPIC_MODEL'].presence || 'claude-sonnet-5'
+  end
+
+  # Checked by DraftsController before enqueuing a job — a blank key fails
+  # fast with no job and no cap usage, rather than letting the job fail later.
+  def self.configured?
+    ENV['ANTHROPIC_API_KEY'].present?
   end
 
   def initialize(context:, template: nil)
@@ -39,13 +45,35 @@ class DraftWriter
 
   def request_and_validate(type)
     output = request_draft(type)
-    errors = validation_errors(output, type)
-    return output if errors.empty?
+    errors = validation_errors(output, type) + Array(fix_gate_violation(output))
+    return enforce_fix_gate!(output) if errors.empty?
 
     output = request_draft(type, previous_errors: errors)
     errors = validation_errors(output, type)
     raise Failed, 'Drafting failed.' if errors.any?
 
+    enforce_fix_gate!(output)
+  end
+
+  # The source issue's state may rule out claiming a fix at all (see
+  # GithubSourceContext::Result#fix_allowed?) — enforced here as a backstop
+  # regardless of what the prompt told the model. A violation on the first
+  # attempt is folded into the retry's validation errors; one still present
+  # after the retry is blanked rather than failing the whole draft, since
+  # every other section may still be good.
+  def fix_gate_violation(output)
+    return nil if @context.fix_allowed?
+
+    fix_text = output.dig('sections', 'fix', 'text').to_s
+    return nil if fix_text.blank?
+
+    "section fix describes a fix the source issue doesn't support (#{@context.fix_missing_reason})"
+  end
+
+  def enforce_fix_gate!(output)
+    return output unless fix_gate_violation(output)
+
+    output['sections']['fix'] = { 'text' => '', 'sources' => [], 'missing' => @context.fix_missing_reason }
     output
   end
 
@@ -112,7 +140,7 @@ class DraftWriter
   end
 
   def client
-    @client ||= Anthropic::Client.new(api_key: ENV.fetch('ANTHROPIC_API_KEY', nil))
+    @client ||= Anthropic::Client.new(api_key: ENV['ANTHROPIC_API_KEY'].presence)
   end
 
   def prompt

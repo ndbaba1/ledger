@@ -48,7 +48,7 @@ RSpec.describe DraftWriter do
     expect(result.title).to eq('Fixed the pool')
     expect(result.sections['symptom']['sources']).to eq(['PR #14'])
     expect(result.model).to eq('claude-sonnet-5')
-    expect(result.prompt_version).to eq('v1')
+    expect(result.prompt_version).to eq('v2')
     expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages').times(1)
   end
 
@@ -114,5 +114,95 @@ RSpec.describe DraftWriter do
     stub_request(:post, 'https://api.anthropic.com/v1/messages').to_return(status: 500, body: { error: { message: 'boom' } }.to_json)
 
     expect { described_class.new(context: context, template: 'incident').call }.to raise_error(DraftWriter::Failed, 'Drafting failed.')
+  end
+
+  describe '.model_name' do
+    it 'falls back to the default when ANTHROPIC_MODEL is unset' do
+      ENV.delete('ANTHROPIC_MODEL')
+      expect(described_class.model_name).to eq('claude-sonnet-5')
+    end
+
+    it 'falls back to the default when ANTHROPIC_MODEL is set but empty' do
+      ENV['ANTHROPIC_MODEL'] = ''
+      expect(described_class.model_name).to eq('claude-sonnet-5')
+    ensure
+      ENV.delete('ANTHROPIC_MODEL')
+    end
+
+    it 'uses ANTHROPIC_MODEL when set' do
+      ENV['ANTHROPIC_MODEL'] = 'claude-opus-5'
+      expect(described_class.model_name).to eq('claude-opus-5')
+    ensure
+      ENV.delete('ANTHROPIC_MODEL')
+    end
+  end
+
+  describe '.configured?' do
+    it 'is false when ANTHROPIC_API_KEY is unset or empty' do
+      ENV.delete('ANTHROPIC_API_KEY')
+      expect(described_class.configured?).to be false
+
+      ENV['ANTHROPIC_API_KEY'] = ''
+      expect(described_class.configured?).to be false
+    end
+
+    it 'is true when ANTHROPIC_API_KEY is set' do
+      expect(described_class.configured?).to be true
+    end
+  end
+
+  describe 'the fix section gate (closed-issue sources)' do
+    def sections_with_fix(fix_text, sources: ['PR #14'])
+      valid_sections.merge('fix' => { 'text' => fix_text, 'sources' => fix_text.present? ? sources : [], 'missing' => fix_text.present? ? '' : 'n/a' })
+    end
+
+    it "blanks a non-empty fix on an open issue, after one retry, instead of failing the draft" do
+      issue_context = GithubSourceContext::Result.new(text: context.text, labels: context.labels, kind: :issue, issue_state: 'open')
+      stub_messages([
+        message_body({ 'title' => 'x', 'sections' => sections_with_fix('Reverted the change.') }),
+        message_body({ 'title' => 'x', 'sections' => sections_with_fix('Reverted the change.') })
+      ])
+
+      result = described_class.new(context: issue_context, template: 'incident').call
+
+      expect(result.sections['fix']).to eq('text' => '', 'sources' => [], 'missing' => 'Issue still open.')
+      expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages').times(2)
+    end
+
+    it "blanks a non-empty fix on an issue closed as not_planned" do
+      issue_context = GithubSourceContext::Result.new(text: context.text, labels: context.labels, kind: :issue, issue_state: 'closed', issue_state_reason: 'not_planned')
+      stub_messages([message_body({ 'title' => 'x', 'sections' => sections_with_fix('Reverted the change.') })])
+
+      result = described_class.new(context: issue_context, template: 'incident').call
+
+      expect(result.sections['fix']['missing']).to eq('Closed without a fix.')
+    end
+
+    it 'blanks a non-empty fix on a completed issue with no merged PR of the user in the sources' do
+      issue_context = GithubSourceContext::Result.new(text: context.text, labels: context.labels, kind: :issue, issue_state: 'closed', issue_state_reason: 'completed', user_merged_pr_present: false)
+      stub_messages([message_body({ 'title' => 'x', 'sections' => sections_with_fix('Reverted the change.') })])
+
+      result = described_class.new(context: issue_context, template: 'incident').call
+
+      expect(result.sections['fix']['missing']).to eq('No merged PR of yours closed this issue.')
+    end
+
+    it 'allows a sourced fix on a completed issue with a merged PR of the user in the sources' do
+      issue_context = GithubSourceContext::Result.new(text: context.text, labels: context.labels, kind: :issue, issue_state: 'closed', issue_state_reason: 'completed', user_merged_pr_present: true)
+      stub_messages([message_body({ 'title' => 'x', 'sections' => sections_with_fix('Reverted the change.') })])
+
+      result = described_class.new(context: issue_context, template: 'incident').call
+
+      expect(result.sections['fix']).to eq('text' => 'Reverted the change.', 'sources' => ['PR #14'], 'missing' => '')
+      expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages').times(1)
+    end
+
+    it 'never gates a PR-sourced draft (kind is not :issue)' do
+      stub_messages([message_body({ 'title' => 'x', 'sections' => sections_with_fix('Reverted the change.') })])
+
+      result = described_class.new(context: context, template: 'incident').call
+
+      expect(result.sections['fix']['text']).to eq('Reverted the change.')
+    end
   end
 end
