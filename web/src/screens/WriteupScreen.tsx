@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { DraftedSectionMeta, Signal, Writeup, WriteupFields, WriteupStatus } from '../api/types'
 import { useMaybeWorkspace, useMe } from '../app/session'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
 import { PaneTabs } from '../components/PaneTabs'
@@ -169,6 +170,21 @@ function Editor({ initial }: { initial: Writeup }) {
     else navigate(`/records/${result.id}`, { state: { justPublished: true } })
   }
 
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deletePending, setDeletePending] = useState(false)
+  const [deleteError, setDeleteError] = useState<string>()
+  const confirmDelete = async () => {
+    setDeletePending(true)
+    setDeleteError(undefined)
+    try {
+      await api.deleteWriteup(w.id)
+      navigate('/me/writeups', { state: { justDeleted: true } })
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : String(e))
+      setDeletePending(false)
+    }
+  }
+
   const previewRecord = writeupToRecord({ ...current }, { id: 'preview', publishedAt: w.updatedAt, authorId: me.id })
   const isDesign = w.type === 'design'
   const canPublish = missing === 0 && !publish.pending && (!alreadyPublished || changeSummary.trim().length > 0)
@@ -215,7 +231,25 @@ function Editor({ initial }: { initial: Writeup }) {
             </button>
           ))}
         </div>
+        {!alreadyPublished && (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setConfirmingDelete(true)}>
+            Delete draft
+          </button>
+        )}
       </div>
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete this draft?"
+          message="This can't be undone."
+          confirmLabel="Delete"
+          pendingLabel="Deleting…"
+          pending={deletePending}
+          error={deleteError}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
 
       {w.draftedFrom && (
         <div className="banner banner--amber" role="status">

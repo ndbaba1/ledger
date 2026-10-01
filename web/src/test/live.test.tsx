@@ -517,3 +517,117 @@ describe('"Start from a PR or issue"', () => {
     expect(screen.getByText('Check the wording')).toBeInTheDocument()
   })
 })
+
+describe('deleting a draft', () => {
+  function draftWriteup(overrides: Partial<Writeup> = {}): Writeup {
+    return {
+      id: 'w20', type: 'incident', status: 'draft', title: 'Checkout latency spike', context: '', symptom: '', constraints: [],
+      rootCause: '', flow: [], ruledOut: [], fix: '', lesson: '', signals: [], evidence: [],
+      authorId: me.id, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+      ...overrides,
+    }
+  }
+
+  it('asks for confirmation, then deletes and returns to the drafts list with a notice', async () => {
+    let deleted = false
+    const user = await renderLive('#/write/w20', () => ({
+      me: () => Promise.resolve(me),
+      getWriteup: () => Promise.resolve(draftWriteup()),
+      deleteWriteup: () => {
+        deleted = true
+        return Promise.resolve()
+      },
+      listWriteups: () => Promise.resolve([]),
+      getProfile: () => Promise.resolve(profile(me)),
+    }))
+
+    await screen.findByDisplayValue('Checkout latency spike')
+    await user.click(screen.getByRole('button', { name: 'Delete draft' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete this draft?' })).toBeInTheDocument()
+    expect(screen.getByText("This can't be undone.")).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(window.location.hash).toBe('#/me/writeups'))
+    expect(deleted).toBe(true)
+    expect(await screen.findByText('Draft deleted.')).toBeInTheDocument()
+  })
+
+  it('cancels back to the editor without deleting', async () => {
+    const user = await renderLive('#/write/w20', () => ({
+      me: () => Promise.resolve(me),
+      getWriteup: () => Promise.resolve(draftWriteup()),
+    }))
+
+    await screen.findByDisplayValue('Checkout latency spike')
+    await user.click(screen.getByRole('button', { name: 'Delete draft' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(window.location.hash).toBe('#/write/w20')
+  })
+
+  it("doesn't show a delete action for an already-published write-up", async () => {
+    await renderLive('#/write/w20', () => ({
+      me: () => Promise.resolve(me),
+      getWriteup: () => Promise.resolve(draftWriteup({ postSlug: 'checkout-latency' })),
+    }))
+
+    await screen.findByDisplayValue('Checkout latency spike')
+    expect(screen.queryByRole('button', { name: 'Delete draft' })).not.toBeInTheDocument()
+  })
+
+  it('shows the 422 "published" error inline, without leaving the editor', async () => {
+    const user = await renderLive('#/write/w20', () => ({
+      me: () => Promise.resolve(me),
+      getWriteup: () => Promise.resolve(draftWriteup()),
+      deleteWriteup: () => Promise.reject(new Error("Published records can't be deleted yet.")),
+    }))
+
+    await screen.findByDisplayValue('Checkout latency spike')
+    await user.click(screen.getByRole('button', { name: 'Delete draft' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByText("Published records can't be deleted yet.")).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/write/w20')
+  })
+
+  it('shows the 409 in-flight-drafting error inline', async () => {
+    const user = await renderLive('#/write/w20', () => ({
+      me: () => Promise.resolve(me),
+      getWriteup: () => Promise.resolve(draftWriteup()),
+      deleteWriteup: () => Promise.reject(new Error('Still drafting — wait for it to finish.')),
+    }))
+
+    await screen.findByDisplayValue('Checkout latency spike')
+    await user.click(screen.getByRole('button', { name: 'Delete draft' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByText('Still drafting — wait for it to finish.')).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/write/w20')
+  })
+
+  it('deletes a draft from the list, removing its row, and shows an inline error on failure for another', async () => {
+    const drafts = [draftWriteup({ id: 'w21', title: 'Flaky checkout test' }), draftWriteup({ id: 'w22', title: 'Pool size decision' })]
+    const user = await renderLive('#/me/writeups', () => ({
+      me: () => Promise.resolve(me),
+      listWriteups: () => Promise.resolve(drafts),
+      getProfile: () => Promise.resolve(profile(me)),
+      deleteWriteup: (id) => (id === 'w21' ? Promise.resolve() : Promise.reject(new Error('Still drafting — wait for it to finish.'))),
+    }))
+
+    await screen.findByText('Flaky checkout test')
+    await user.click(screen.getByRole('button', { name: 'Delete Flaky checkout test' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(screen.queryByText('Flaky checkout test')).not.toBeInTheDocument())
+    expect(screen.getByText('Pool size decision')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Delete Pool size decision' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByText('Still drafting — wait for it to finish.')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog', { name: 'Delete this draft?' })).toBeInTheDocument()
+  })
+})

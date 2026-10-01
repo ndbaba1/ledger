@@ -423,6 +423,13 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
 
     getWriteup: (id) => run(() => writeupById(id)),
 
+    deleteWriteup: (id) =>
+      run(() => {
+        const w = writeupById(id)
+        if (w.postSlug) throw new Error("Published records can't be deleted yet.")
+        db.writeups = db.writeups.filter((x) => x.id !== id)
+      }),
+
     // "Start from a PR or issue" is gated to live mode (see lib/features.ts)
     // — these exist only to satisfy LedgerApi, not for any mock screen to use.
     startDraftFromSource: (url, template) =>
