@@ -25,7 +25,9 @@ class Writeup < ApplicationRecord
   before_validation :default_fields, on: :create
 
   # Field key => label shown to the writer, for each required field per type.
-  # Mirrors the `required` FieldDefs in web/src/lib/writeups.ts.
+  # Mirrors the `required` FieldDefs in web/src/lib/writeups.ts — as does the
+  # full (not just required) field set in TemplateSections, which is spec'd
+  # against this one so the two can't drift apart.
   PROBLEM_REQUIRED_FIELDS = [['symptom', 'Problem'], ['rootCause', 'Root cause'], ['fix', 'Solution']].freeze
   REQUIRED_FIELDS = {
     'incident' => PROBLEM_REQUIRED_FIELDS,
