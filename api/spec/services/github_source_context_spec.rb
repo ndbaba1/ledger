@@ -157,7 +157,7 @@ RSpec.describe GithubSourceContext do
 
       result = described_class.new(writeup, 'https://github.com/acme/checkout/issues/80', user).call
 
-      expect(result.text).to include('[PR #99]', 'Fix flaky test', 'Added a retry')
+      expect(result.text).to include('[PR #99 (you)]', 'Fix flaky test', 'Added a retry')
       evidence = writeup.evidence.find_by(url: 'https://github.com/acme/checkout/pull/99')
       expect(evidence).to be_present
       expect(evidence.verified?).to be true
@@ -176,6 +176,41 @@ RSpec.describe GithubSourceContext do
       evidence = writeup.evidence.find_by(url: 'https://github.com/acme/checkout/pull/99')
       expect(evidence).to be_present
       expect(evidence.verified?).to be false
+    end
+  end
+
+  describe '(you) labels' do
+    it "marks the PR anchor's label (you) when the engineer authored it" do
+      stub_pr(50, body: pr_body(number: 50, user_id: 1001, login: 'octocat'))
+      stub_reviews(50, [])
+      stub_comments(50, [])
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/pull/50', user).call
+
+      expect(result.text).to include('[PR #50 (you)]')
+      expect(result.labels).to include('PR #50 (you)')
+    end
+
+    it "marks the issue anchor's label (you) when the engineer opened it" do
+      stub_issue(51, body: { title: 'Flaky test', body: 'It fails sometimes', created_at: '2026-09-01T00:00:00Z', user: { id: 1001, login: 'octocat' } })
+      stub_comments(51, [])
+      stub_request(:get, 'https://api.github.com/repos/acme/checkout/issues/51/timeline')
+        .with(query: hash_including({})).to_return(status: 200, body: [].to_json, headers: { 'Content-Type' => 'application/json' })
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/issues/51', user).call
+
+      expect(result.text).to include('[ISSUE #51 (you)]')
+    end
+
+    it "marks a linked issue's label (you) when the engineer opened it" do
+      stub_pr(52, body: pr_body(number: 52, body: 'Fixes #13'))
+      stub_reviews(52, [])
+      stub_comments(52, [])
+      stub_issue(13, body: { title: 'Checkout crashes', body: 'Steps to repro', created_at: '2026-09-01T00:00:00Z', user: { id: 1001, login: 'octocat' } })
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/pull/52', user).call
+
+      expect(result.text).to include('[ISSUE #13 (you)]')
     end
   end
 

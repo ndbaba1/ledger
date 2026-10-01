@@ -23,9 +23,10 @@ class GithubSourceContext
 
   # issue_state/issue_state_reason/user_merged_pr_present are only set when
   # the anchor itself is an issue (kind == :issue) — they gate whether
-  # DraftWriter may let a `fix` section claim a fix at all (see #fix_allowed?
-  # and app/prompts/draft_v2.md's "closed issue" rules). A PR-sourced draft
-  # is never gated: starting from a PR already implies the work happened.
+  # DraftWriter may let an outcome section (TemplateSections' `outcome` flag)
+  # claim a fix at all (see #fix_allowed? and app/prompts/draft_v3.md's rule
+  # 9). A PR-sourced draft is never gated: starting from a PR already implies
+  # the work happened.
   Result = Struct.new(:text, :labels, :blank, :kind, :issue_state, :issue_state_reason, :user_merged_pr_present, keyword_init: true) do
     def blank? = blank
 
@@ -90,7 +91,7 @@ class GithubSourceContext
   def pr_chunks
     pr = fetch_pull_request
     [
-      { label: "PR ##{@parsed[:number]}", text: body_text(pr), trim: false, at: pr.created_at },
+      { label: "PR ##{@parsed[:number]}#{you_suffix(pr.user)}", text: body_text(pr), trim: false, at: pr.created_at },
       *review_chunks(@parsed[:owner], @parsed[:repo], @parsed[:number]),
       *comment_chunks(@parsed[:owner], @parsed[:repo], @parsed[:number]),
       *linked_issue_chunks(pr)
@@ -100,7 +101,7 @@ class GithubSourceContext
   def issue_chunks
     issue = fetch_issue
     [
-      { label: "ISSUE ##{@parsed[:number]}", text: issue_body_text(issue), trim: false, at: issue.created_at },
+      { label: "ISSUE ##{@parsed[:number]}#{you_suffix(issue.user)}", text: issue_body_text(issue), trim: false, at: issue.created_at },
       *comment_chunks(@parsed[:owner], @parsed[:repo], @parsed[:number]),
       *linked_pr_chunks
     ]
@@ -173,7 +174,7 @@ class GithubSourceContext
       next unless client
 
       issue = client.issue(nwo(ref[:owner], ref[:repo]), ref[:number])
-      { label: "ISSUE ##{ref[:number]}", text: issue_body_text(issue), trim: false, at: issue.created_at }
+      { label: "ISSUE ##{ref[:number]}#{you_suffix(issue.user)}", text: issue_body_text(issue), trim: false, at: issue.created_at }
     rescue Octokit::NotFound
       nil
     end
@@ -196,7 +197,7 @@ class GithubSourceContext
 
       pr = client.pull_request(nwo(ref[:owner], ref[:repo]), ref[:number])
       [
-        { label: "PR ##{ref[:number]}", text: body_text(pr), trim: false, at: pr.created_at },
+        { label: "PR ##{ref[:number]}#{you_suffix(pr.user)}", text: body_text(pr), trim: false, at: pr.created_at },
         *review_chunks(ref[:owner], ref[:repo], ref[:number]),
         *comment_chunks(ref[:owner], ref[:repo], ref[:number])
       ]

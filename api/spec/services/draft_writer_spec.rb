@@ -48,7 +48,7 @@ RSpec.describe DraftWriter do
     expect(result.title).to eq('Fixed the pool')
     expect(result.sections['symptom']['sources']).to eq(['PR #14'])
     expect(result.model).to eq('claude-sonnet-5')
-    expect(result.prompt_version).to eq('v2')
+    expect(result.prompt_version).to eq('v3')
     expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages').times(1)
   end
 
@@ -203,6 +203,106 @@ RSpec.describe DraftWriter do
       result = described_class.new(context: context, template: 'incident').call
 
       expect(result.sections['fix']['text']).to eq('Reverted the change.')
+    end
+  end
+
+  describe 'prompt rendering (draft_v3)' do
+    def blank_sections_for(type)
+      TemplateSections.for(type).to_h { |s| [s.key, { 'text' => '', 'sources' => [], 'missing' => 'n/a' }] }
+    end
+
+    Writeup::TYPES.each do |type|
+      it "renders the #{type} template name and every section's purpose and modifiers into the system prompt" do
+        captured = nil
+        stub_request(:post, 'https://api.anthropic.com/v1/messages').to_return do |request|
+          captured = JSON.parse(request.body)
+          { status: 200, body: message_body({ 'title' => 'x', 'sections' => blank_sections_for(type) }).to_json, headers: { 'Content-Type' => 'application/json' } }
+        end
+
+        described_class.new(context: context, template: type).call
+
+        system_text = captured.dig('system', 0, 'text')
+        expect(system_text).to include("## The template: #{TemplateSections.template_name(type)}")
+        TemplateSections.for(type).each do |section|
+          modifiers = +''
+          modifiers << ' [outcome]' if section.outcome
+          modifiers << ' (list)' if section.kind == :lines
+          expect(system_text).to include("- #{section.key}#{modifiers}: #{section.purpose}")
+        end
+      end
+    end
+
+    it 'renders a placeholder instead of the template name/guide when picking a template' do
+      captured = nil
+      stub_request(:post, 'https://api.anthropic.com/v1/messages').to_return do |request|
+        captured = JSON.parse(request.body)
+        { status: 200, body: message_body({ 'template' => 'incident' }, name: 'pick_template').to_json, headers: { 'Content-Type' => 'application/json' } }
+      end
+
+      described_class.new(context: context, template: nil).call
+
+      system_text = captured.dig('system', 0, 'text')
+      expect(system_text).not_to include('{{TEMPLATE_NAME}}')
+      expect(system_text).not_to include('{{SECTION_GUIDE}}')
+    end
+  end
+
+  describe 'quality retry and flagging' do
+    def sections_with(key, text)
+      valid_sections.merge(key => { 'text' => text, 'sources' => ['PR #14'], 'missing' => '' })
+    end
+
+    it 'retries once on a too-long section, then flags it instead of failing the draft' do
+      long_text = (['word'] * 130).join(' ')
+      stub_messages([
+        message_body({ 'title' => 'x', 'sections' => sections_with('symptom', long_text) }),
+        message_body({ 'title' => 'x', 'sections' => sections_with('symptom', long_text) })
+      ])
+
+      result = described_class.new(context: context, template: 'incident').call
+
+      expect(result.sections['symptom']['long']).to be true
+      expect(result.sections['symptom']['voice']).to be_nil
+      expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages').times(2)
+    end
+
+    it 'retries once on a list section with more than 5 items, then flags it' do
+      long_list = (1..6).map { |i| "item #{i}" }.join("\n")
+      stub_messages([message_body({ 'title' => 'x', 'sections' => sections_with('ruledOut', long_list) })])
+
+      result = described_class.new(context: context, template: 'incident').call
+
+      expect(result.sections['ruledOut']['long']).to be true
+    end
+
+    it 'retries once on third-person voice, then flags it instead of failing the draft' do
+      stub_messages([message_body({ 'title' => 'x', 'sections' => sections_with('fix', 'The engineer reverted the change.') })])
+
+      result = described_class.new(context: context, template: 'incident').call
+
+      expect(result.sections['fix']['voice']).to be true
+      expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages').times(2)
+    end
+
+    it 'does not flag anything when the first attempt is already within limits' do
+      stub_messages([message_body({ 'title' => 'Fixed the pool', 'sections' => valid_sections })])
+
+      result = described_class.new(context: context, template: 'incident').call
+
+      expect(result.sections.values.none? { |s| s['long'] || s['voice'] }).to be true
+      expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages').times(1)
+    end
+
+    it 'does not flag a section the retry fixed' do
+      long_text = (['word'] * 130).join(' ')
+      stub_messages([
+        message_body({ 'title' => 'x', 'sections' => sections_with('symptom', long_text) }),
+        message_body({ 'title' => 'Fixed the pool', 'sections' => valid_sections })
+      ])
+
+      result = described_class.new(context: context, template: 'incident').call
+
+      expect(result.sections['symptom']['long']).to be_nil
     end
   end
 end

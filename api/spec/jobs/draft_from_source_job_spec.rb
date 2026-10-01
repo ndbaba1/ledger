@@ -71,7 +71,7 @@ RSpec.describe DraftFromSourceJob do
     expect(writeup.field('symptom')).to eq('The pool was halved.')
     expect(writeup.draft_source_url).to eq('https://github.com/acme/checkout/pull/42')
     expect(writeup.draft_model).to eq('claude-sonnet-5')
-    expect(writeup.draft_prompt_version).to eq('v2')
+    expect(writeup.draft_prompt_version).to eq('v3')
     expect(writeup.draft_sections_meta['symptom']).to eq('sources' => ['PR #42'])
   end
 

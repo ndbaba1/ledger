@@ -1,17 +1,25 @@
 # Calls the Anthropic Messages API to turn a GithubSourceContext::Result into
 # a structured draft, validates the result against TemplateSections and the
-# context's own labels, and retries once on invalid output before failing.
+# context's own labels, and retries once on invalid or low-quality output
+# before giving up on a section (or, for a hard schema violation, the draft).
 #
 # Never logs or raises with the source text or API key — only short, fixed
 # messages reach DraftRequest#error, logs, or Sentry (see DraftFromSourceJob).
 class DraftWriter
   class Failed < StandardError; end
 
-  PROMPT_VERSION = 'v2'
-  PROMPT_PATH = Rails.root.join('app/prompts/draft_v2.md')
+  PROMPT_VERSION = 'v3'
+  PROMPT_PATH = Rails.root.join('app/prompts/draft_v3.md')
   TIMEOUT = 60
   DRAFT_MAX_TOKENS = 8192
   PICK_MAX_TOKENS = 64
+
+  # Soft-quality limits: a violation gets folded into the one retry, and if
+  # still present after that, the section is flagged (not failed) — see
+  # #flag_quality!.
+  WORD_LIMIT = 120
+  LIST_ITEM_LIMIT = 5
+  VOICE_PATTERN = /\bthe (?:author|user|engineer)\b/i
 
   Result = Struct.new(:template, :title, :sections, :model, :prompt_version, keyword_init: true)
 
@@ -45,42 +53,104 @@ class DraftWriter
 
   def request_and_validate(type)
     output = request_draft(type)
-    errors = validation_errors(output, type) + Array(fix_gate_violation(output))
-    return enforce_fix_gate!(output) if errors.empty?
+    errors = validation_errors(output, type) + outcome_gate_violations(output, type) + quality_messages(output, type)
+    return finalize(output, type) if errors.empty?
 
     output = request_draft(type, previous_errors: errors)
-    errors = validation_errors(output, type)
-    raise Failed, 'Drafting failed.' if errors.any?
+    hard_errors = validation_errors(output, type)
+    raise Failed, 'Drafting failed.' if hard_errors.any?
 
-    enforce_fix_gate!(output)
+    finalize(output, type)
   end
 
-  # The source issue's state may rule out claiming a fix at all (see
-  # GithubSourceContext::Result#fix_allowed?) — enforced here as a backstop
-  # regardless of what the prompt told the model. A violation on the first
-  # attempt is folded into the retry's validation errors; one still present
-  # after the retry is blanked rather than failing the whole draft, since
-  # every other section may still be good.
-  def fix_gate_violation(output)
-    return nil if @context.fix_allowed?
-
-    fix_text = output.dig('sections', 'fix', 'text').to_s
-    return nil if fix_text.blank?
-
-    "section fix describes a fix the source issue doesn't support (#{@context.fix_missing_reason})"
-  end
-
-  def enforce_fix_gate!(output)
-    return output unless fix_gate_violation(output)
-
-    output['sections']['fix'] = { 'text' => '', 'sources' => [], 'missing' => @context.fix_missing_reason }
+  def finalize(output, type)
+    output = enforce_outcome_gate!(output, type)
+    flag_quality!(output, type)
     output
+  end
+
+  # The source issue's state may rule out claiming a fix at all for any
+  # outcome section (see GithubSourceContext::Result#fix_allowed? and
+  # TemplateSections' `outcome` flag) — enforced here as a backstop regardless
+  # of what the prompt told the model. A violation on the first attempt is
+  # folded into the retry's validation errors; one still present after the
+  # retry is blanked rather than failing the whole draft, since every other
+  # section may still be good.
+  def outcome_gate_violations(output, type)
+    return [] if @context.fix_allowed?
+
+    TemplateSections.outcome_keys_for(type).filter_map do |key|
+      text = output.dig('sections', key, 'text').to_s
+      next if text.blank?
+
+      "section #{key} describes a fix the source issue doesn't support (#{@context.fix_missing_reason})"
+    end
+  end
+
+  def enforce_outcome_gate!(output, type)
+    return output if @context.fix_allowed?
+
+    TemplateSections.outcome_keys_for(type).each do |key|
+      text = output.dig('sections', key, 'text').to_s
+      next if text.blank?
+
+      output['sections'][key] = { 'text' => '', 'sources' => [], 'missing' => @context.fix_missing_reason }
+    end
+    output
+  end
+
+  # Messages fed back into the one retry when a section is too long (more
+  # than ~120 words, or more than 5 list items) or slips into third person
+  # ("the author"/"the user"/"the engineer" instead of "I").
+  def quality_messages(output, type)
+    sections_by_key = TemplateSections.for(type).index_by(&:key)
+    (output['sections'] || {}).filter_map do |key, section|
+      section_def = sections_by_key[key]
+      next unless section_def
+
+      text = section['text'].to_s
+      next if text.blank?
+
+      msgs = []
+      msgs << "section #{key} is too long — keep it short (a few sentences, or at most 5 list items)" if too_long?(section_def, text)
+      msgs << "section #{key} writes about \"the author/user/engineer\" instead of first person (\"I\")" if VOICE_PATTERN.match?(text)
+      msgs.join('; ').presence
+    end
+  end
+
+  # A quality issue still present after the retry doesn't fail the draft —
+  # it's flagged on the section (DraftFromSourceJob carries this into
+  # Writeup#draft_sections_meta) so the editor can show "Consider shortening"
+  # / "Check the wording".
+  def flag_quality!(output, type)
+    sections_by_key = TemplateSections.for(type).index_by(&:key)
+    (output['sections'] || {}).each do |key, section|
+      section_def = sections_by_key[key]
+      next unless section_def
+
+      text = section['text'].to_s
+      next if text.blank?
+
+      section['long'] = true if too_long?(section_def, text)
+      section['voice'] = true if VOICE_PATTERN.match?(text)
+    end
+    output
+  end
+
+  def too_long?(section_def, text)
+    return line_items(text).size > LIST_ITEM_LIMIT if section_def.kind == :lines
+
+    text.split(/\s+/).size > WORD_LIMIT
+  end
+
+  def line_items(text)
+    text.to_s.each_line.map(&:strip).reject(&:empty?)
   end
 
   def pick_template
     response = client.messages.create(
       model: self.class.model_name, max_tokens: PICK_MAX_TOKENS,
-      system_: [{ type: 'text', text: prompt }],
+      system_: [{ type: 'text', text: prompt(nil) }],
       tool_choice: { type: 'tool', name: pick_template_tool[:name] },
       tools: [pick_template_tool],
       messages: [{ role: 'user', content: @context.text }],
@@ -99,7 +169,7 @@ class DraftWriter
 
     response = client.messages.create(
       model: self.class.model_name, max_tokens: DRAFT_MAX_TOKENS,
-      system_: [{ type: 'text', text: prompt }],
+      system_: [{ type: 'text', text: prompt(type) }],
       tool_choice: { type: 'tool', name: tool[:name] },
       tools: [tool],
       messages: [{ role: 'user', content: content }],
@@ -143,8 +213,21 @@ class DraftWriter
     @client ||= Anthropic::Client.new(api_key: ENV['ANTHROPIC_API_KEY'].presence)
   end
 
-  def prompt
-    @prompt ||= File.read(PROMPT_PATH)
+  # type nil (picking a template — no section guide exists yet) renders a
+  # placeholder instead of {{TEMPLATE_NAME}}/{{SECTION_GUIDE}}.
+  def prompt(type)
+    text = raw_prompt
+    if type
+      text.sub('{{TEMPLATE_NAME}}', TemplateSections.template_name(type))
+          .sub('{{SECTION_GUIDE}}', TemplateSections.section_guide(type))
+    else
+      text.sub('{{TEMPLATE_NAME}}', '(not yet chosen)')
+          .sub('{{SECTION_GUIDE}}', '(pick a template first — sections are filled in the next step)')
+    end
+  end
+
+  def raw_prompt
+    @raw_prompt ||= File.read(PROMPT_PATH)
   end
 
   def pick_template_tool
@@ -188,7 +271,7 @@ class DraftWriter
     {
       type: 'object',
       properties: {
-        text: { type: 'string', description: "#{section.label}. Empty string if the input doesn't support this section." },
+        text: { type: 'string', description: "#{section.label}: #{section.purpose} Empty string if the input doesn't support this section." },
         sources: { type: 'array', items: { type: 'string' }, description: 'Exact labels from the input this text draws from. Empty array if text is empty.' },
         missing: { type: 'string', description: "One short sentence on what the input doesn't say, when text is empty. Empty string otherwise." }
       },

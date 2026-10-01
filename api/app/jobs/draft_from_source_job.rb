@@ -59,7 +59,10 @@ class DraftFromSourceJob < ApplicationJob
 
   def sections_meta_from(result)
     result.sections.each_with_object({}) do |(key, section), meta|
-      meta[key] = { 'sources' => Array(section['sources']), 'missing' => section['missing'].to_s.presence }.compact
+      meta[key] = {
+        'sources' => Array(section['sources']), 'missing' => section['missing'].to_s.presence,
+        'long' => section['long'] || nil, 'voice' => section['voice'] || nil
+      }.compact
     end
   end
 
