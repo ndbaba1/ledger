@@ -423,6 +423,35 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
 
     getWriteup: (id) => run(() => writeupById(id)),
 
+    // "Start from a PR or issue" is gated to live mode (see lib/features.ts)
+    // — these exist only to satisfy LedgerApi, not for any mock screen to use.
+    startDraftFromSource: (url, template) =>
+      run(() => {
+        if (!isValidUrl(url)) throw new Error('Paste a GitHub PR or issue URL.')
+        const at = now().toISOString()
+        const type = template ?? 'incident'
+        const w: Writeup = {
+          ...clone(EMPTY_FIELDS),
+          id: `w_${Date.now().toString(36)}${db.writeups.length}`,
+          type,
+          status: type === 'design' ? 'proposed' : 'draft',
+          evidence: [],
+          authorId: seed.ME_ID,
+          createdAt: at,
+          updatedAt: at,
+        }
+        db.writeups.unshift(w)
+        return { draftId: w.id, status: 'ready', writeupId: w.id }
+      }),
+
+    getDraftRequest: (id) =>
+      run(() => {
+        const w = writeupById(id)
+        return { draftId: w.id, status: 'ready', writeupId: w.id }
+      }),
+
+    acceptPrivateDraftingConsent: () => respond(undefined),
+
     saveWriteup: (id, fields) =>
       run(() => {
         const w = writeupById(id)

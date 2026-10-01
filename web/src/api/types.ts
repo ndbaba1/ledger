@@ -408,6 +408,23 @@ export interface WriteupFields {
   signals: Signal[]
 }
 
+/** Where one section's text came from, and what's missing when it's empty — set only on a drafted write-up. */
+export interface DraftedSectionMeta {
+  sources: string[]
+  missing?: string
+}
+
+/** Present on a write-up only when it was drafted from a PR or issue via "Start from a PR or issue". Author-only — never appears on a published post. */
+export interface DraftedFrom {
+  sourceUrl: string
+  model?: string
+  promptVersion?: string
+  draftedAt?: string
+  /** The source repo is private — shown as a warning before publishing. */
+  private: boolean
+  sections: Record<string, DraftedSectionMeta>
+}
+
 /** A record written in Ledger rather than drafted from sources. Private until published. */
 export interface Writeup extends WriteupFields {
   id: ID
@@ -420,6 +437,19 @@ export interface Writeup extends WriteupFields {
   createdAt: string
   updatedAt: string
   publishedRecordId?: ID
+  draftedFrom?: DraftedFrom
+}
+
+export type DraftRequestStatus = 'drafting' | 'ready' | 'failed' | 'needs_template'
+
+/** The async lifecycle of one "start from a PR or issue" attempt — see POST/GET /api/v1/drafts. */
+export interface DraftRequest {
+  draftId: ID
+  status: DraftRequestStatus
+  error?: string
+  note?: string
+  /** Present once a writeup exists — from the first response on, even while still drafting, and kept on failure so the user can continue on it rather than start over. */
+  writeupId?: ID
 }
 
 /** One post in the public feed, with its author. */

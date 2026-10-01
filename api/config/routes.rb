@@ -24,7 +24,11 @@ Rails.application.routes.draw do
       get 'me', to: 'me#show'
       patch 'me', to: 'me#update'
       get 'me/questions', to: 'my_questions#index'
+      post 'me/private_drafting_consent', to: 'private_drafting_consents#create'
+      delete 'me/private_drafting_consent', to: 'private_drafting_consents#destroy'
       get 'explore', to: 'explore#index'
+
+      resources :drafts, only: %i[create show]
 
       resources :writeups, only: %i[index create show update] do
         resources :evidence, only: %i[create destroy], param: :key do

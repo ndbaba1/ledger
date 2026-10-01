@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
-import type { Signal, Writeup, WriteupFields, WriteupStatus } from '../api/types'
+import type { DraftedSectionMeta, Signal, Writeup, WriteupFields, WriteupStatus } from '../api/types'
 import { useMaybeWorkspace, useMe } from '../app/session'
 import { Icon } from '../components/Icon'
 import { Inline } from '../components/Inline'
@@ -19,6 +19,14 @@ import { useMutation, useQuery } from '../lib/useAsync'
 import { TYPE_INFO, publishRequirements, writeupToRecord, type FieldDef } from '../lib/writeups'
 
 type View = 'write' | 'preview' | 'side'
+
+/** "PR #14" / "ISSUE #12" from a drafted-from source URL, for the editor banner. */
+function sourceLabelFromUrl(url: string): string {
+  const pr = url.match(/\/pull\/(\d+)/)
+  if (pr) return `PR #${pr[1]}`
+  const issue = url.match(/\/issues\/(\d+)/)
+  return issue ? `ISSUE #${issue[1]}` : 'the source'
+}
 
 /** Editor state: Markdown for text fields, arrays (blank rows kept while typing) for lists. */
 interface FormState {
@@ -209,6 +217,19 @@ function Editor({ initial }: { initial: Writeup }) {
         </div>
       </div>
 
+      {w.draftedFrom && (
+        <div className="banner banner--amber" role="status">
+          <Icon name="sparkle" size={16} />
+          <span>Drafted from {sourceLabelFromUrl(w.draftedFrom.sourceUrl)} — check every line before publishing.</span>
+        </div>
+      )}
+      {w.draftedFrom?.private && (
+        <div className="banner banner--amber" role="status">
+          <Icon name="lock" size={16} />
+          <span>From a private repo. Check for internal names, customers and links before publishing.</span>
+        </div>
+      )}
+
       <PaneTabs<View>
         label="Write-up sections"
         active={view}
@@ -244,7 +265,7 @@ function Editor({ initial }: { initial: Writeup }) {
               </label>
               <TitleInput value={form.title} placeholder={`Title, e.g. ${info.example}`} onChange={(v) => set('title', v)} />
               {info.fields.map((f, i) => (
-                <SectionCard key={f.key} def={f} step={i + 1} filled={isFilled(fields, f.key)}>
+                <SectionCard key={f.key} def={f} step={i + 1} filled={isFilled(fields, f.key)} draftMeta={w.draftedFrom?.sections[f.key]}>
                   {f.kind === 'short' ? (
                     <input
                       id={`w-${f.key}`}
@@ -456,12 +477,15 @@ function SectionCard({
   step,
   filled,
   optionalLabel,
+  draftMeta,
   children,
 }: {
   def: FieldDef
   step: number
   filled: boolean
   optionalLabel?: string
+  /** Where this section's drafted text came from, or what's missing — set only on a drafted write-up. */
+  draftMeta?: DraftedSectionMeta
   children: ReactNode
 }) {
   const id = `w-${def.key}`
@@ -481,6 +505,16 @@ function SectionCard({
       <p id={`${id}-help`} className="wsec__help">
         {def.help}
       </p>
+      {draftMeta && draftMeta.sources.length > 0 && (
+        <div className="row gap-6 wrap" aria-label="Drafted from">
+          {draftMeta.sources.map((s) => (
+            <span key={s} className="chip">
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+      {draftMeta && !filled && draftMeta.missing && <p className="small muted">Not in the source: {draftMeta.missing}</p>}
       {children}
     </section>
   )

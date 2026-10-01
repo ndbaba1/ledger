@@ -3,6 +3,7 @@ class User < ApplicationRecord
   has_many :posts, dependent: :destroy
   has_many :hits, dependent: :destroy
   has_many :post_questions, foreign_key: :asker_id, dependent: :destroy, inverse_of: :asker
+  has_many :draft_requests, dependent: :destroy
 
   encrypts :github_token
 

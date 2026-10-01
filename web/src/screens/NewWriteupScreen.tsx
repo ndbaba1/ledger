@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { Icon } from '../components/Icon'
 import { KindPill } from '../components/PostContent'
+import { StartFromSource } from '../components/StartFromSource'
 import { FieldError } from '../components/States'
 import { features } from '../lib/features'
 import { useMutation } from '../lib/useAsync'
@@ -14,8 +16,15 @@ export function NewWriteupScreen() {
   const api = useApi()
   const navigate = useNavigate()
   const create = useMutation((type: RecordType) => api.createWriteup(type))
+  const draftFromSource = useMutation((type: RecordType, url: string) => api.startDraftFromSource(url, type))
+  const [pendingSource, setPendingSource] = useState<{ url: string; note?: string }>()
 
   const pick = async (type: RecordType) => {
+    if (pendingSource) {
+      const dr = await draftFromSource.run(type, pendingSource.url)
+      if (dr?.writeupId) navigate(`/write/${dr.writeupId}`, { replace: true })
+      return
+    }
     const w = await create.run(type)
     if (w) navigate(`/write/${w.id}`, { replace: true })
   }
@@ -32,6 +41,20 @@ export function NewWriteupScreen() {
         </div>
       </header>
 
+      {features.draftFromSource && (
+        <StartFromSource
+          onNeedsTemplate={(url, note) => setPendingSource({ url, note })}
+          onDrafted={(writeupId) => navigate(`/write/${writeupId}`, { replace: true })}
+        />
+      )}
+
+      {pendingSource && (
+        <p className="small muted" role="status">
+          {pendingSource.note ?? 'Not enough in the source to draft from.'} Pick a template below to draft a blank write-up with the source
+          attached as evidence.
+        </p>
+      )}
+
       <ul className="type-grid">
         {ORDER.map((type) => {
           const info = TYPE_INFO[type]
@@ -42,7 +65,7 @@ export function NewWriteupScreen() {
               type="button"
               className="type-card"
               onClick={() => pick(type)}
-              disabled={create.pending}
+              disabled={create.pending || draftFromSource.pending}
             >
               <KindPill type={type} />
               <span className="type-card__blurb">{info.blurb}</span>
@@ -51,7 +74,7 @@ export function NewWriteupScreen() {
                 {info.fields.map((f) => f.label).join(' · ')}
               </span>
               <span className="type-card__go">
-                Start {info.label.toLowerCase()}
+                {pendingSource ? 'Draft it' : `Start ${info.label.toLowerCase()}`}
                 <Icon name="arrowRight" size={14} />
               </span>
               <span className="sr-only">Required: {required.join(', ')}</span>
@@ -60,7 +83,7 @@ export function NewWriteupScreen() {
           )
         })}
       </ul>
-      <FieldError message={create.error} />
+      <FieldError message={create.error ?? draftFromSource.error} />
       <p className="small muted">
         Designs start as a <strong className="text">proposal</strong> you can write before building. They can be published once
         they’ve shipped, with the MRs that built them and a result after launch.

@@ -52,6 +52,25 @@ class GithubEvidenceVerifier
   APP_NOT_INSTALLED = 'app_not_installed'
   REPO_NOT_IN_INSTALLATION = 'repo_not_in_installation'
 
+  # Recognizes a GitHub PR or issue URL without needing a writeup or user —
+  # used by DraftsController and GithubSourceContext to tell what kind of
+  # source they're looking at, and to build a canonical URL, before any
+  # verification happens.
+  def self.parse_url(url)
+    uri = URI.parse(url.to_s.strip)
+    return nil unless uri.is_a?(URI::HTTP) && uri.host&.match?(GITHUB_HOST)
+
+    if (m = PR_PATH.match(uri.path))
+      { kind: :pr, owner: m[:owner], repo: m[:repo], number: m[:number].to_i,
+        url: "https://github.com/#{m[:owner]}/#{m[:repo]}/pull/#{m[:number]}" }
+    elsif (m = ISSUE_PATH.match(uri.path))
+      { kind: :issue, owner: m[:owner], repo: m[:repo], number: m[:number].to_i,
+        url: "https://github.com/#{m[:owner]}/#{m[:repo]}/issues/#{m[:number]}" }
+    end
+  rescue URI::InvalidURIError
+    nil
+  end
+
   def initialize(writeup, url, user)
     @writeup = writeup
     @url = url.to_s.strip
@@ -278,7 +297,7 @@ class GithubEvidenceVerifier
       status: 'fetched', repo: nwo, number: number,
       authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
       failure_reason: pr_badge_note(pr.user.id, pr.user.login, merged, authored, reviewed),
-      snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, additions: pr.additions, deletions: pr.deletions, reviewed: reviewed }
+      snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, additions: pr.additions, deletions: pr.deletions, reviewed: reviewed, authorLogin: pr.user.login }
     )
   rescue Octokit::NotFound
     verify_pull_request_via_app(m, url, number)
@@ -328,14 +347,15 @@ class GithubEvidenceVerifier
         title: "GitHub PR ##{number} · #{pr.title}", detail: "private GitHub project · #{format_month(pr.merged_at)}",
         status: 'fetched', repo: nwo, number: number, private: true, owner: m[:owner],
         authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
-        snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, reviewed: reviewed }
+        snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, reviewed: reviewed, authorLogin: pr.user.login }
       )
     else
       create_evidence!(
         kind: 'github_pr', url: url,
         title: "GitHub PR ##{number}", detail: '',
         status: 'failed', repo: nil, number: number, private: true, owner: m[:owner],
-        failure_reason: "You didn't author or approve this PR."
+        failure_reason: "You didn't author or approve this PR.",
+        snapshot: { authorLogin: pr.user.login }
       )
     end
   rescue Octokit::NotFound

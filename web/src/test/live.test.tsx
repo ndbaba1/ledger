@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LedgerApi } from '../api/client'
-import type { ExploreResult, Profile, PostThread, PublicPost, User, VerifiedEvidenceItem, Writeup } from '../api/types'
+import type { DraftRequest, ExploreResult, Profile, PostThread, PublicPost, User, VerifiedEvidenceItem, Writeup } from '../api/types'
 
 // `isLive`/`features` are read from `import.meta.env.VITE_API` once at
 // import time, so each test stubs the env, resets the module cache, and
@@ -380,5 +380,134 @@ describe('the post page rail', () => {
     expect(document.getElementById('root-cause')).toBeInTheDocument()
     expect(document.getElementById('follow-ups')).toBeInTheDocument()
     expect(document.getElementById('ask-the-author')).toBeInTheDocument()
+  })
+})
+
+describe('"Start from a PR or issue"', () => {
+  function baseWriteup(overrides: Partial<Writeup> = {}): Writeup {
+    return {
+      id: 'w9', type: 'incident', status: 'draft', title: '', context: '', symptom: '', constraints: [],
+      rootCause: '', flow: [], ruledOut: [], fix: '', lesson: '', signals: [], evidence: [],
+      authorId: me.id, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+      ...overrides,
+    }
+  }
+
+  it('drafts straight to the editor on an immediate ready result', async () => {
+    const drafted = baseWriteup({ id: 'w10', title: 'Fixed the pool' })
+    const user = await renderLive('#/new', () => ({
+      me: () => Promise.resolve(me),
+      startDraftFromSource: () => Promise.resolve<DraftRequest>({ draftId: 'd1', status: 'ready', writeupId: 'w10' }),
+      getWriteup: () => Promise.resolve(drafted),
+    }))
+
+    await user.type(await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123'), 'https://github.com/acme/checkout/pull/14')
+    await user.click(screen.getByRole('button', { name: 'Draft it' }))
+
+    expect(await screen.findByDisplayValue('Fixed the pool')).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/write/w10')
+  })
+
+  it('shows the loading card, then polls through to the editor once ready', async () => {
+    const drafted = baseWriteup({ id: 'w11', title: 'Reverted the config change' })
+    const user = await renderLive('#/new', () => ({
+      me: () => Promise.resolve(me),
+      startDraftFromSource: () => Promise.resolve<DraftRequest>({ draftId: 'd2', status: 'drafting', writeupId: 'w11' }),
+      getDraftRequest: () => Promise.resolve<DraftRequest>({ draftId: 'd2', status: 'ready', writeupId: 'w11' }),
+      getWriteup: () => Promise.resolve(drafted),
+    }))
+
+    await user.type(await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123'), 'https://github.com/acme/checkout/pull/15')
+    await user.click(screen.getByRole('button', { name: 'Draft it' }))
+
+    expect(await screen.findByText('Reading the PR and its discussion…')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Reverted the config change', undefined, { timeout: 4000 })).toBeInTheDocument()
+  }, 10_000)
+
+  it('shows the private-source consent dialog, then proceeds after accepting', async () => {
+    let accepted = false
+    const user = await renderLive('#/new', (client) => ({
+      me: () => Promise.resolve(me),
+      startDraftFromSource: () =>
+        accepted
+          ? Promise.resolve<DraftRequest>({ draftId: 'd3', status: 'drafting', writeupId: 'w12' })
+          : Promise.reject(new client.DraftBlockedError({ code: 'consent_required' })),
+      acceptPrivateDraftingConsent: () => {
+        accepted = true
+        return Promise.resolve()
+      },
+      getDraftRequest: () => Promise.resolve<DraftRequest>({ draftId: 'd3', status: 'ready', writeupId: 'w12' }),
+      getWriteup: () => Promise.resolve(baseWriteup({ id: 'w12' })),
+    }))
+
+    await user.type(await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123'), 'https://github.com/acme/secret/pull/1')
+    await user.click(screen.getByRole('button', { name: 'Draft it' }))
+
+    expect(await screen.findByText(/Send this to Anthropic/)).toBeInTheDocument()
+    expect(screen.getByText(/never code/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Accept' }))
+
+    await waitFor(() => expect(window.location.hash).toBe('#/write/w12'), { timeout: 4000 })
+  }, 10_000)
+
+  it('asks for a template on needs_template, with no writeup created, and drafts once one is picked', async () => {
+    const started: Array<{ url: string; template?: string }> = []
+    const user = await renderLive('#/new', (client) => ({
+      me: () => Promise.resolve(me),
+      startDraftFromSource: (url, template) => {
+        started.push({ url, template })
+        if (!template) return Promise.reject(new client.DraftBlockedError({ code: 'needs_template', note: 'Not enough in the source to draft from — pick a template' }))
+        return Promise.resolve<DraftRequest>({ draftId: 'd4', status: 'ready', writeupId: 'w13' })
+      },
+      getWriteup: () => Promise.resolve(baseWriteup({ id: 'w13', type: 'decision' })),
+    }))
+
+    await user.type(await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123'), 'https://github.com/acme/checkout/issues/3')
+    await user.click(screen.getByRole('button', { name: 'Draft it' }))
+
+    expect(await screen.findByText(/pick a template/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Draft it').length).toBeGreaterThan(1)
+
+    await user.click(screen.getByRole('button', { name: /Architecture decision/ }))
+
+    await waitFor(() => expect(window.location.hash).toBe('#/write/w13'))
+    expect(started).toEqual([
+      { url: 'https://github.com/acme/checkout/issues/3', template: undefined },
+      { url: 'https://github.com/acme/checkout/issues/3', template: 'decision' },
+    ])
+  })
+
+  it('shows an inline message on the daily cap, and the template cards still work', async () => {
+    const user = await renderLive('#/new', (client) => ({
+      me: () => Promise.resolve(me),
+      startDraftFromSource: () => Promise.reject(new client.DraftBlockedError({ error: "You've hit today's drafting limit.", resetAt: '2026-10-02T00:00:00Z' })),
+      createWriteup: () => Promise.resolve(baseWriteup({ id: 'w14', type: 'incident' })),
+    }))
+
+    await user.type(await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123'), 'https://github.com/acme/checkout/pull/16')
+    await user.click(screen.getByRole('button', { name: 'Draft it' }))
+
+    expect(await screen.findByText("You've hit today's drafting limit.")).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Start incident/ }))
+    await waitFor(() => expect(window.location.hash).toBe('#/write/w14'))
+  })
+
+  it("shows the drafted banner, private-repo warning, source chips and a missing hint in the editor", async () => {
+    const drafted = baseWriteup({
+      id: 'w15', title: 'Reverted the pool change', symptom: 'The pool was halved.',
+      draftedFrom: {
+        sourceUrl: 'https://github.com/acme/secret/pull/14', private: true,
+        sections: { symptom: { sources: ['PR #14'] }, rootCause: { sources: [], missing: 'The root cause is never explained.' } },
+      },
+    })
+    await renderLive('#/write/w15', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(drafted) }))
+
+    expect(await screen.findByText(/Drafted from PR #14/)).toBeInTheDocument()
+    expect(screen.getByText(/check every line before publishing/)).toBeInTheDocument()
+    expect(screen.getByText(/From a private repo/)).toBeInTheDocument()
+    expect(screen.getByText('PR #14')).toBeInTheDocument()
+    expect(screen.getByText(/Not in the source: The root cause is never explained\./)).toBeInTheDocument()
   })
 })
