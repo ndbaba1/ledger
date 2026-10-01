@@ -92,6 +92,31 @@ RSpec.describe DraftFromSourceJob do
     expect(Writeup.exists?(writeup.id)).to be true
   end
 
+  it 'never leaks the source text into DraftRequest#error when the writer fails validation' do
+    marker = 'VERY-SECRET-PR-BODY-MARKER'
+    stub_pr(body: { number: 42, title: 'Fix the pool', body: "Halved the pool by mistake. #{marker}", created_at: '2026-09-19T00:00:00Z',
+                    merged_at: '2026-09-20T00:00:00Z', user: { id: 2002, login: 'someone' }, base: { repo: { private: false } } })
+    stub_reviews([])
+    stub_comments([])
+    # An unknown source label is a validation failure DraftWriter can't
+    # recover from after its one retry (stub_messages reuses the same body).
+    stub_anthropic(
+      'context' => { text: '', sources: [], missing: 'n/a' },
+      'symptom' => { text: marker, sources: ['NOT A REAL LABEL'], missing: '' },
+      'ruledOut' => { text: '', sources: [], missing: 'n/a' },
+      'rootCause' => { text: '', sources: [], missing: 'n/a' },
+      'fix' => { text: '', sources: [], missing: 'n/a' },
+      'lesson' => { text: '', sources: [], missing: 'n/a' }
+    )
+
+    described_class.new.perform(draft_request.id)
+
+    draft_request.reload
+    expect(draft_request.status).to eq('failed')
+    expect(draft_request.error).to eq('Drafting failed. Start from the template instead.')
+    expect(draft_request.error).not_to include(marker)
+  end
+
   it 'resolves as a blank ready draft, not counted, if the full context turns out empty' do
     stub_pr(body: { number: 42, title: '', body: '', created_at: '2026-09-19T00:00:00Z',
                     merged_at: '2026-09-20T00:00:00Z', user: { id: 2002, login: 'someone' }, base: { repo: { private: false } } })
