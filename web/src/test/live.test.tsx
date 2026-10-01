@@ -499,7 +499,11 @@ describe('"Start from a PR or issue"', () => {
       id: 'w15', title: 'Reverted the pool change', symptom: 'The pool was halved.',
       draftedFrom: {
         sourceUrl: 'https://github.com/acme/secret/pull/14', private: true,
-        sections: { symptom: { sources: ['PR #14'] }, rootCause: { sources: [], missing: 'The root cause is never explained.' } },
+        sections: {
+          symptom: { sources: ['PR #14'], long: true },
+          rootCause: { sources: [], missing: 'The root cause is never explained.' },
+          fix: { sources: [], voice: true },
+        },
       },
     })
     await renderLive('#/write/w15', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(drafted) }))
@@ -509,5 +513,7 @@ describe('"Start from a PR or issue"', () => {
     expect(screen.getByText(/From a private repo/)).toBeInTheDocument()
     expect(screen.getByText('PR #14')).toBeInTheDocument()
     expect(screen.getByText(/Not in the source: The root cause is never explained\./)).toBeInTheDocument()
+    expect(screen.getByText('Consider shortening')).toBeInTheDocument()
+    expect(screen.getByText('Check the wording')).toBeInTheDocument()
   })
 })

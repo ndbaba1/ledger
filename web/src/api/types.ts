@@ -412,6 +412,10 @@ export interface WriteupFields {
 export interface DraftedSectionMeta {
   sources: string[]
   missing?: string
+  /** DraftWriter flagged this section as too long (over ~120 words, or over 5 list items) after one retry. */
+  long?: boolean
+  /** DraftWriter flagged this section as third-person ("the author"/"the user"/"the engineer") after one retry. */
+  voice?: boolean
 }
 
 /** Present on a write-up only when it was drafted from a PR or issue via "Start from a PR or issue". Author-only — never appears on a published post. */

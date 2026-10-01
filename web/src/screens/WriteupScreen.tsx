@@ -515,6 +515,8 @@ function SectionCard({
         </div>
       )}
       {draftMeta && !filled && draftMeta.missing && <p className="small muted">Not in the source: {draftMeta.missing}</p>}
+      {draftMeta?.long && <p className="small muted">Consider shortening</p>}
+      {draftMeta?.voice && <p className="small muted">Check the wording</p>}
       {children}
     </section>
   )
