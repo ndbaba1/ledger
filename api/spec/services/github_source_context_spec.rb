@@ -95,6 +95,28 @@ RSpec.describe GithubSourceContext do
     end
   end
 
+  describe '#call blank?' do
+    it 'is true when the body is empty and there are no meaningful comments, even though the title is always present' do
+      stub_pr(45, body: pr_body(number: 45, body: ''))
+      stub_reviews(45, [])
+      stub_comments(45, [])
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/pull/45', user).call
+
+      expect(result.blank?).to be true
+    end
+
+    it 'is false once a review or comment has content, even if the body is empty' do
+      stub_pr(46, body: pr_body(number: 46, body: ''))
+      stub_reviews(46, [{ state: 'APPROVED', body: 'Nice work', submitted_at: '2026-09-19T12:00:00Z', user: { id: 1001, login: 'octocat' } }])
+      stub_comments(46, [])
+
+      result = described_class.new(writeup, 'https://github.com/acme/checkout/pull/46', user).call
+
+      expect(result.blank?).to be false
+    end
+  end
+
   describe '#likely_empty? on a PR' do
     it 'is true when the body is blank and there are no meaningful comments' do
       stub_pr(43, body: pr_body(number: 43, body: ''))

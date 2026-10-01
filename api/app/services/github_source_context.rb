@@ -21,8 +21,8 @@ class GithubSourceContext
   INLINE_REF = %r{(?:#{CLOSES_KEYWORD}\s*:?\s*)(?:(?<owner>[\w.-]+)/(?<repo>[\w.-]+))?#(?<number>\d+)}
   URL_REF = %r{https?://(?:www\.)?github\.com/(?<owner>[\w.-]+)/(?<repo>[\w.-]+)/issues/(?<number>\d+)}
 
-  Result = Struct.new(:text, :labels, keyword_init: true) do
-    def blank? = text.strip.empty?
+  Result = Struct.new(:text, :labels, :blank, keyword_init: true) do
+    def blank? = blank
   end
 
   def initialize(writeup, url, user)
@@ -51,7 +51,10 @@ class GithubSourceContext
 
   def call
     chunks = @parsed[:kind] == :pr ? pr_chunks : issue_chunks
-    Result.new(text: assemble(chunks), labels: chunks.map { |c| c[:label] }.uniq)
+    anchor_body = @parsed[:kind] == :pr ? fetch_pull_request.body : fetch_issue.body
+    has_comments = chunks.any? { |c| c[:trim] && c[:text].to_s.strip.present? }
+    blank = body_blank?(anchor_body) && !has_comments
+    Result.new(text: assemble(chunks), labels: chunks.map { |c| c[:label] }.uniq, blank: blank)
   rescue *GithubEvidenceVerifier::TEMPORARY_ERRORS => e
     raise GithubEvidenceVerifier::TemporaryFailure, e.message
   end

@@ -9,6 +9,11 @@ class DraftRequest < ApplicationRecord
   # api/config/puma.rb) rather than one that's just slow.
   STALE_AFTER = 3.minutes
   INTERRUPTED_MESSAGE = 'Drafting was interrupted — try again'.freeze
+  # Used both by DraftsController (empty source, template given — resolved
+  # synchronously, no job) and DraftFromSourceJob (empty source discovered
+  # only after the full context build, no template given — rare, since the
+  # controller's cheaper check usually catches this first).
+  EMPTY_SOURCE_NOTE = 'Not enough in the source to draft from'.freeze
 
   belongs_to :user
   belongs_to :writeup, optional: true

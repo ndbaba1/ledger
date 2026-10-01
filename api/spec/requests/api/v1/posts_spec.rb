@@ -126,6 +126,31 @@ RSpec.describe 'Post, thread and hit endpoints', type: :request do
     end
   end
 
+  describe 'GET .../posts/:slug — drafted-from metadata never appears publicly' do
+    it 'leaks no draftedFrom, source URL, repo name or section source labels, signed out or otherwise' do
+      writeup = post_record.writeup
+      writeup.update!(
+        draft_source_url: 'https://github.com/acme/super-secret-project/pull/14',
+        draft_model: 'claude-sonnet-5', draft_prompt_version: 'v1', drafted_at: Time.current,
+        drafted_from_private: true,
+        draft_sections_meta: { 'symptom' => { 'sources' => ['PR #14'], 'missing' => '' } }
+      )
+      create(:evidence, writeup: writeup, key: 'S1', kind: 'github_pr', authored_by_user: true, private: true,
+                         owner: 'acme', repo: 'acme/super-secret-project', title: 'GitHub PR #14 · internal fix',
+                         url: 'https://github.com/acme/super-secret-project/pull/14', merged_at: '2026-09-20T10:00:00Z')
+
+      get "/api/v1/users/hannahl/posts/#{post_record.slug}"
+
+      expect(response).to have_http_status(:ok)
+      body = response.body
+      expect(body).not_to include('draftedFrom')
+      expect(body).not_to include('super-secret-project')
+      expect(body).not_to include('PR #14')
+      expect(body).not_to include('claude-sonnet-5')
+      expect(json['post']).not_to have_key('draftedFrom')
+    end
+  end
+
   describe 'GET .../thread' do
     it 'returns an empty thread when nobody has asked anything yet' do
       get "/api/v1/users/hannahl/posts/#{post_record.slug}/thread"

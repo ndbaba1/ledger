@@ -20,6 +20,12 @@ class Rack::Attack
     req.session[:user_id] if req.post? && req.path.match?(%r{\A/api/v1/writeups/[^/]+/evidence\z})
   end
 
+  # Just a burst guard — the real 10/rolling-24h cap is enforced from
+  # draft_requests in the DB (DraftsController), not per IP or session.
+  throttle('drafts/user', limit: 5, period: 1.minute) do |req|
+    req.session[:user_id] if req.post? && req.path == '/api/v1/drafts'
+  end
+
   throttle('req/ip', limit: 300, period: 1.minute) do |req|
     req.ip
   end
