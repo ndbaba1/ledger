@@ -1,5 +1,5 @@
-import { NotFoundError, UnauthorizedError, type LedgerApi } from './client'
-import type { ExploreParams, ID, ProfileEdit, PublicPost, PostThread, WriteupFields, WriteupStatus } from './types'
+import { DraftBlockedError, NotFoundError, UnauthorizedError, type LedgerApi } from './client'
+import type { DraftRequest, ExploreParams, ID, ProfileEdit, PublicPost, PostThread, RecordType, WriteupFields, WriteupStatus } from './types'
 
 export interface HttpApiOptions {
   /** e.g. '/api/v1' */
@@ -25,6 +25,16 @@ async function request<T>(base: string, path: string, init: RequestInit = {}): P
 
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
+}
+
+// Unlike request(), reads the full error body on failure — DraftsController's
+// non-2xx responses carry a `code`/`failureCode`/`resetAt` the UI branches
+// on, not just a message.
+async function requestDraft(base: string, path: string, init: RequestInit): Promise<DraftRequest> {
+  const res = await fetch(`${base}${path}`, { credentials: 'same-origin', ...init, headers: { 'Content-Type': 'application/json', ...init.headers } })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new DraftBlockedError(body)
+  return body as DraftRequest
 }
 
 function query(params: Record<string, string | undefined>): string {
@@ -86,6 +96,11 @@ export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
     recheckWriteupEvidence: (id: ID, key: string) => post(`/writeups/${id}/evidence/${encodeURIComponent(key)}/recheck`, undefined),
     setWriteupStatus: (id: ID, status: WriteupStatus) => patch(`/writeups/${id}/status`, { status }),
     publishWriteupToProfile: (id: ID, summary?: string) => post<PublicPost>(`/writeups/${id}/publish`, summary ? { summary } : undefined),
+
+    startDraftFromSource: (url: string, template?: RecordType) =>
+      requestDraft(base, '/drafts', { method: 'POST', body: JSON.stringify({ url, template }) }),
+    getDraftRequest: (id: ID) => get<DraftRequest>(`/drafts/${id}`),
+    acceptPrivateDraftingConsent: () => post<void>('/me/private_drafting_consent'),
   }
 
   return new Proxy(v1 as unknown as LedgerApi, {

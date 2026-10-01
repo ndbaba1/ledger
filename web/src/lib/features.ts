@@ -11,4 +11,6 @@ export const features = {
   projects: !isLive,
   /** "Ask the author" on a post. Has a real backend in both mock and live mode. */
   publicQA: true,
+  /** "Start from a PR or issue" on the New write-up page. Live-backend only. */
+  draftFromSource: isLive,
 }

@@ -1,5 +1,6 @@
 import type {
   Draft,
+  DraftRequest,
   ID,
   OpenCase,
   Profile,
@@ -76,6 +77,19 @@ export interface LedgerApi {
    * one-line "What changed?" note on a republish; ignored the first time.
    */
   publishWriteupToProfile(id: ID, summary?: string): Promise<PublicPost>
+
+  /**
+   * Starts drafting a write-up from a GitHub PR or issue URL — see "Start
+   * from a PR or issue" on the New write-up page. Resolves immediately with
+   * `status: 'ready'` for an empty source once a template is known, or
+   * `status: 'drafting'` to poll via getDraftRequest. Rejects with
+   * DraftBlockedError for every other outcome (needs_template,
+   * consent_required, the verification gate, or the daily cap).
+   */
+  startDraftFromSource(url: string, template?: RecordType): Promise<DraftRequest>
+  getDraftRequest(id: ID): Promise<DraftRequest>
+  /** Consent to send a private repo's PR/issue title, body and comments to Anthropic for drafting. */
+  acceptPrivateDraftingConsent(): Promise<void>
 
   listRecords(): Promise<TeamRecord[]>
   getRecord(id: ID): Promise<TeamRecord>
@@ -156,5 +170,30 @@ export class UnauthorizedError extends Error {
   constructor(message = 'Sign in to continue.') {
     super(message)
     this.name = 'UnauthorizedError'
+  }
+}
+
+/**
+ * Thrown by `startDraftFromSource` for every non-2xx response. `code`
+ * distinguishes the two outcomes the UI reacts to specially — everything
+ * else (the verification gate's message, a temporary GitHub failure) is a
+ * plain inline error, read from `message`.
+ */
+export class DraftBlockedError extends Error {
+  code?: 'consent_required' | 'needs_template'
+  note?: string
+  failureCode?: 'app_not_installed' | 'repo_not_in_installation'
+  installUrl?: string
+  /** Set on a 429: when the daily cap resets. */
+  resetAt?: string
+
+  constructor(body: { error?: string; code?: string; note?: string; failureCode?: string; installUrl?: string; resetAt?: string }) {
+    super(body.error ?? body.note ?? 'Could not start drafting.')
+    this.name = 'DraftBlockedError'
+    this.code = body.code as DraftBlockedError['code']
+    this.note = body.note
+    this.failureCode = body.failureCode as DraftBlockedError['failureCode']
+    this.installUrl = body.installUrl
+    this.resetAt = body.resetAt
   }
 }
