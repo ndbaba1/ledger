@@ -7,6 +7,7 @@ namespace :drafts do
 
     parsed = GithubEvidenceVerifier.parse_url(url)
     abort("Not a GitHub PR or issue URL: #{url}") unless parsed
+    abort('ANTHROPIC_API_KEY not set') unless DraftWriter.configured?
 
     ActiveRecord::Base.transaction do
       writeup = user.writeups.create!(type: 'incident')

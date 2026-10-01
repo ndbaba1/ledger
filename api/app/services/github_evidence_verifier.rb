@@ -297,7 +297,7 @@ class GithubEvidenceVerifier
       status: 'fetched', repo: nwo, number: number,
       authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
       failure_reason: pr_badge_note(pr.user.id, pr.user.login, merged, authored, reviewed),
-      snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, additions: pr.additions, deletions: pr.deletions, reviewed: reviewed }
+      snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, additions: pr.additions, deletions: pr.deletions, reviewed: reviewed, authorLogin: pr.user.login }
     )
   rescue Octokit::NotFound
     verify_pull_request_via_app(m, url, number)
@@ -347,14 +347,15 @@ class GithubEvidenceVerifier
         title: "GitHub PR ##{number} · #{pr.title}", detail: "private GitHub project · #{format_month(pr.merged_at)}",
         status: 'fetched', repo: nwo, number: number, private: true, owner: m[:owner],
         authored_by_user: authored, merged_at: pr.merged_at, verified_at: Time.current,
-        snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, reviewed: reviewed }
+        snapshot: { title: pr.title, mergedAt: pr.merged_at&.iso8601, reviewed: reviewed, authorLogin: pr.user.login }
       )
     else
       create_evidence!(
         kind: 'github_pr', url: url,
         title: "GitHub PR ##{number}", detail: '',
         status: 'failed', repo: nil, number: number, private: true, owner: m[:owner],
-        failure_reason: "You didn't author or approve this PR."
+        failure_reason: "You didn't author or approve this PR.",
+        snapshot: { authorLogin: pr.user.login }
       )
     end
   rescue Octokit::NotFound

@@ -9,6 +9,7 @@ module Api
       # (type and status together) once the real template is known.
       PLACEHOLDER_TYPE = 'incident'
       NEEDS_TEMPLATE_NOTE = 'Not enough in the source to draft from — pick a template'
+      ANTHROPIC_UNAVAILABLE_MESSAGE = 'Drafting is unavailable right now. Start from a template.'
 
       class TooManyDrafts < StandardError
         attr_reader :reset_at
@@ -32,7 +33,7 @@ module Api
 
         url = params[:url].to_s.strip
         parsed = GithubEvidenceVerifier.parse_url(url)
-        raise Unprocessable, 'Paste a GitHub PR or issue URL.' unless parsed
+        raise Unprocessable, 'Paste a GitHub pull request or issue link.' unless parsed
 
         existing = in_flight_duplicate(parsed[:url])
         return render json: DraftRequestSerializer.call(existing), status: :accepted if existing
@@ -78,9 +79,27 @@ module Api
           writeup.destroy
           { json: payload, status: :unprocessable_content }
         elsif !evidence.verified?
-          payload = { error: evidence.failure_reason || 'Not verified.' }
+          payload = { error: refusal_message(evidence) }
           writeup.destroy
           { json: payload, status: :unprocessable_content }
+        end
+      end
+
+      # The drafting box shows a full sentence that says what to do, not the
+      # verifier's short editor badge note (see GithubEvidenceVerifier#pr_badge_note
+      # / #issue_badge_note) — those stay as-is for the evidence badges
+      # elsewhere in the app.
+      def refusal_message(evidence)
+        case evidence.failure_reason.to_s
+        when 'Not merged yet.'
+          "This PR isn't merged yet. Ledger drafts from merged PRs — merge it first, or paste the issue it fixes."
+        when /\AAuthored by /, "You didn't author or approve this PR."
+          login = evidence.snapshot['authorLogin']
+          "This PR was authored by #{login} and you didn't review it, so Ledger can't draft it as your work."
+        when /\AOpened by /, "You didn't author or comment on this issue."
+          "You didn't open or comment on this issue, so Ledger can't confirm you worked on it."
+        else
+          "Ledger couldn't find this — check the link, or install the Ledger app if it's a private repo."
         end
       end
 
@@ -88,6 +107,15 @@ module Api
         source = GithubSourceContext.new(writeup, url, current_user)
 
         unless source.likely_empty?
+          unless DraftWriter.configured?
+            Rails.logger.error('ANTHROPIC_API_KEY not set')
+            draft_request = DraftRequest.create!(
+              user: current_user, writeup: writeup, source_url: url, template: template,
+              status: 'failed', error: ANTHROPIC_UNAVAILABLE_MESSAGE, drafted_from_private: evidence.private?, counts_toward_cap: false
+            )
+            return render json: DraftRequestSerializer.call(draft_request), status: :service_unavailable
+          end
+
           draft_request = DraftRequest.create!(
             user: current_user, writeup: writeup, source_url: url, template: template,
             status: 'drafting', drafted_from_private: evidence.private?

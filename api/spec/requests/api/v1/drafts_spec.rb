@@ -8,7 +8,10 @@ RSpec.describe 'Drafts API', type: :request do
   before do
     sign_in_as(user)
     stub_repository
+    ENV['ANTHROPIC_API_KEY'] = 'sk-test'
   end
+
+  after { ENV.delete('ANTHROPIC_API_KEY') }
 
   def stub_repository(owner: 'acme', repo: 'checkout', private_repo: false)
     stub_request(:get, "https://api.github.com/repos/#{owner}/#{repo}")
@@ -45,19 +48,20 @@ RSpec.describe 'Drafts API', type: :request do
       post_json '/api/v1/drafts', params: { url: 'https://github.com/acme/checkout/pull/1' }
 
       expect(response).to have_http_status(:unprocessable_content)
-      expect(json['error']).to eq('Not merged yet.')
+      expect(json['error']).to eq("This PR isn't merged yet. Ledger drafts from merged PRs — merge it first, or paste the issue it fixes.")
       expect(Writeup.count).to eq(0)
       expect(DraftRequest.count).to eq(0)
       expect(WebMock).not_to have_requested(:post, 'https://api.anthropic.com/v1/messages')
     end
 
-    it "doesn't draft someone else's merged PR" do
+    it "doesn't draft someone else's merged PR, and says so with their login" do
       stub_pr(2, body: merged_pr(number: 2, user_id: 2002, login: 'someone-else'))
       stub_reviews(2)
 
       post_json '/api/v1/drafts', params: { url: 'https://github.com/acme/checkout/pull/2' }
 
       expect(response).to have_http_status(:unprocessable_content)
+      expect(json['error']).to eq("This PR was authored by someone-else and you didn't review it, so Ledger can't draft it as your work.")
       expect(Writeup.count).to eq(0)
       expect(DraftRequest.count).to eq(0)
     end
@@ -72,6 +76,7 @@ RSpec.describe 'Drafts API', type: :request do
       post_json '/api/v1/drafts', params: { url: 'https://github.com/acme/checkout/issues/5' }
 
       expect(response).to have_http_status(:unprocessable_content)
+      expect(json['error']).to eq("You didn't open or comment on this issue, so Ledger can't confirm you worked on it.")
       expect(Writeup.count).to eq(0)
       expect(DraftRequest.count).to eq(0)
     end
@@ -92,7 +97,29 @@ RSpec.describe 'Drafts API', type: :request do
       post_json '/api/v1/drafts', params: { url: 'https://example.com/whatever' }
 
       expect(response).to have_http_status(:unprocessable_content)
+      expect(json['error']).to eq('Paste a GitHub pull request or issue link.')
       expect(WebMock).not_to have_requested(:get, %r{api\.github\.com})
+    end
+  end
+
+  describe 'POST /api/v1/drafts — Anthropic not configured' do
+    it 'fails fast with no job enqueued and no cap usage when ANTHROPIC_API_KEY is unset' do
+      ENV.delete('ANTHROPIC_API_KEY')
+      stub_pr(60, body: merged_pr(number: 60))
+      stub_reviews(60, [])
+      stub_comments(60, [])
+
+      expect do
+        post_json '/api/v1/drafts', params: { url: 'https://github.com/acme/checkout/pull/60', template: 'incident' }
+      end.not_to have_enqueued_job(DraftFromSourceJob)
+
+      expect(response).to have_http_status(:service_unavailable)
+      expect(json['status']).to eq('failed')
+      expect(json['error']).to eq('Drafting is unavailable right now. Start from a template.')
+      dr = DraftRequest.find(json['draftId'])
+      expect(dr.counts_toward_cap).to be false
+      expect(dr.writeup_id).to be_present
+      expect(Writeup.exists?(dr.writeup_id)).to be true
     end
   end
 
