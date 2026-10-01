@@ -147,4 +147,16 @@ RSpec.describe DraftFromSourceJob do
     expect(draft_request.error).to eq(DraftRequest::INTERRUPTED_MESSAGE)
     expect(WebMock).not_to have_requested(:get, %r{api\.github\.com})
   end
+
+  it "tolerates its writeup having been deleted (draft deleted mid-job), without crashing" do
+    draft_request
+    writeup.destroy!
+
+    expect { described_class.new.perform(draft_request.id) }.not_to raise_error
+
+    draft_request.reload
+    expect(draft_request.status).to eq('failed')
+    expect(draft_request.error).to eq(described_class::FAILURE_MESSAGE)
+    expect(WebMock).not_to have_requested(:get, %r{api\.github\.com})
+  end
 end

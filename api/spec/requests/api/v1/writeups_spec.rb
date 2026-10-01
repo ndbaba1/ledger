@@ -58,6 +58,78 @@ RSpec.describe 'Writeups API', type: :request do
     end
   end
 
+  describe 'DELETE /api/v1/writeups/:id' do
+    it 'requires sign-in' do
+      writeup = create(:writeup)
+      delete "/api/v1/writeups/#{writeup.id}", headers: json_headers
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'hard-deletes an own draft, its evidence, and nullifies (not destroys) its DraftRequest' do
+      sign_in_as(user)
+      writeup = create(:writeup, user: user)
+      evidence = create(:evidence, writeup: writeup)
+      draft_request = create(:draft_request, user: user, writeup: writeup, status: 'ready', counts_toward_cap: true)
+
+      delete_json "/api/v1/writeups/#{writeup.id}"
+
+      expect(response).to have_http_status(:no_content)
+      expect(Writeup.exists?(writeup.id)).to be false
+      expect(Evidence.exists?(evidence.id)).to be false
+      draft_request.reload
+      expect(draft_request.writeup_id).to be_nil
+      expect(draft_request.counts_toward_cap).to be true
+    end
+
+    it "404s for another user's draft" do
+      sign_in_as(user)
+      other = create(:writeup)
+
+      delete_json "/api/v1/writeups/#{other.id}"
+
+      expect(response).to have_http_status(:not_found)
+      expect(Writeup.exists?(other.id)).to be true
+    end
+
+    it "won't delete a published (or ever-published) record" do
+      sign_in_as(user)
+      writeup = create(:writeup, user: user)
+      create(:post, user: user, writeup: writeup)
+
+      delete_json "/api/v1/writeups/#{writeup.id}"
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json['code']).to eq('published')
+      expect(json['error']).to eq("Published records can't be deleted yet.")
+      expect(Writeup.exists?(writeup.id)).to be true
+    end
+
+    it 'refuses while a DraftRequest for it is still drafting' do
+      sign_in_as(user)
+      writeup = create(:writeup, user: user)
+      create(:draft_request, user: user, writeup: writeup, status: 'drafting')
+
+      delete_json "/api/v1/writeups/#{writeup.id}"
+
+      expect(response).to have_http_status(:conflict)
+      expect(json['error']).to eq('Still drafting — wait for it to finish.')
+      expect(Writeup.exists?(writeup.id)).to be true
+    end
+
+    it 'treats a stale (>3min) drafting request as failed and proceeds with the delete' do
+      sign_in_as(user)
+      writeup = create(:writeup, user: user)
+      draft_request = create(:draft_request, user: user, writeup: writeup, status: 'drafting', created_at: 4.minutes.ago)
+
+      delete_json "/api/v1/writeups/#{writeup.id}"
+
+      expect(response).to have_http_status(:no_content)
+      expect(Writeup.exists?(writeup.id)).to be false
+      expect(draft_request.reload.status).to eq('failed')
+      expect(draft_request.writeup_id).to be_nil
+    end
+  end
+
   describe 'PATCH /api/v1/writeups/:id' do
     it 'saves fields and clears a result the client omits' do
       sign_in_as(user)

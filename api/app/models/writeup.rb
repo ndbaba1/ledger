@@ -16,6 +16,10 @@ class Writeup < ApplicationRecord
   belongs_to :user
   has_many :evidence, -> { order(:key) }, dependent: :destroy, inverse_of: :writeup
   has_one :post, dependent: :destroy
+  # Deleting a draft keeps its DraftRequest rows (the daily cap is counted
+  # from them) but detaches them — see Api::V1::WriteupsController#destroy
+  # and DraftFromSourceJob, which tolerates a nil writeup.
+  has_many :draft_requests, dependent: :nullify, inverse_of: :writeup
 
   validates :type, inclusion: { in: TYPES }
   validates :status, inclusion: { in: STATUSES }

@@ -40,6 +40,27 @@ module Api
         render json: WriteupSerializer.call(writeup)
       end
 
+      # Drafts only — a published (or ever-published) write-up can't be
+      # deleted here; unpublishing/deleting a record is separate work. Hard
+      # deletes the writeup and its evidence; any DraftRequest for it keeps
+      # its row (the daily cap is counted from these) with writeup_id set to
+      # null — see Writeup#draft_requests and DraftFromSourceJob.
+      def destroy
+        writeup = current_user.writeups.find(params[:id])
+
+        if writeup.published?
+          return render json: { error: "Published records can't be deleted yet.", code: 'published' }, status: :unprocessable_content
+        end
+
+        writeup.draft_requests.where(status: 'drafting').find_each(&:mark_failed_if_stale!)
+        if writeup.draft_requests.exists?(status: 'drafting')
+          return render json: { error: 'Still drafting — wait for it to finish.' }, status: :conflict
+        end
+
+        Writeup.transaction { writeup.destroy! }
+        head :no_content
+      end
+
       private
 
       def owned_writeup!
