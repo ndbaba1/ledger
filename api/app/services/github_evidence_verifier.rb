@@ -52,6 +52,25 @@ class GithubEvidenceVerifier
   APP_NOT_INSTALLED = 'app_not_installed'
   REPO_NOT_IN_INSTALLATION = 'repo_not_in_installation'
 
+  # Recognizes a GitHub PR or issue URL without needing a writeup or user —
+  # used by DraftsController and GithubSourceContext to tell what kind of
+  # source they're looking at, and to build a canonical URL, before any
+  # verification happens.
+  def self.parse_url(url)
+    uri = URI.parse(url.to_s.strip)
+    return nil unless uri.is_a?(URI::HTTP) && uri.host&.match?(GITHUB_HOST)
+
+    if (m = PR_PATH.match(uri.path))
+      { kind: :pr, owner: m[:owner], repo: m[:repo], number: m[:number].to_i,
+        url: "https://github.com/#{m[:owner]}/#{m[:repo]}/pull/#{m[:number]}" }
+    elsif (m = ISSUE_PATH.match(uri.path))
+      { kind: :issue, owner: m[:owner], repo: m[:repo], number: m[:number].to_i,
+        url: "https://github.com/#{m[:owner]}/#{m[:repo]}/issues/#{m[:number]}" }
+    end
+  rescue URI::InvalidURIError
+    nil
+  end
+
   def initialize(writeup, url, user)
     @writeup = writeup
     @url = url.to_s.strip
