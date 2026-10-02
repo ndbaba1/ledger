@@ -44,7 +44,7 @@ module Api
         verify!(writeup, parsed[:url])
         evidence = writeup.evidence.last
 
-        if (blocked = verification_response(writeup, evidence))
+        if (blocked = verification_response(writeup, evidence, parsed[:url]))
           return render(**blocked)
         end
 
@@ -73,9 +73,9 @@ module Api
 
       # Returns render() kwargs when the request can't proceed from here, or
       # nil when verification earned a usable (verified) piece of evidence.
-      def verification_response(writeup, evidence)
+      def verification_response(writeup, evidence, source_url)
         if evidence.failure_code.present?
-          payload = { error: evidence.failure_reason, failureCode: evidence.failure_code, installUrl: EvidenceSerializer.install_url_with_state(evidence) }.compact
+          payload = { error: evidence.failure_reason, failureCode: evidence.failure_code, installUrl: draft_install_url(evidence, source_url) }.compact
           writeup.destroy
           { json: payload, status: :unprocessable_content }
         elsif !evidence.verified?
@@ -83,6 +83,19 @@ module Api
           writeup.destroy
           { json: payload, status: :unprocessable_content }
         end
+      end
+
+      # Same install-flow URL shape as EvidenceSerializer.install_url_with_state,
+      # but the state carries the pasted source URL instead of a writeup id —
+      # this writeup is destroyed right after (see #verification_response), so
+      # there's nothing to return to; GithubApp::SetupsController instead sends
+      # the person back to New write-up with the URL refilled.
+      def draft_install_url(evidence, source_url)
+        return nil if evidence.install_url.blank?
+
+        state = GithubApp.sign_setup_state(user_id: current_user.id, draft_url: source_url)
+        separator = evidence.install_url.include?('?') ? '&' : '?'
+        "#{evidence.install_url}#{separator}state=#{CGI.escape(state)}"
       end
 
       # The drafting box shows a full sentence that says what to do, not the

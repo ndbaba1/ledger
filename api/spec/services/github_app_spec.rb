@@ -85,5 +85,13 @@ RSpec.describe GithubApp do
 
       expect(described_class.verify_setup_state(state)).to be_nil
     end
+
+    it 'round-trips who asked and the pasted source URL, with no writeup_id key, when there is no write-up yet' do
+      state = described_class.sign_setup_state(user_id: 7, draft_url: 'https://github.com/acme/checkout/pull/9')
+
+      payload = described_class.verify_setup_state(state)
+      expect(payload).to eq('user_id' => 7, 'draft_url' => 'https://github.com/acme/checkout/pull/9')
+      expect(payload).not_to have_key('writeup_id')
+    end
   end
 end

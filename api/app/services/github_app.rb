@@ -73,11 +73,19 @@ class GithubApp
       end
     end
 
-    # A signed, expiring token identifying who asked to install the app and
-    # for which write-up — round-tripped through GitHub's installation flow
-    # via the `state` query param, and verified in GithubAppSetupsController.
-    def sign_setup_state(user_id:, writeup_id:)
-      setup_verifier.generate({ 'user_id' => user_id, 'writeup_id' => writeup_id }, expires_in: 15.minutes)
+    # A signed, expiring token identifying who asked to install the app, and
+    # what to do once they're back — round-tripped through GitHub's
+    # installation flow via the `state` query param, and verified in
+    # Api::V1::Github::App::SetupsController. Pass `writeup_id` for an
+    # existing write-up's evidence (returns to its editor); `draft_url` when
+    # there's no write-up yet, e.g. "Start from a PR or issue" hitting the
+    # same gate before one is created (returns to New write-up with the URL
+    # refilled).
+    def sign_setup_state(user_id:, writeup_id: nil, draft_url: nil)
+      payload = { 'user_id' => user_id }
+      payload['writeup_id'] = writeup_id if writeup_id
+      payload['draft_url'] = draft_url if draft_url
+      setup_verifier.generate(payload, expires_in: 15.minutes)
     end
 
     # The state payload, or nil if it's missing, tampered with, or expired.

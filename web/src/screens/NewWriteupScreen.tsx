@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi } from '../api/ApiContext'
 import type { RecordType } from '../api/types'
 import { Icon } from '../components/Icon'
@@ -18,6 +18,26 @@ export function NewWriteupScreen() {
   const create = useMutation((type: RecordType) => api.createWriteup(type))
   const draftFromSource = useMutation((type: RecordType, url: string) => api.startDraftFromSource(url, type))
   const [pendingSource, setPendingSource] = useState<{ url: string; note?: string }>()
+
+  // Back from installing the GitHub App on GitHub's own site, after the
+  // drafting box's verification gate hit a private repo it couldn't see yet
+  // — the URL comes back via ?url= (no write-up was created to return to,
+  // see StartFromSource) so the box can be refilled and tried again.
+  const [params, setParams] = useSearchParams()
+  const initialUrl = params.get('url') ?? undefined
+  useEffect(() => {
+    if (!params.get('url') && params.get('installed') !== '1') return
+    setParams(
+      (p) => {
+        p.delete('url')
+        p.delete('installed')
+        return p
+      },
+      { replace: true },
+    )
+    // Only ever react to these params on the redirect back from GitHub.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const pick = async (type: RecordType) => {
     if (pendingSource) {
@@ -43,6 +63,7 @@ export function NewWriteupScreen() {
 
       {features.draftFromSource && (
         <StartFromSource
+          initialUrl={initialUrl}
           onNeedsTemplate={(url, note) => setPendingSource({ url, note })}
           onDrafted={(writeupId) => navigate(`/write/${writeupId}`, { replace: true })}
         />

@@ -60,4 +60,14 @@ RSpec.describe 'GET /api/v1/github/app/setup', type: :request do
     expect(evidence['authoredByMe']).to eq(true)
     expect(evidence).not_to have_key('failureCode')
   end
+
+  it 'redirects to New write-up with the URL refilled, for a draft_url state (no write-up to return to)' do
+    state = GithubApp.sign_setup_state(user_id: user.id, draft_url: 'https://github.com/acme/checkout/pull/9')
+
+    get '/api/v1/github/app/setup', params: { installation_id: '4242', setup_action: 'install', state: state }
+
+    expect(response).to redirect_to(
+      "#{Rails.application.config.x.app_url}/#/new?url=https%3A%2F%2Fgithub.com%2Facme%2Fcheckout%2Fpull%2F9&installed=1",
+    )
+  end
 end

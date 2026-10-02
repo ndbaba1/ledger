@@ -91,6 +91,16 @@ RSpec.describe 'Drafts API', type: :request do
       expect(json['failureCode']).to eq('app_not_installed')
       expect(json['installUrl']).to be_present
       expect(Writeup.count).to eq(0)
+
+      # The writeup created to attach evidence to is destroyed right away, so
+      # the signed state carries the pasted URL instead of a writeup id —
+      # GithubApp::SetupsController sends the person back to New write-up
+      # with it refilled, not to an editor that no longer exists.
+      state = URI.decode_www_form(URI.parse(json['installUrl']).query).to_h['state']
+      payload = GithubApp.verify_setup_state(state)
+      expect(payload['user_id']).to eq(user.id)
+      expect(payload['draft_url']).to eq('https://github.com/acme/checkout/pull/6')
+      expect(payload).not_to have_key('writeup_id')
     end
 
     it 'rejects a non-GitHub-PR-or-issue URL without touching GitHub' do

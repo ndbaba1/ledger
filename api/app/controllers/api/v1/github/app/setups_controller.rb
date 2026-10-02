@@ -13,14 +13,24 @@ module Api
             payload = ::GithubApp.verify_setup_state(params[:state])
             return redirect_home unless payload
 
+            if payload['writeup_id']
+              redirect_to_writeup(payload)
+            elsif payload['draft_url']
+              redirect_to "#{app_url}/#/new?url=#{CGI.escape(payload['draft_url'])}&installed=1", allow_other_host: true
+            else
+              redirect_home
+            end
+          end
+
+          private
+
+          def redirect_to_writeup(payload)
             writeup = Writeup.find_by(id: payload['writeup_id'])
             user = User.find_by(id: payload['user_id'])
             reverify_pending_evidence!(writeup, user) if writeup && user
 
             redirect_to "#{app_url}/#/write/#{payload['writeup_id']}?installed=1", allow_other_host: true
           end
-
-          private
 
           def reverify_pending_evidence!(writeup, user)
             writeup.evidence.where(failure_code: Evidence::FAILURE_CODES).find_each do |evidence|
