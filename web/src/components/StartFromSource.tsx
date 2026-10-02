@@ -23,17 +23,21 @@ type Phase = 'idle' | 'consent' | 'drafting'
 export function StartFromSource({
   onNeedsTemplate,
   onDrafted,
+  initialUrl,
 }: {
   onNeedsTemplate: (url: string, note: string | undefined) => void
   onDrafted: (writeupId: string) => void
+  /** Prefills the URL field — set after returning from installing the GitHub App. */
+  initialUrl?: string
 }) {
   const api = useApi()
-  const [url, setUrl] = useState('')
+  const [url, setUrl] = useState(initialUrl ?? '')
   const [template, setTemplate] = useState<RecordType | ''>('')
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string>()
   const [resetAt, setResetAt] = useState<string>()
   const [failedWriteupId, setFailedWriteupId] = useState<string>()
+  const [installUrl, setInstallUrl] = useState<string>()
   const stoppedRef = useRef(false)
 
   useEffect(
@@ -47,6 +51,7 @@ export function StartFromSource({
     setError(undefined)
     setResetAt(undefined)
     setFailedWriteupId(undefined)
+    setInstallUrl(undefined)
   }
 
   const start = async () => {
@@ -109,6 +114,7 @@ export function StartFromSource({
         return
       }
       if (e.resetAt) setResetAt(e.resetAt)
+      if (e.installUrl) setInstallUrl(e.installUrl)
       setError(e.message)
       setPhase('idle')
       return
@@ -182,6 +188,13 @@ export function StartFromSource({
         </button>
       </div>
       <FieldError message={error} />
+      {installUrl && (
+        <div className="row gap-8">
+          <a href={installUrl} className="btn btn--primary btn--sm">
+            Install the Ledger app
+          </a>
+        </div>
+      )}
       {resetAt && (
         <p className="small muted">Try again after {new Date(resetAt).toLocaleString()}.</p>
       )}

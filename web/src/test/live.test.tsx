@@ -494,6 +494,36 @@ describe('"Start from a PR or issue"', () => {
     await waitFor(() => expect(window.location.hash).toBe('#/write/w14'))
   })
 
+  it('shows an "Install the Ledger app" button when the gate needs the app installed', async () => {
+    const user = await renderLive('#/new', (client) => ({
+      me: () => Promise.resolve(me),
+      startDraftFromSource: () =>
+        Promise.reject(
+          new client.DraftBlockedError({
+            error: "Ledger can't see this repo. Install the Ledger app on acme to verify private work.",
+            failureCode: 'app_not_installed',
+            installUrl: 'https://github.com/apps/ledger-dev/installations/new?state=signed-state-abc',
+          }),
+        ),
+    }))
+
+    await user.type(await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123'), 'https://github.com/acme/checkout/pull/20')
+    await user.click(screen.getByRole('button', { name: 'Draft it' }))
+
+    expect(await screen.findByText("Ledger can't see this repo. Install the Ledger app on acme to verify private work.")).toBeInTheDocument()
+    const install = screen.getByRole('link', { name: 'Install the Ledger app' })
+    expect(install).toHaveAttribute('href', 'https://github.com/apps/ledger-dev/installations/new?state=signed-state-abc')
+  })
+
+  it('refills the URL from ?url= after returning from installing the app, and drops the query params', async () => {
+    await renderLive('#/new?url=https%3A%2F%2Fgithub.com%2Facme%2Fcheckout%2Fpull%2F20&installed=1', () => ({
+      me: () => Promise.resolve(me),
+    }))
+
+    expect(await screen.findByDisplayValue('https://github.com/acme/checkout/pull/20')).toBeInTheDocument()
+    await waitFor(() => expect(window.location.hash).toBe('#/new'))
+  })
+
   it("shows the drafted banner, private-repo warning, source chips and a missing hint in the editor", async () => {
     const drafted = baseWriteup({
       id: 'w15', title: 'Reverted the pool change', symptom: 'The pool was halved.',
