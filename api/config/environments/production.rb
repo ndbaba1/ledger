@@ -55,8 +55,10 @@ Rails.application.configure do
   config.cache_store = :memory_store, { size: 64.megabytes }
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
+  # No connects_to here — Solid Queue uses the primary connection, same as
+  # development and test (see config/database.yml and
+  # db/migrate/20261002000001_create_solid_queue_tables.rb).
   config.active_job.queue_adapter = :solid_queue
-  config.solid_queue.connects_to = { database: { writing: :queue } }
 
   # Ignore bad email addresses and do not raise email delivery errors.
   # Set this to true and configure the email server for immediate delivery to raise delivery errors.
