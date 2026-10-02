@@ -21,13 +21,15 @@ import { TYPE_INFO, publishRequirements, writeupToRecord, type FieldDef } from '
 
 type View = 'write' | 'preview' | 'side'
 
-/** "PR #14" / "ISSUE #12" from a drafted-from source URL, for the editor banner. */
+/** "PR #14" / "issue #12" from a drafted-from source URL, for the editor notice. */
 function sourceLabelFromUrl(url: string): string {
   const pr = url.match(/\/pull\/(\d+)/)
   if (pr) return `PR #${pr[1]}`
   const issue = url.match(/\/issues\/(\d+)/)
-  return issue ? `ISSUE #${issue[1]}` : 'the source'
+  return issue ? `issue #${issue[1]}` : 'the source'
 }
+
+const dismissedDraftNoticeKey = (writeupId: string) => `ledger:dismissedDraftNotice:${writeupId}`
 
 /** Editor state: Markdown for text fields, arrays (blank rows kept while typing) for lists. */
 interface FormState {
@@ -170,6 +172,29 @@ function Editor({ initial }: { initial: Writeup }) {
     else navigate(`/records/${result.id}`, { state: { justPublished: true } })
   }
 
+  // Dismissing the drafted-from notice persists per writeup, the same way
+  // githubAuth.ts stashes its own return-to path in Web Storage — falls back
+  // to just hiding it for this session if storage isn't available.
+  const [draftNoticeDismissed, setDraftNoticeDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(dismissedDraftNoticeKey(w.id)) === '1'
+    } catch {
+      return false
+    }
+  })
+  const dismissDraftNotice = () => {
+    setDraftNoticeDismissed(true)
+    try {
+      localStorage.setItem(dismissedDraftNoticeKey(w.id), '1')
+    } catch {
+      // Still hidden for this session via the state above.
+    }
+  }
+
+  // UI-only gate for a private-source draft — never sent to the server.
+  const needsPrivacyCheck = Boolean(w.draftedFrom?.private)
+  const [privacyChecked, setPrivacyChecked] = useState(false)
+
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deletePending, setDeletePending] = useState(false)
   const [deleteError, setDeleteError] = useState<string>()
@@ -187,7 +212,8 @@ function Editor({ initial }: { initial: Writeup }) {
 
   const previewRecord = writeupToRecord({ ...current }, { id: 'preview', publishedAt: w.updatedAt, authorId: me.id })
   const isDesign = w.type === 'design'
-  const canPublish = missing === 0 && !publish.pending && (!alreadyPublished || changeSummary.trim().length > 0)
+  const canPublish =
+    missing === 0 && !publish.pending && (!alreadyPublished || changeSummary.trim().length > 0) && (!needsPrivacyCheck || privacyChecked)
 
   if (w.publishedRecordId) {
     return (
@@ -251,16 +277,32 @@ function Editor({ initial }: { initial: Writeup }) {
         />
       )}
 
-      {w.draftedFrom && (
-        <div className="banner banner--amber" role="status">
-          <Icon name="sparkle" size={16} />
-          <span>Drafted from {sourceLabelFromUrl(w.draftedFrom.sourceUrl)} — check every line before publishing.</span>
-        </div>
-      )}
-      {w.draftedFrom?.private && (
-        <div className="banner banner--amber" role="status">
-          <Icon name="lock" size={16} />
-          <span>From a private repo. Check for internal names, customers and links before publishing.</span>
+      {w.draftedFrom && !draftNoticeDismissed && (
+        <div className="panel" role="status">
+          <div className="row gap-8">
+            <Icon name="sparkle" size={14} />
+            <span>
+              Drafted from{' '}
+              <a href={w.draftedFrom.sourceUrl} target="_blank" rel="noopener noreferrer">
+                {sourceLabelFromUrl(w.draftedFrom.sourceUrl)}
+              </a>
+              {w.draftedFrom.private && (
+                <>
+                  {' · '}
+                  <Icon name="lock" size={12} />
+                  <span> private repo</span>
+                </>
+              )}
+            </span>
+            <button type="button" className="btn btn--ghost btn--sm push-right" onClick={dismissDraftNotice}>
+              Dismiss
+            </button>
+          </div>
+          <p className="small muted">
+            {w.draftedFrom.private
+              ? 'Check every line, and look for internal names, customers and links before publishing.'
+              : 'Check every line before publishing.'}
+          </p>
         </div>
       )}
 
@@ -434,6 +476,14 @@ function Editor({ initial }: { initial: Writeup }) {
                   <span className="sr-only">{r.done ? 'done' : 'missing'}</span>
                 </li>
               ))}
+              {needsPrivacyCheck && (
+                <li className={`checklist__item${privacyChecked ? ' checklist__item--done' : ''}`}>
+                  <label className="row gap-8">
+                    <input type="checkbox" checked={privacyChecked} onChange={(e) => setPrivacyChecked(e.target.checked)} />
+                    <span>I checked this draft for internal names, customers and links</span>
+                  </label>
+                </li>
+              )}
             </ul>
             {alreadyPublished && missing === 0 && (
               <label className="stack gap-4">
