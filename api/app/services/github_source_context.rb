@@ -247,7 +247,7 @@ class GithubSourceContext
 
   # nil when this repo can't be read at all (shouldn't happen for the anchor,
   # whose access was already established by GithubEvidenceVerifier — but a
-  # linked item can live in a repo Ledger has no access to).
+  # linked item can live in a repo EngLog has no access to).
   def client_for(owner, repo)
     key = nwo(owner, repo)
     return @clients[key] if @clients.key?(key)

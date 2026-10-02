@@ -768,7 +768,7 @@ export function createMockApi(options: MockApiOptions = {}): LedgerApi {
         for (const target of wanted) {
           if (target.startsWith('@')) {
             const user = db.users.find((u) => u.handle.toLowerCase() === target.slice(1))
-            if (!user) skipped.push({ target, reason: 'no Ledger account with that username. Invite them by email instead' })
+            if (!user) skipped.push({ target, reason: 'no EngLog account with that username. Invite them by email instead' })
             else if (db.members.some((m) => m.userId === user.id)) skipped.push({ target, reason: 'already a member' })
             else if (db.invites.some((i) => i.userId === user.id)) skipped.push({ target, reason: 'already invited' })
             else {

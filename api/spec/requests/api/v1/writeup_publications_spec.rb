@@ -11,7 +11,7 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     post_json "/api/v1/writeups/#{writeup.id}/publish"
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(json['error']).to include('A title', 'Problem', 'Root cause', 'Solution', 'At least one piece of evidence Ledger could check with GitHub.')
+    expect(json['error']).to include('A title', 'Problem', 'Root cause', 'Solution', 'At least one piece of evidence EngLog could check with GitHub.')
   end
 
   it 'blocks publishing when the only evidence is an unverified PR or a plain link' do
@@ -22,7 +22,7 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     post_json "/api/v1/writeups/#{writeup.id}/publish"
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(json['error']).to include('At least one piece of evidence Ledger could check with GitHub.')
+    expect(json['error']).to include('At least one piece of evidence EngLog could check with GitHub.')
   end
 
   it 'publishes an incident whose only verified evidence is a participated-in issue' do
@@ -44,7 +44,7 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
     post_json "/api/v1/writeups/#{writeup.id}/publish"
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(json['error']).to include('At least one piece of evidence Ledger could check with GitHub.')
+    expect(json['error']).to include('At least one piece of evidence EngLog could check with GitHub.')
 
     create(:evidence, writeup: writeup, key: 'S2', kind: 'github_pr', authored_by_user: true, repo: 'acme/checkout')
     post_json "/api/v1/writeups/#{writeup.id}/publish"
@@ -235,7 +235,7 @@ RSpec.describe 'POST /api/v1/writeups/:id/publish', type: :request do
 
     get "/api/v1/writeups/#{writeup.id}"
     evidence = json['evidence'].first
-    expect(evidence['refreshWarning']).to eq('The Ledger app was removed from acme. Badge kept from Sep 2026.')
+    expect(evidence['refreshWarning']).to eq('The EngLog app was removed from acme. Badge kept from Sep 2026.')
     expect(evidence['authoredByMe']).to eq(true)
   end
 

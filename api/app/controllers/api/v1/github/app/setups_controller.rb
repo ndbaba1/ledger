@@ -3,7 +3,7 @@ module Api
     module Github
       module App
         # GitHub redirects here once someone finishes (or cancels) installing
-        # the Ledger GitHub App — the "Setup URL" configured on the app itself.
+        # the EngLog GitHub App — the "Setup URL" configured on the app itself.
         # `installation_id`/`setup_action` are GitHub's, but never trusted on
         # their own (see GithubEvidenceVerifier, which always re-asks
         # GithubApp.installation_for); only `state` — signed by us when we sent

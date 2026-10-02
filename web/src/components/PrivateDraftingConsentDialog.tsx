@@ -26,7 +26,7 @@ export function PrivateDraftingConsentDialog({ onAccept, onCancel }: { onAccept:
     <div className="card stack gap-10" role="alertdialog" aria-labelledby="consent-title">
       <strong id="consent-title">Send this to Anthropic?</strong>
       <p className="small muted">
-        Ledger will send this repo's PR/issue title, description and comments — never code — to Anthropic to write the draft. It isn't used for
+        EngLog will send this repo's PR/issue title, description and comments — never code — to Anthropic to write the draft. It isn't used for
         training.
       </p>
       <div className="row gap-8">

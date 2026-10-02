@@ -174,7 +174,7 @@ export function LandingScreen() {
                     <strong>Attach the PRs that fixed it.</strong>
                   </li>
                   <li>
-                    <strong>Ledger verifies them with GitHub.</strong>
+                    <strong>EngLog verifies them with GitHub.</strong>
                   </li>
                 </ol>
                 <Link to="/new" className="btn btn--primary">

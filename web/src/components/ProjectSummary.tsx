@@ -9,7 +9,7 @@ const ROLE: Record<PublicProject['role'], string> = { led: 'Led', contributed: '
 function RecordLink({ record, handle }: { record: ProjectRecordRef; handle: string }) {
   if (record.postSlug) return <Link to={`/u/${handle}/${record.postSlug}`}>{record.title}</Link>
   return (
-    <span className="project-facts__private" title="A team-only record. Ledger checked it against GitHub but it isn’t public.">
+    <span className="project-facts__private" title="A team-only record. EngLog checked it against GitHub but it isn’t public.">
       {record.title}
       <Icon name="lock" size={11} />
     </span>
@@ -18,7 +18,7 @@ function RecordLink({ record, handle }: { record: ProjectRecordRef; handle: stri
 
 /**
  * The project block: name, then evidence, key decisions and outcome. Only the
- * name is the engineer's own words; every other line is counted or quoted by Ledger.
+ * name is the engineer's own words; every other line is counted or quoted by EngLog.
  */
 export function ProjectSummary({
   project,

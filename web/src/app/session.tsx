@@ -140,7 +140,7 @@ export function useSession(): Session {
   const rest = useContext(WorkspaceContext)
   if (!viewer || !rest) throw new Error('useSession must be used inside <SessionProvider>')
   if (!viewer.me) throw new Error('Sign in to continue.')
-  if (!rest.workspace) throw new Error('There is no team workspace in this version of Ledger.')
+  if (!rest.workspace) throw new Error('There is no team workspace in this version of EngLog.')
   return { me: viewer.me, workspace: rest.workspace, inboxCount: rest.inboxCount, refreshInbox: rest.refreshInbox }
 }
 

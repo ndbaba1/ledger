@@ -42,7 +42,7 @@ export const users: User[] = [
   { id: 'u_jordan', name: 'Jordan R.', handle: 'jordanr', initials: 'JR', avatarHue: 155 },
   { id: 'u_priya', name: 'Priya S.', handle: 'priyas', initials: 'PS', avatarHue: 20 },
   { id: 'u_leo', name: 'Leo M.', handle: 'leom', initials: 'LM', avatarHue: 190 },
-  // Engineers outside this workspace who publish on Ledger.
+  // Engineers outside this workspace who publish on EngLog.
   { id: 'u_hannah', name: 'Hannah L.', handle: 'hannahl', initials: 'HL', avatarHue: 330, headline: 'Staff engineer · payments', location: 'Berlin', stack: ['go', 'postgres', 'kafka'] },
   { id: 'u_tomas', name: 'Tomás R.', handle: 'tomasr', initials: 'TR', avatarHue: 95, headline: 'SRE · streaming platform', location: 'Lisbon', stack: ['kafka', 'jvm', 'kubernetes'] },
   { id: 'u_mei', name: 'Mei W.', handle: 'meiw', initials: 'MW', avatarHue: 45, headline: 'Data platform engineer', location: 'Singapore', stack: ['postgres', 'clickhouse', 'python'] },
@@ -71,7 +71,7 @@ export const drafts: Draft[] = [
     severity: 'sev2',
     resolvedIn: '38 min',
     anchor: 'platform/checkout#4821',
-    trigger: 'issue closed with ~ledger',
+    trigger: 'issue closed with ~englog',
     createdAt: '2026-09-28T17:41:00Z',
     summary:
       'During the lunchtime peak, checkout p99 climbed from 310ms to 4.2s. Requests were queuing in PgBouncer, not in Postgres: a cost-cleanup MR had lowered `default_pool_size` from 40 to 20 [S5]. Reverting it restored latency within 18 minutes [S3] [S4].',
@@ -127,7 +127,7 @@ export const drafts: Draft[] = [
     title: 'Stripe webhooks processed twice after the Sidekiq retry change',
     service: 'billing-worker',
     anchor: 'northwind/billing#912',
-    trigger: 'PR merged with label ledger',
+    trigger: 'PR merged with label englog',
     createdAt: '2026-09-28T14:05:00Z',
     summary:
       'A handful of customers were charged credits twice. The webhook handler wasn’t idempotent, and a new retry policy re-ran jobs that had already succeeded but timed out on the ack [S2].',
@@ -165,7 +165,7 @@ export const drafts: Draft[] = [
     title: 'Move product analytics events from Postgres to ClickHouse',
     service: 'events-pipeline',
     anchor: 'platform/data#301',
-    trigger: 'issue closed with ~ledger',
+    trigger: 'issue closed with ~englog',
     createdAt: '2026-09-27T20:10:00Z',
     summary:
       'Event tables in the primary Postgres grew past 900M rows, and dashboard queries were competing with checkout traffic for I/O [S1].',
@@ -193,7 +193,7 @@ export const cases: OpenCase[] = [
     id: 'c_4870',
     title: 'Intermittent 502s from the edge on large uploads',
     anchor: 'platform/edge#4870',
-    openedVia: 'label ~ledger on issue',
+    openedVia: 'label ~englog on issue',
     openedAt: '2026-09-28T13:20:00Z',
     sourceCount: 4,
     ownerId: ME_ID,
@@ -202,7 +202,7 @@ export const cases: OpenCase[] = [
     id: 'c_search',
     title: 'Search reindex job stalls at 80%',
     anchor: '#search-eng thread',
-    openedVia: '/ledger track in Slack',
+    openedVia: '/englog track in Slack',
     openedAt: '2026-09-27T16:02:00Z',
     sourceCount: 2,
     ownerId: 'u_jordan',
@@ -590,7 +590,7 @@ export const posts: PublicPost[] = [
   },
 ]
 
-/** A design written in Ledger before it was built; still a proposal. */
+/** A design written in EngLog before it was built; still a proposal. */
 export const writeups: Writeup[] = [
   {
     id: 'w_ratelimit',
@@ -889,7 +889,7 @@ export const integrations: Integration[] = [
 export const policy: WorkspacePolicy = {
   publicPromotion: 'allowed',
   requireRedactionReview: true,
-  triggerLabel: 'ledger',
+  triggerLabel: 'englog',
 }
 
 export const inviteLinkToken = 'nw-7Qm2xK'

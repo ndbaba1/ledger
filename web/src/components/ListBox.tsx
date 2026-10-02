@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import type { RecordType } from '../api/types'
 
 /**
- * The one list style used across Ledger: a single bordered box with a header
+ * The one list style used across EngLog: a single bordered box with a header
  * line and divider rows. Explore, topics, profiles, records, search, the
  * inbox and cases all use it.
  */

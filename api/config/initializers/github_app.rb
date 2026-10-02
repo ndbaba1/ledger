@@ -14,6 +14,6 @@ if Rails.env.production?
   end
 elsif ENV['GITHUB_APP_PRIVATE_KEY_BASE64'].blank?
   ENV['GITHUB_APP_ID'] ||= '999999'
-  ENV['GITHUB_APP_SLUG'] ||= 'ledger-dev'
+  ENV['GITHUB_APP_SLUG'] ||= 'englog-dev'
   ENV['GITHUB_APP_PRIVATE_KEY_BASE64'] = Base64.strict_encode64(OpenSSL::PKey::RSA.new(2048).to_pem)
 end

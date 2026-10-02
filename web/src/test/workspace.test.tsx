@@ -28,14 +28,14 @@ describe('mock API: workspace admin', () => {
     expect(kim.expiresAt).toBe('2026-10-12T20:00:00.000Z')
   })
 
-  it('invites Ledger accounts by username', async () => {
+  it('invites EngLog accounts by username', async () => {
     const api = newApi()
     const res = await api.inviteMembers(['@TomasR', 'adeo', '@amarak', '@meiw', '@nobody-here'], 'member')
     expect(res.sent).toEqual(['@tomasr', '@adeo'])
     expect(res.skipped.map((x) => [x.target, x.reason.split('.')[0]])).toEqual([
       ['@amarak', 'already a member'],
       ['@meiw', 'already invited'],
-      ['@nobody-here', 'no Ledger account with that username'],
+      ['@nobody-here', 'no EngLog account with that username'],
     ])
     expect(res.settings.invites.find((i) => i.user?.handle === 'tomasr')?.email).toBeUndefined()
     expect((await api.findUsers('@to')).map((u) => u.handle)).toEqual(['tomasr'])
@@ -149,7 +149,7 @@ describe('workspace admin in the app', () => {
     window.location.hash = '#/join/inv_sam'
     const user = userEvent.setup()
     render(<App api={newApi()} />)
-    expect(await screen.findByRole('heading', { name: 'Join Platform Eng on Ledger' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Join Platform Eng on EngLog' })).toBeInTheDocument()
     expect(screen.getByText('sam@northwind.dev')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Join with GitHub' }))
     expect(await screen.findByRole('heading', { name: 'Review inbox' })).toBeInTheDocument()

@@ -1,6 +1,6 @@
-# Ledger — web
+# EngLog — web
 
-The Ledger frontend: React 19 + TypeScript + Vite. It runs entirely against an
+The EngLog frontend: React 19 + TypeScript + Vite. It runs entirely against an
 in-memory mock API today, so every screen and flow works before the backend
 exists.
 
@@ -27,14 +27,14 @@ npm run build      # static build in dist/
 | `#/records` | Team records, newest first — incidents, investigations, decisions and system designs |
 | `#/records/:id` | Published record — "drafted from" evidence (PR diffs, Slack quotes), sources, history, Q&A with fold-into-record |
 | `#/records/:id/promote` | Promote to public — live redaction preview, evidence → verified badges, employer display |
-| `#/search?q=` | Search by symptom, error, service; questions also get an "Ask Ledger" answer citing past records |
+| `#/search?q=` | Search by symptom, error, service; questions also get an "Ask EngLog" answer citing past records |
 | `#/search?mode=match` | Seen this before? — paste an alert, metric or error to find records with matching signals, plus a preview of the Slack reply |
 | `#/settings` | Team & settings — members and roles, invites by @username or email, former members, invite link, join by company email, integrations, trigger label, publishing policy |
 | `#/u/:handle/projects/:slug` | A project: name, role, period, verified evidence (merge requests, records), key decisions and outcome |
-| `#/projects/:id` | Name a project Ledger noticed and choose what backs it (try `pc_webhooks`) |
+| `#/projects/:id` | Name a project EngLog noticed and choose what backs it (try `pc_webhooks`) |
 | `#/join/:token` | Join page an invitee sees from an invite (try `inv_mei` for a username invite, `inv_sam` for email) |
 
-Accounts belong to people, not companies. A Ledger account (username + GitHub login) joins a workspace as a membership with an optional work email. When someone leaves, the membership ends but the account stays: team records remain credited to them, their public posts stay on their profile, and they can be invited back by the same username.
+Accounts belong to people, not companies. An EngLog account (username + GitHub login) joins a workspace as a membership with an optional work email. When someone leaves, the membership ends but the account stays: team records remain credited to them, their public posts stay on their profile, and they can be invited back by the same username.
 | `#/t/:tag` | Topic page — every public write-up on a topic, most-hit problems first, related topics |
 | `#/u/:handle` | Public profile with proof-of-work badges |
 | `#/u/:handle/:slug` | Public post — “I hit this too”, Ask the author (public once answered; author answers, dismisses or adds answers to the post) |

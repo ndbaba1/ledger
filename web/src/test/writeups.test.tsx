@@ -14,7 +14,7 @@ describe('write-up rules', () => {
 
   it('requires the type’s key sections and a piece of verified evidence', () => {
     const blank = { ...EMPTY_FIELDS, type: 'incident' as const, status: 'draft' as const, evidence: [] }
-    expect(publishBlockers(blank)).toEqual(['A title', 'Problem', 'Root cause', 'Solution', 'At least one piece of evidence Ledger could check with GitHub.'])
+    expect(publishBlockers(blank)).toEqual(['A title', 'Problem', 'Root cause', 'Solution', 'At least one piece of evidence EngLog could check with GitHub.'])
   })
 
   it('keeps designs unpublishable until shipped with rollout, a result and a verified PR', () => {
@@ -31,7 +31,7 @@ describe('write-up rules', () => {
       'Marked as shipped',
       'Rollout',
       'A result after launch',
-      'At least one piece of evidence Ledger could check with GitHub.',
+      'At least one piece of evidence EngLog could check with GitHub.',
     ])
   })
 
@@ -46,7 +46,7 @@ describe('write-up rules', () => {
       status: 'draft' as const,
       evidence: [{ key: 'S1', kind: 'github_pr' as const, title: 'PR', detail: '', status: 'fetched' as const, hops: 0, verified: false }],
     }
-    expect(publishBlockers(withUnverifiedPr)).toEqual(['At least one piece of evidence Ledger could check with GitHub.'])
+    expect(publishBlockers(withUnverifiedPr)).toEqual(['At least one piece of evidence EngLog could check with GitHub.'])
   })
 
   it('a verified issue counts for a non-design type, but not for a design', () => {
@@ -61,7 +61,7 @@ describe('write-up rules', () => {
     }
     expect(publishBlockers({ ...withVerifiedIssue, type: 'incident' as const })).toEqual([])
     expect(publishBlockers({ ...withVerifiedIssue, type: 'design' as const, status: 'shipped' as const, result: { label: 'x', before: 'x', after: 'x' } })).toEqual([
-      'At least one piece of evidence Ledger could check with GitHub.',
+      'At least one piece of evidence EngLog could check with GitHub.',
     ])
   })
 })
@@ -120,7 +120,7 @@ describe('writing in the app', () => {
     const publish = screen.getByRole('button', { name: 'Publish to Platform Eng' })
     expect(publish).toBeDisabled()
     const checklist = screen.getByRole('region', { name: 'Ready to publish' })
-    expect(within(checklist).getByText('At least one piece of evidence Ledger could check with GitHub.')).toBeInTheDocument()
+    expect(within(checklist).getByText('At least one piece of evidence EngLog could check with GitHub.')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Evidence link'), 'https://github.com/acme/api/pull/412')
     await user.click(screen.getByRole('button', { name: 'Add' }))

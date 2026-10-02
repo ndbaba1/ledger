@@ -59,7 +59,7 @@ export function JoinScreen() {
             </div>
             <div className="stack gap-6">
               <span className="eyebrow">{preview.data.company}</span>
-              <h1 className="join__title">Join {preview.data.workspace.name} on Ledger</h1>
+              <h1 className="join__title">Join {preview.data.workspace.name} on EngLog</h1>
               <p className="muted">
                 {preview.data.memberCount} engineers · {preview.data.recordCount} records of how the team found and fixed things. You’ll
                 join as {preview.data.role === 'admin' ? 'an admin' : `a ${preview.data.role}`}.

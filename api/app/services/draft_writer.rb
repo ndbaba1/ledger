@@ -233,7 +233,7 @@ class DraftWriter
   def pick_template_tool
     {
       name: 'pick_template',
-      description: 'Pick which Ledger write-up template best fits this source.',
+      description: 'Pick which EngLog write-up template best fits this source.',
       input_schema: {
         type: 'object',
         properties: { template: { type: 'string', enum: Writeup::TYPES } },

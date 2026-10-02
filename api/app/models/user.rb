@@ -22,8 +22,8 @@ class User < ApplicationRecord
 
   # Creates the account on first sign-in. Identity fields (avatar, name,
   # company) always mirror GitHub; profile content the person can edit in
-  # Ledger (headline, location, website) is seeded from GitHub only once,
-  # the first time it's blank — after that, what they wrote in Ledger wins.
+  # EngLog (headline, location, website) is seeded from GitHub only once,
+  # the first time it's blank — after that, what they wrote in EngLog wins.
   def self.from_github(auth)
     info = auth.info
     raw = auth.extra&.raw_info || {}

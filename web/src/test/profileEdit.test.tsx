@@ -29,7 +29,7 @@ describe('editing your profile in place', () => {
     await user.click(await screen.findByRole('button', { name: /Edit profile/ }))
     const headline = await screen.findByLabelText('Headline')
     await user.clear(headline)
-    await user.type(headline, 'Backend engineer · building Ledger')
+    await user.type(headline, 'Backend engineer · building EngLog')
 
     const tagField = document.getElementById('profile-editor-stack') as HTMLInputElement
     await user.type(tagField, 'kafka{Enter}')
@@ -38,10 +38,10 @@ describe('editing your profile in place', () => {
 
     await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1))
     const [patch] = updateMe.mock.calls[0]
-    expect(patch.headline).toBe('Backend engineer · building Ledger')
+    expect(patch.headline).toBe('Backend engineer · building EngLog')
     expect(patch.stack).toContain('kafka')
 
-    expect(await screen.findByText('Backend engineer · building Ledger', { exact: false })).toBeInTheDocument()
+    expect(await screen.findByText('Backend engineer · building EngLog', { exact: false })).toBeInTheDocument()
     expect(screen.getByText('kafka')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })

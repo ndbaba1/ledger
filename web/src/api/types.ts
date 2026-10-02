@@ -52,7 +52,7 @@ export type SourceKind =
 
 export type SourceStatus = 'fetched' | 'linked' | 'pasted' | 'failed'
 
-/** What Ledger quotes from a source: diff lines from a PR/MR, or messages from a thread. */
+/** What EngLog quotes from a source: diff lines from a PR/MR, or messages from a thread. */
 export type SourceExcerpt =
   | { kind: 'diff'; file: string; lines: { op: '+' | '-' | ' '; text: string }[] }
   | { kind: 'quotes'; quotes: string[] }
@@ -85,7 +85,7 @@ export interface Source {
   refreshWarning?: string
   /** A GitHub PR/issue behind a private repo. Only the author ever sees its real title — everyone else sees "private GitHub project". */
   private?: boolean
-  /** The repo's owner login, when `private` — for "Install Ledger on <owner>" / "Give Ledger access to this repo". */
+  /** The repo's owner login, when `private` — for "Install EngLog on <owner>" / "Give EngLog access to this repo". */
   owner?: string
   /** Where to send the author to install the app or add this repo to an existing installation, when `failureCode` is set. */
   installUrl?: string
@@ -138,7 +138,7 @@ export interface Draft {
   sources: Source[]
   redactions: Redaction[]
   coAuthorIds: ID[]
-  /** Alerts and errors Ledger found in the case file. */
+  /** Alerts and errors EngLog found in the case file. */
   signals?: Signal[]
   status: DraftStatus
   publishedRecordId?: ID
@@ -429,7 +429,7 @@ export interface DraftedFrom {
   sections: Record<string, DraftedSectionMeta>
 }
 
-/** A record written in Ledger rather than drafted from sources. Private until published. */
+/** A record written in EngLog rather than drafted from sources. Private until published. */
 export interface Writeup extends WriteupFields {
   id: ID
   type: RecordType
@@ -488,7 +488,7 @@ export type SignalKind = 'alert' | 'metric' | 'error' | 'log'
 export interface Signal {
   kind: SignalKind
   value: string
-  /** Where Ledger found it, e.g. "S1" for a source in the case file. */
+  /** Where EngLog found it, e.g. "S1" for a source in the case file. */
   foundIn?: string
 }
 
@@ -522,7 +522,7 @@ export interface FormerMember {
   leftAt: string
 }
 
-/** Invites go to an existing Ledger account by username, or to an email for people new to Ledger. */
+/** Invites go to an existing EngLog account by username, or to an email for people new to EngLog. */
 export interface Invite {
   id: ID
   /** Set when invited by username. */
@@ -539,9 +539,9 @@ export interface Invite {
 export interface Integration {
   provider: IntegrationProvider
   connected: boolean
-  /** What Ledger can see once connected, e.g. "4 projects". */
+  /** What EngLog can see once connected, e.g. "4 projects". */
   detail: string
-  /** Slack only: channels Ledger reads threads from and posts matches in. */
+  /** Slack only: channels EngLog reads threads from and posts matches in. */
   channels?: string[]
 }
 
@@ -602,13 +602,13 @@ export interface ProjectChange {
 }
 
 /**
- * Records Ledger noticed belong together (same epic, label or channel).
+ * Records EngLog noticed belong together (same epic, label or channel).
  * The engineer names it and chooses what to publish.
  */
 export interface ProjectCandidate {
   id: ID
   suggestedTitle: string
-  /** Why Ledger grouped these, e.g. "epic &14 · Connection pooling". */
+  /** Why EngLog grouped these, e.g. "epic &14 · Connection pooling". */
   groupedBy: string
   recordIds: ID[]
   changes: ProjectChange[]
@@ -648,7 +648,7 @@ export interface ProjectRecordRef {
 export interface PublicProject {
   slug: string
   authorId: ID
-  /** In the engineer’s own words. Everything else is counted or quoted by Ledger. */
+  /** In the engineer’s own words. Everything else is counted or quoted by EngLog. */
   title: string
   role: ProjectRole
   period: { from: string; to: string }
