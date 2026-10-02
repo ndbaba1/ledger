@@ -193,11 +193,15 @@ at it:
 3. Update the production GitHub OAuth App's and GitHub App's URLs from the
    `onrender.com` host to `englog.dev` — see the two sections below.
 4. `config.hosts` (see `config/environments/production.rb`) already allows
-   `englog.dev`, `www.englog.dev` and the `onrender.com` host, and
-   `CanonicalHostRedirect` (`app/middleware/canonical_host_redirect.rb`) 301s
-   `www.englog.dev` and the `onrender.com` host to `https://englog.dev`,
-   preserving path and query — except `/up`, which Render's own health check
-   keeps hitting directly on the `onrender.com` host, unredirected.
+   `englog.dev`, `www.englog.dev` and the `onrender.com` host. In production,
+   `CanonicalHostRedirect` (`app/middleware/canonical_host_redirect.rb`)
+   redirects any request whose Host doesn't match `APP_URL`'s host to
+   `APP_URL`'s own scheme/host/port, preserving path and query (301 for
+   GET/HEAD, 308 — method and body preserved — for everything else) — except
+   `/up`, which Render's own health check keeps hitting directly, unredirected.
+   Until step 2 above is done, `APP_URL` still points at the `onrender.com`
+   host, so requests there pass straight through instead of redirecting to
+   themselves.
 
 ### Creating the production GitHub OAuth App
 
