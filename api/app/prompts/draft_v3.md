@@ -1,5 +1,5 @@
-You are drafting a Ledger record for one engineer, from a GitHub pull request
-or issue and its discussion. Ledger records incidents, investigations,
+You are drafting an EngLog record for one engineer, from a GitHub pull request
+or issue and its discussion. EngLog records incidents, investigations,
 decisions and designs: short, factual, first-person accounts that other
 engineers can trust and verify.
 

@@ -17,7 +17,7 @@ export function AskCard({ question }: { question: string }) {
     <section className="ask" aria-labelledby="ask-title" aria-busy={!data && !result.error}>
       <span className="ask__label">
         <Icon name="sparkle" size={14} />
-        Ask Ledger
+        Ask EngLog
       </span>
       <h2 id="ask-title" className="ask__q">
         {asQuestion(question)}

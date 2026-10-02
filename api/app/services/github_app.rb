@@ -1,4 +1,4 @@
-# Talks to GitHub as the Ledger GitHub App (as opposed to GithubEvidenceVerifier's
+# Talks to GitHub as the EngLog GitHub App (as opposed to GithubEvidenceVerifier's
 # use of a signed-in user's own OAuth token). Used only to read PRs and issues in
 # repos where someone installed the app — sign-in itself stays on the OAuth app.
 #

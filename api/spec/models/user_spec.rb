@@ -34,7 +34,7 @@ RSpec.describe User, type: :model do
       expect(user.name).to eq('octocat')
     end
 
-    it "always refreshes identity fields (avatar, name, company), but never overwrites what the user wrote in Ledger" do
+    it "always refreshes identity fields (avatar, name, company), but never overwrites what the user wrote in EngLog" do
       user = User.from_github(auth)
       user.update!(handle: 'octo-renamed', headline: 'My own headline', location: 'My own city', website: 'https://mine.example')
 

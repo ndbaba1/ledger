@@ -168,7 +168,7 @@ export function StartFromSource({
         <Icon name="sparkle" size={16} />
         <strong>Start from a PR or issue</strong>
       </div>
-      <p className="small muted">Paste a GitHub PR or issue you worked on — Ledger drafts a write-up from its title, description and comments.</p>
+      <p className="small muted">Paste a GitHub PR or issue you worked on — EngLog drafts a write-up from its title, description and comments.</p>
       <div className="row gap-8 wrap">
         <label htmlFor="source-url" className="sr-only">
           GitHub PR or issue URL
@@ -189,7 +189,7 @@ export function StartFromSource({
           Template
         </label>
         <select id="source-template" className="input" value={template} onChange={(e) => setTemplate(e.target.value as RecordType | '')}>
-          <option value="">Let Ledger pick</option>
+          <option value="">Let EngLog pick</option>
           {TYPES.map((t) => (
             <option key={t} value={t}>
               {TYPE_INFO[t].label}
@@ -205,12 +205,12 @@ export function StartFromSource({
         <div className="panel" role="status">
           <span className="row gap-8 strong">
             <Icon name="lock" size={14} />
-            Ledger needs access to {installOwnerRepo}
+            EngLog needs access to {installOwnerRepo}
           </span>
-          <p className="small muted">Install the Ledger app on this repo. Ledger only uses PR and issue text — never your code.</p>
+          <p className="small muted">Install the EngLog app on this repo. EngLog only uses PR and issue text — never your code.</p>
           <div className="row gap-8">
             <a href={installUrl} className="btn btn--primary btn--sm">
-              Install the Ledger app
+              Install the EngLog app
             </a>
           </div>
         </div>

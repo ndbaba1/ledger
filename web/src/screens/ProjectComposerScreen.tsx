@@ -13,7 +13,7 @@ import { useMutation, useQuery } from '../lib/useAsync'
 
 type Pane = 'redactions' | 'preview'
 
-/** Name a project Ledger noticed, choose what backs it, and publish it to your profile. */
+/** Name a project EngLog noticed, choose what backs it, and publish it to your profile. */
 export function ProjectComposerScreen() {
   const { id = '' } = useParams()
   const api = useApi()
@@ -139,7 +139,7 @@ function Composer({ plan, allowed }: { plan: ProjectPlan; allowed: boolean }) {
               onChange={(e) => set({ title: e.target.value })}
             />
             <p className="small muted">
-              The only line in your words. Evidence, decisions and outcome are counted or quoted by Ledger, so they can’t be inflated.
+              The only line in your words. Evidence, decisions and outcome are counted or quoted by EngLog, so they can’t be inflated.
             </p>
           </div>
 

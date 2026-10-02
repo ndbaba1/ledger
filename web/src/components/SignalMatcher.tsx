@@ -52,7 +52,7 @@ export function SignalMatcher() {
         <h2 id="matcher-title" className="side-title">
           Seen this before?
         </h2>
-        <p className="small muted">Paste an alert, metric or error. Ledger checks it against the signals saved on every record.</p>
+        <p className="small muted">Paste an alert, metric or error. EngLog checks it against the signals saved on every record.</p>
       </div>
       <form className="stack gap-8" onSubmit={submit}>
         <label htmlFor="matcher-text" className="sr-only">
@@ -113,7 +113,7 @@ export function SignalMatcher() {
 
               {top && (
                 <figure className="slack-preview">
-                  <figcaption className="small muted">What Ledger would reply in the alert’s Slack thread</figcaption>
+                  <figcaption className="small muted">What EngLog would reply in the alert’s Slack thread</figcaption>
                   <div className="slack">
                     <div className="slack__alert">
                       <span className="slack__bot slack__bot--alerts">A</span>
@@ -123,10 +123,10 @@ export function SignalMatcher() {
                       </div>
                     </div>
                     <div className="slack__reply">
-                      <span className="slack__bot">L</span>
+                      <span className="slack__bot">E</span>
                       <div className="stack gap-6">
                         <span className="slack__name">
-                          Ledger <span className="slack__app">APP</span>
+                          EngLog <span className="slack__app">APP</span>
                         </span>
                         <p className="slack__text">
                           {top.strength === 'exact' ? 'This has fired before.' : 'This looks like something the team has seen before.'}{' '}

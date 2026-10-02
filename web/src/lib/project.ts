@@ -63,7 +63,7 @@ const minIso = (xs: string[]) => xs.reduce((a, b) => (b < a ? b : a))
 const maxIso = (xs: string[]) => xs.reduce((a, b) => (b > a ? b : a))
 
 /**
- * The public project. Ledger writes everything except the name: counts come
+ * The public project. EngLog writes everything except the name: counts come
  * from the merged changes, decisions and outcome are quoted from records, and
  * all of it passes through the enabled redaction rules.
  */

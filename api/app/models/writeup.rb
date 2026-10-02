@@ -48,7 +48,7 @@ class Writeup < ApplicationRecord
     fields[key.to_s]
   end
 
-  EVIDENCE_BLOCKER = 'At least one piece of evidence Ledger could check with GitHub.'
+  EVIDENCE_BLOCKER = 'At least one piece of evidence EngLog could check with GitHub.'
 
   # Mirrors `publishBlockers` in web/src/lib/writeups.ts: the labels of
   # whatever is still missing before this can be published.

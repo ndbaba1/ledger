@@ -501,9 +501,9 @@ describe('"Start from a PR or issue"', () => {
       startDraftFromSource: () =>
         Promise.reject(
           new client.DraftBlockedError({
-            error: "Ledger can't see this repo. Install the Ledger app on acme to verify private work.",
+            error: "EngLog can't see this repo. Install the EngLog app on acme to verify private work.",
             failureCode: 'app_not_installed',
-            installUrl: 'https://github.com/apps/ledger-dev/installations/new?state=signed-state-abc',
+            installUrl: 'https://github.com/apps/englog-dev/installations/new?state=signed-state-abc',
           }),
         ),
     }))
@@ -512,13 +512,13 @@ describe('"Start from a PR or issue"', () => {
     await user.type(input, 'https://github.com/acme/checkout/pull/20')
     await user.click(screen.getByRole('button', { name: 'Draft it' }))
 
-    expect(await screen.findByText('Ledger needs access to acme/checkout')).toBeInTheDocument()
-    expect(screen.getByText('Install the Ledger app on this repo. Ledger only uses PR and issue text — never your code.')).toBeInTheDocument()
+    expect(await screen.findByText('EngLog needs access to acme/checkout')).toBeInTheDocument()
+    expect(screen.getByText('Install the EngLog app on this repo. EngLog only uses PR and issue text — never your code.')).toBeInTheDocument()
     // The red error text is not shown for this gate — the callout replaces it.
-    expect(screen.queryByText(/Ledger can't see this repo\. Install/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/EngLog can't see this repo\. Install/)).not.toBeInTheDocument()
 
-    const install = screen.getByRole('link', { name: 'Install the Ledger app' })
-    expect(install).toHaveAttribute('href', 'https://github.com/apps/ledger-dev/installations/new?state=signed-state-abc')
+    const install = screen.getByRole('link', { name: 'Install the EngLog app' })
+    expect(install).toHaveAttribute('href', 'https://github.com/apps/englog-dev/installations/new?state=signed-state-abc')
     expect(install).toHaveClass('btn--primary')
     const draftIt = screen.getByRole('button', { name: 'Draft it' })
     expect(draftIt).not.toHaveClass('btn--primary')
@@ -528,7 +528,7 @@ describe('"Start from a PR or issue"', () => {
     // (and the one captured above) while the request was in flight.
     const liveInput = screen.getByPlaceholderText('https://github.com/owner/repo/pull/123')
     await user.type(liveInput, '1')
-    expect(screen.queryByText('Ledger needs access to acme/checkout')).not.toBeInTheDocument()
+    expect(screen.queryByText('EngLog needs access to acme/checkout')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Draft it' })).toHaveClass('btn--primary')
   })
 
@@ -539,7 +539,7 @@ describe('"Start from a PR or issue"', () => {
 
     expect(await screen.findByDisplayValue('https://github.com/acme/checkout/pull/20')).toBeInTheDocument()
     await waitFor(() => expect(window.location.hash).toBe('#/new'))
-    expect(screen.queryByText(/Ledger needs access to/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/EngLog needs access to/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Draft it' })).toHaveClass('btn--primary')
   })
 

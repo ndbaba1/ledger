@@ -212,7 +212,7 @@ export function publishRequirements(w: Pick<Writeup, keyof WriteupFields | 'type
   // A design still needs specifically a verified PR (it's shipped code); any
   // other type just needs one piece of verified evidence — a PR or an issue.
   reqs.push({
-    label: 'At least one piece of evidence Ledger could check with GitHub.',
+    label: 'At least one piece of evidence EngLog could check with GitHub.',
     done: w.type === 'design' ? w.evidence.some((e) => e.kind === 'github_pr' && e.verified) : w.evidence.some((e) => e.verified),
   })
   return reqs

@@ -23,7 +23,7 @@ export function SignalChip({ signal, highlight = false }: { signal: Signal; high
   )
 }
 
-/** The panel on records and drafts: how this problem shows up, so Ledger can recognise it next time. */
+/** The panel on records and drafts: how this problem shows up, so EngLog can recognise it next time. */
 export function SignalsPanel({ signals, title = 'Fires as', note }: { signals: Signal[]; title?: string; note?: string }) {
   if (!signals.length) return null
   return (
@@ -44,7 +44,7 @@ export function SignalsPanel({ signals, title = 'Fires as', note }: { signals: S
           </li>
         ))}
       </ul>
-      <p className="small muted">{note ?? 'When one of these fires again, Ledger points the on-call engineer here.'}</p>
+      <p className="small muted">{note ?? 'When one of these fires again, EngLog points the on-call engineer here.'}</p>
     </section>
   )
 }

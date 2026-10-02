@@ -126,7 +126,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
       expect(evidence['status']).to eq('failed')
       expect(evidence['detail']).to eq('')
       expect(evidence['failureCode']).to eq('app_not_installed')
-      expect(evidence['failureReason']).to eq("Ledger can't see this repo. Install the Ledger app on acme to verify private work.")
+      expect(evidence['failureReason']).to eq("EngLog can't see this repo. Install the EngLog app on acme to verify private work.")
       expect(evidence['installUrl']).to start_with("https://github.com/apps/#{GithubApp::SLUG}/installations/new")
       expect(evidence['owner']).to eq('acme')
     end
@@ -221,7 +221,7 @@ RSpec.describe 'Writeup evidence API', type: :request do
       evidence = json['evidence'].last
       expect(evidence['status']).to eq('failed')
       expect(evidence['failureCode']).to eq('repo_not_in_installation')
-      expect(evidence['failureReason']).to eq("Ledger's app is installed on acme but can't see this repo. Add it under Repository access.")
+      expect(evidence['failureReason']).to eq("EngLog's app is installed on acme but can't see this repo. Add it under Repository access.")
       expect(evidence['installUrl']).to start_with('https://github.com/organizations/acme/settings/installations/4242')
       expect(evidence['title']).to eq('GitHub PR #72')
     end

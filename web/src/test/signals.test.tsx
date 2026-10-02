@@ -75,7 +75,7 @@ describe('signals in the app', () => {
     await user.click(screen.getByRole('button', { name: 'Check' }))
     expect(await screen.findByText('Exact match')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Flaky CI: the Postgres test database/ })).toBeInTheDocument()
-    expect(screen.getByText(/What Ledger would reply/)).toBeInTheDocument()
+    expect(screen.getByText(/What EngLog would reply/)).toBeInTheDocument()
     expect(screen.getByText('This has fired before.')).toBeInTheDocument()
   })
 })

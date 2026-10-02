@@ -221,7 +221,7 @@ function DraftView({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => 
           <SignalsPanel
             signals={draft.signals ?? []}
             title="Signals detected"
-            note="Found in the case file. They’re saved with the record so Ledger can point here when they fire again."
+            note="Found in the case file. They’re saved with the record so EngLog can point here when they fire again."
           />
           <div className="row gap-8 small muted">
             <span>Co-authors from sources</span>

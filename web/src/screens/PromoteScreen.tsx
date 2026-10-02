@@ -102,7 +102,7 @@ function PromoteView({ record, plan, allowed }: { record: TeamRecord; plan: Prom
           <div className="stack gap-4">
             <h2 className="side-title">What leaves your company</h2>
             <p className="small muted">
-              Ledger found {total} company-specific detail{total === 1 ? '' : 's'}. Each is replaced in the preview; untick a rule to
+              EngLog found {total} company-specific detail{total === 1 ? '' : 's'}. Each is replaced in the preview; untick a rule to
               publish that text as written.
             </p>
           </div>

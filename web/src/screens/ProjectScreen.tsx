@@ -48,7 +48,7 @@ export function ProjectScreen() {
           <span className="eyebrow">Project</span>
           <h1 className="page-title">{project.title}</h1>
           <p className="small muted">
-            The name is {author.name.split(' ')[0]}’s. Everything else on this page was counted or quoted by Ledger from work
+            The name is {author.name.split(' ')[0]}’s. Everything else on this page was counted or quoted by EngLog from work
             checked against GitHub{project.employerLine ? ` ${project.employerLine}` : ''}.
           </p>
         </header>

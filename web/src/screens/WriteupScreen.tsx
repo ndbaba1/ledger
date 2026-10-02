@@ -406,7 +406,7 @@ function Editor({ initial }: { initial: Writeup }) {
                   def={{
                     key: 'signals' as never,
                     label: 'Signals',
-                    help: 'The alert that fired, the metric that moved, the error people saw. Ledger uses these to recognise the problem next time. Team only — never published.',
+                    help: 'The alert that fired, the metric that moved, the error people saw. EngLog uses these to recognise the problem next time. Team only — never published.',
                     kind: 'short',
                   }}
                   step={info.fields.length + 2}
@@ -455,7 +455,7 @@ function Editor({ initial }: { initial: Writeup }) {
             <div className="banner banner--green" role="status">
               <Icon name="check" size={16} />
               <span>
-                Ledger can now verify {[...new Set(w.evidence.filter((e) => e.private && e.owner).map((e) => e.owner))].join(', ') || 'that repo'}.
+                EngLog can now verify {[...new Set(w.evidence.filter((e) => e.private && e.owner).map((e) => e.owner))].join(', ') || 'that repo'}.
               </span>
               <button type="button" className="icon-btn" aria-label="Dismiss" onClick={() => setJustInstalled(false)}>
                 <Icon name="x" size={14} />
@@ -631,7 +631,7 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
         <p className="small muted">
           {features.workspace
             ? 'Link the MRs, PRs, issues or docs behind this. They become sources on the record.'
-            : 'Paste the PRs or issues behind this. Ledger verifies them with GitHub and turns them into verified badges.'}
+            : 'Paste the PRs or issues behind this. EngLog verifies them with GitHub and turns them into verified badges.'}
         </p>
       )}
       <ul className="plain-list evidence-edit">
@@ -665,7 +665,7 @@ function Evidence({ writeup, onChange }: { writeup: Writeup; onChange: (w: Write
             {(e.failureCode === 'app_not_installed' || e.failureCode === 'repo_not_in_installation') && (
               <span className="row gap-6 evidence-edit__actions">
                 <a href={e.installUrl} className="btn btn--primary btn--sm">
-                  {e.failureCode === 'app_not_installed' ? `Install Ledger on ${e.owner}` : 'Give Ledger access to this repo'}
+                  {e.failureCode === 'app_not_installed' ? `Install EngLog on ${e.owner}` : 'Give EngLog access to this repo'}
                 </a>
                 <button
                   type="button"

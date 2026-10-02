@@ -24,7 +24,7 @@ const ROLE_HELP: Record<WorkspaceRole, string> = {
   member: 'Write, review and search records',
 }
 
-/** The company side of Ledger: who's in the workspace, what it connects to, and what can go public. */
+/** The company side of EngLog: who's in the workspace, what it connects to, and what can go public. */
 export function WorkspaceSettingsScreen() {
   const api = useApi()
   const [params, setParams] = useSearchParams()
@@ -162,8 +162,8 @@ function InviteForm({ s, onChange }: { s: WorkspaceSettings; onChange: (s: Works
           Invite your team
         </h2>
         <p className="small muted">
-          Already on Ledger? Invite them by <span className="mono text">@username</span>. Their account stays theirs, so if they leave{' '}
-          {s.workspace.company}, their public posts and profile go with them. New to Ledger? Use their work email.
+          Already on EngLog? Invite them by <span className="mono text">@username</span>. Their account stays theirs, so if they leave{' '}
+          {s.workspace.company}, their public posts and profile go with them. New to EngLog? Use their work email.
         </p>
       </div>
       <form className="stack gap-10" onSubmit={submit}>
@@ -185,7 +185,7 @@ function InviteForm({ s, onChange }: { s: WorkspaceSettings; onChange: (s: Works
             }}
           />
           {typing && options.length > 0 && (
-            <ul id="invite-suggest" className="suggest" aria-label="Ledger accounts">
+            <ul id="invite-suggest" className="suggest" aria-label="EngLog accounts">
               {options.map((u) => (
                 <li key={u.id}>
                   <button type="button" className="suggest__item" disabled={taken.has(u.id)} onClick={() => pick(u.handle)}>
@@ -468,7 +468,7 @@ function FormerMembers({
           Former members · {s.formerMembers.length}
         </h2>
         <p className="small muted">
-          They no longer have access. Records they wrote stay here, still credited to their Ledger account, and their public
+          They no longer have access. Records they wrote stay here, still credited to their EngLog account, and their public
           posts stay on their own profile.
         </p>
       </div>
@@ -667,9 +667,9 @@ function DomainCard({ s, canManage, onChange }: { s: WorkspaceSettings; canManag
 /* ---------------- integrations ---------------- */
 
 const PROVIDER: Record<Integration['provider'], { name: string; what: string }> = {
-  gitlab: { name: 'GitLab', what: 'Issues and merge requests. A closed issue with the Ledger label becomes a draft.' },
+  gitlab: { name: 'GitLab', what: 'Issues and merge requests. A closed issue with the EngLog label becomes a draft.' },
   github: { name: 'GitHub', what: 'Issues and pull requests, and verification badges for public posts.' },
-  slack: { name: 'Slack', what: 'Threads linked from issues, /ledger track, and “seen this before” replies to alerts.' },
+  slack: { name: 'Slack', what: 'Threads linked from issues, /englog track, and “seen this before” replies to alerts.' },
 }
 
 function IntegrationsTab({ s, canManage, onChange }: { s: WorkspaceSettings; canManage: boolean; onChange: (s: WorkspaceSettings) => void }) {
@@ -706,7 +706,7 @@ function IntegrationsTab({ s, canManage, onChange }: { s: WorkspaceSettings; can
             <p className="small muted">{PROVIDER[i.provider].what}</p>
             {i.provider === 'slack' && i.connected && i.channels && (
               <div className="stack gap-6">
-                <span className="eyebrow">Channels Ledger reads</span>
+                <span className="eyebrow">Channels EngLog reads</span>
                 <div className="row gap-6 wrap">
                   {i.channels.map((c) => (
                     <span key={c} className="chip">
@@ -714,7 +714,7 @@ function IntegrationsTab({ s, canManage, onChange }: { s: WorkspaceSettings; can
                     </span>
                   ))}
                 </div>
-                <span className="small muted">Add a channel by inviting @Ledger to it in Slack.</span>
+                <span className="small muted">Add a channel by inviting @EngLog to it in Slack.</span>
               </div>
             )}
           </section>
@@ -727,7 +727,7 @@ function IntegrationsTab({ s, canManage, onChange }: { s: WorkspaceSettings; can
           Draft trigger label
         </h2>
         <p className="small muted">
-          When an issue closes with this label, Ledger gathers its case file and drafts a record for review.
+          When an issue closes with this label, EngLog gathers its case file and drafts a record for review.
         </p>
         <form
           className="stack gap-8"

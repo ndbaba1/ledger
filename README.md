@@ -1,4 +1,4 @@
-# Ledger
+# EngLog
 
 A place for verified engineering write-ups: sign in with GitHub, write up how
 you solved something, attach the PRs and issues that prove it, and publish to
@@ -69,12 +69,12 @@ cd web && npm install && npm run dev
    as `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
 
 Public repos are verified this way alone. For a private repo, sign-in stays on
-this OAuth app — Ledger instead checks whether its separate GitHub App (below)
+this OAuth app — EngLog instead checks whether its separate GitHub App (below)
 is installed there.
 
 ## Creating the GitHub App (private repos)
 
-Sign-in never touches this app; it exists only so Ledger can read a PR or
+Sign-in never touches this app; it exists only so EngLog can read a PR or
 issue in a repo someone has explicitly installed it on.
 
 1. Go to https://github.com/settings/apps → **New GitHub App**.
@@ -83,7 +83,7 @@ issue in a repo someone has explicitly installed it on.
    proxies `/api/` to the `api` container, same as the OAuth callback above —
    use `:3000` instead if you're running the API on its own), and check
    **Redirect on update** so re-installing (adding repos) comes back here too.
-4. **Webhook**: uncheck **Active** — Ledger looks up installations on demand
+4. **Webhook**: uncheck **Active** — EngLog looks up installations on demand
    (`GithubApp#installation_for`), so no webhook is needed, in development or
    anywhere else.
 5. **Repository permissions**: `Pull requests` → Read-only, `Issues` →
@@ -148,10 +148,11 @@ See `web/README.md` for the screen list, project layout and mock data.
 
 ## Deploying
 
-Ledger deploys to [Render](https://render.com) as a single Docker web service
+EngLog deploys to [Render](https://render.com) as a single Docker web service
 plus a managed Postgres database, defined in `render.yaml` at the repo root (a
 [Blueprint](https://render.com/docs/blueprint-spec)). It's invite-only for
-now — no public sign-up flow, no custom domain.
+now — no public sign-up flow. Production is served from the custom domain
+`https://englog.dev`; see "Custom domain" below.
 
 ### First deploy
 
@@ -178,6 +179,29 @@ now — no public sign-up flow, no custom domain.
 4. Trigger a manual deploy once the secrets are in place. Render runs
    `bin/rails db:prepare` (the blueprint's pre-deploy command) before every
    deploy, so the schema is always current.
+
+### Custom domain
+
+Once the service is healthy on its `onrender.com` URL, point the real domain
+at it:
+
+1. On the `ledger` service's **Settings** → **Custom Domains** tab in Render,
+   add `englog.dev` and `www.englog.dev`, then add the DNS records Render
+   gives you (an `A`/`ALIAS` for the apex, a `CNAME` for `www`) at your
+   registrar.
+2. Update `APP_URL` on Render to `https://englog.dev` (no trailing slash).
+3. Update the production GitHub OAuth App's and GitHub App's URLs from the
+   `onrender.com` host to `englog.dev` — see the two sections below.
+4. `config.hosts` (see `config/environments/production.rb`) already allows
+   `englog.dev`, `www.englog.dev` and the `onrender.com` host. In production,
+   `CanonicalHostRedirect` (`app/middleware/canonical_host_redirect.rb`)
+   redirects any request whose Host doesn't match `APP_URL`'s host to
+   `APP_URL`'s own scheme/host/port, preserving path and query (301 for
+   GET/HEAD, 308 — method and body preserved — for everything else) — except
+   `/up`, which Render's own health check keeps hitting directly, unredirected.
+   Until step 2 above is done, `APP_URL` still points at the `onrender.com`
+   host, so requests there pass straight through instead of redirecting to
+   themselves.
 
 ### Creating the production GitHub OAuth App
 

@@ -105,14 +105,14 @@ module Api
       def refusal_message(evidence)
         case evidence.failure_reason.to_s
         when 'Not merged yet.'
-          "This PR isn't merged yet. Ledger drafts from merged PRs — merge it first, or paste the issue it fixes."
+          "This PR isn't merged yet. EngLog drafts from merged PRs — merge it first, or paste the issue it fixes."
         when /\AAuthored by /, "You didn't author or approve this PR."
           login = evidence.snapshot['authorLogin']
-          "This PR was authored by #{login} and you didn't review it, so Ledger can't draft it as your work."
+          "This PR was authored by #{login} and you didn't review it, so EngLog can't draft it as your work."
         when /\AOpened by /, "You didn't author or comment on this issue."
-          "You didn't open or comment on this issue, so Ledger can't confirm you worked on it."
+          "You didn't open or comment on this issue, so EngLog can't confirm you worked on it."
         else
-          "Ledger couldn't find this — check the link, or install the Ledger app if it's a private repo."
+          "EngLog couldn't find this — check the link, or install the EngLog app if it's a private repo."
         end
       end
 

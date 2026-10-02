@@ -118,9 +118,9 @@ export interface LedgerApi {
 
   /** Workspace admin. Owners and admins can change things; members can only read. */
   getWorkspaceSettings(): Promise<WorkspaceSettings>
-  /** Each target is a Ledger username (`@handle`) or an email address. */
+  /** Each target is an EngLog username (`@handle`) or an email address. */
   inviteMembers(targets: string[], role: WorkspaceRole): Promise<InviteResult>
-  /** Ledger accounts whose username or name starts with the query, for @-mention style invites. */
+  /** EngLog accounts whose username or name starts with the query, for @-mention style invites. */
   findUsers(query: string): Promise<User[]>
   resendInvite(inviteId: ID): Promise<WorkspaceSettings>
   revokeInvite(inviteId: ID): Promise<WorkspaceSettings>
@@ -137,7 +137,7 @@ export interface LedgerApi {
   getProfile(handle: string): Promise<Profile>
   getProject(handle: string, slug: string): Promise<ProjectPage>
 
-  /** Groups of records Ledger thinks are one project, for the current user. */
+  /** Groups of records EngLog thinks are one project, for the current user. */
   listProjectCandidates(): Promise<ProjectCandidate[]>
   getProjectPlan(candidateId: ID): Promise<ProjectPlan>
   publishProject(candidateId: ID, options: ProjectOptions): Promise<PublicProject>

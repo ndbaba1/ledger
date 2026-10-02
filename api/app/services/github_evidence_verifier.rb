@@ -3,7 +3,7 @@
 # token (scoped to `read:user` only — see config/initializers/omniauth.rb — so
 # private repos are never actually readable that way). When the OAuth token
 # can't see a repo (404, or an explicit private flag), GithubApp is asked
-# whether the Ledger GitHub App is installed there instead; if so, its
+# whether the EngLog GitHub App is installed there instead; if so, its
 # installation token does the same author/approved/participated checks.
 #
 # Three rules this class keeps:
@@ -154,7 +154,7 @@ class GithubEvidenceVerifier
   end
 
   # The OAuth token can't see this repo (or it's flagged private outright) —
-  # ask GithubApp whether Ledger's app is installed there and, if so, re-check
+  # ask GithubApp whether EngLog's app is installed there and, if so, re-check
   # with its installation token. A missing installation is never treated as a
   # definite "gone": it just means we still can't look, so the previous badge
   # (if any) stands with a refresh_warning explaining why.
@@ -231,7 +231,7 @@ class GithubEvidenceVerifier
       )
     else
       evidence.update!(
-        refresh_warning: "The Ledger app was removed from #{owner}. Badge kept from #{format_month(evidence.verified_at)}."
+        refresh_warning: "The EngLog app was removed from #{owner}. Badge kept from #{format_month(evidence.verified_at)}."
       )
     end
   end
@@ -249,7 +249,7 @@ class GithubEvidenceVerifier
       )
     else
       evidence.update!(
-        refresh_warning: "Ledger's app can no longer see #{evidence.repo} — badge kept from #{format_month(evidence.verified_at)}."
+        refresh_warning: "EngLog's app can no longer see #{evidence.repo} — badge kept from #{format_month(evidence.verified_at)}."
       )
     end
   end
@@ -328,7 +328,7 @@ class GithubEvidenceVerifier
     failed_evidence('github_issue', url, number, temporary_reason_for(e))
   end
 
-  # The OAuth client can't see this repo — ask GithubApp whether Ledger's app
+  # The OAuth client can't see this repo — ask GithubApp whether EngLog's app
   # is installed there and, if so, check the PR with its installation token.
   def verify_pull_request_via_app(m, url, number)
     installation_id = GithubApp.installation_for(m[:owner], m[:repo])
@@ -410,7 +410,7 @@ class GithubEvidenceVerifier
     raise InvalidLink, 'That doesn’t look like a link.'
   end
 
-  # Ledger's GitHub App isn't installed on this owner — an actionable failure,
+  # EngLog's GitHub App isn't installed on this owner — an actionable failure,
   # not a dead end: the editor offers to install it and check again.
   def app_not_installed_evidence(kind, url, number, owner)
     create_evidence!(
@@ -423,7 +423,7 @@ class GithubEvidenceVerifier
   end
 
   def app_not_installed_reason(owner)
-    "Ledger can't see this repo. Install the Ledger app on #{owner} to verify private work."
+    "EngLog can't see this repo. Install the EngLog app on #{owner} to verify private work."
   end
 
   # The app is installed on this owner, but not shared with this specific
@@ -441,7 +441,7 @@ class GithubEvidenceVerifier
   end
 
   def repo_not_in_installation_reason(owner)
-    "Ledger's app is installed on #{owner} but can't see this repo. Add it under Repository access."
+    "EngLog's app is installed on #{owner} but can't see this repo. Add it under Repository access."
   end
 
   # Author-only: the public API must not return failed evidence (see
@@ -469,7 +469,7 @@ class GithubEvidenceVerifier
   def issue_badge_note(issue_author_login, participated)
     return nil if participated
 
-    "Opened by #{issue_author_login}, with no comments from #{@user.github_login} — Ledger couldn't confirm you worked on this."
+    "Opened by #{issue_author_login}, with no comments from #{@user.github_login} — EngLog couldn't confirm you worked on this."
   end
 
   # These raise TemporaryFailure instead of answering "no" when GitHub can't

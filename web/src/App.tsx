@@ -132,7 +132,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }
     if (this.state.error) {
       return (
         <div className="state state--error" role="alert">
-          <strong>Ledger hit an unexpected error</strong>
+          <strong>EngLog hit an unexpected error</strong>
           <span className="muted">{this.state.error.message}</span>
           <button type="button" className="btn" onClick={() => window.location.reload()}>
             Reload
@@ -163,7 +163,7 @@ export default function App({ api }: { api: LedgerApi }) {
       <ApiProvider api={api}>
         <Router>
           <ScrollToTop />
-          <SessionProvider fallback={<Loading label="Starting Ledger" />}>
+          <SessionProvider fallback={<Loading label="Starting EngLog" />}>
             <ReturnToAfterSignIn />
             <AppRoutes />
           </SessionProvider>

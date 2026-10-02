@@ -28,7 +28,7 @@ export function InboxScreen() {
       <header className="page-head">
         <div>
           <h1 className="page-title">Review inbox</h1>
-          <p className="page-sub">Drafts Ledger assembled from your work, and write-ups you started. Nothing is published until you approve it.</p>
+          <p className="page-sub">Drafts EngLog assembled from your work, and write-ups you started. Nothing is published until you approve it.</p>
         </div>
         <Link to="/new" className="btn push-right hide-mobile">
           <Icon name="plus" size={14} />
@@ -75,7 +75,7 @@ export function InboxScreen() {
 
       {drafts.error && <ErrorState error={drafts.error} onRetry={drafts.reload} />}
       {drafts.data?.length === 0 && (
-        <Empty title="Inbox zero">New drafts appear here when an issue closes with the ledger label, or when someone runs /ledger track.</Empty>
+        <Empty title="Inbox zero">New drafts appear here when an issue closes with the englog label, or when someone runs /englog track.</Empty>
       )}
 
       {drafts.data && drafts.data.length > 0 && (
@@ -127,7 +127,7 @@ export function InboxScreen() {
               <ListHeader
                 id="projects-title"
                 icon={<Icon name="folder" size={16} />}
-                title="Projects Ledger noticed"
+                title="Projects EngLog noticed"
                 count={`${projects.data.filter((p) => !p.publishedSlug).length} new`}
               />
             }

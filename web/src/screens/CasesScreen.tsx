@@ -31,10 +31,10 @@ export function CasesScreen() {
         </span>
         <ul className="plain-list small muted">
           <li>
-            Add the <span className="mono text">~ledger</span> label to a GitLab or GitHub issue
+            Add the <span className="mono text">~englog</span> label to a GitLab or GitHub issue
           </li>
           <li>
-            Run <span className="mono text">/ledger track</span> in a Slack thread
+            Run <span className="mono text">/englog track</span> in a Slack thread
           </li>
         </ul>
       </div>

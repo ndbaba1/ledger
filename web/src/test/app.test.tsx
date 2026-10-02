@@ -11,7 +11,7 @@ function renderAt(hash: string) {
   return user
 }
 
-describe('Ledger app', () => {
+describe('EngLog app', () => {
   it('shows the review inbox with its drafts', async () => {
     renderAt('#/inbox')
     expect(await screen.findByRole('heading', { name: 'Review inbox' })).toBeInTheDocument()

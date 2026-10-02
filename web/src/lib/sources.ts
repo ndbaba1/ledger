@@ -10,7 +10,7 @@ export const SOURCE_KIND_LABEL: Record<SourceKind, string> = {
   link: 'Link',
 }
 
-/** Kinds Ledger can fetch through a connector; everything else is kept as a link. */
+/** Kinds EngLog can fetch through a connector; everything else is kept as a link. */
 const FETCHABLE: ReadonlySet<SourceKind> = new Set([
   'slack',
   'gitlab_issue',

@@ -16,9 +16,9 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <span className="logo">
       <span className="logo__mark" aria-hidden="true">
-        L
+        E
       </span>
-      {!compact && <span className="logo__word">ledger</span>}
+      {!compact && <span className="logo__word">EngLog</span>}
     </span>
   )
 }
@@ -42,7 +42,7 @@ export function AppShell() {
         Skip to content
       </a>
       <aside className="sidebar" aria-label="Workspace">
-        <Link to="/inbox" className="sidebar__logo" aria-label="Ledger home">
+        <Link to="/inbox" className="sidebar__logo" aria-label="EngLog home">
           <Logo />
         </Link>
         <Link to="/settings" className="workspace-switch" aria-label={`${workspace.name} workspace settings`}>
@@ -90,7 +90,7 @@ export function AppShell() {
 
       <div className="shell__body">
         <header className="topbar">
-          <Link to="/inbox" className="topbar__logo" aria-label="Ledger home">
+          <Link to="/inbox" className="topbar__logo" aria-label="EngLog home">
             <Logo />
           </Link>
           <Link to="/settings" className="topbar__workspace" aria-label={`${workspace.name} team and settings`}>
