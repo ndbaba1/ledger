@@ -69,6 +69,13 @@ export interface LedgerApi {
   /** Re-runs verification for one piece of evidence in place — e.g. after installing the GitHub App. */
   recheckWriteupEvidence(id: ID, key: string): Promise<Writeup>
   setWriteupStatus(id: ID, status: WriteupStatus): Promise<Writeup>
+  /**
+   * Deletes a draft (never-published) write-up and its evidence for good.
+   * Rejects with a message to show inline: a published (or ever-published)
+   * write-up can't be deleted here, and one a DraftRequest is still actively
+   * drafting can't be deleted until that finishes.
+   */
+  deleteWriteup(id: ID): Promise<void>
   /** Fails with the list of what's missing when the write-up isn't ready. */
   publishWriteup(id: ID): Promise<TeamRecord>
   /**

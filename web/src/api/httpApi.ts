@@ -90,6 +90,7 @@ export function createHttpApi({ base }: HttpApiOptions): LedgerApi {
     listWriteups: () => get('/writeups'),
     createWriteup: (type: string) => post('/writeups', { type }),
     getWriteup: (id: ID) => get(`/writeups/${id}`),
+    deleteWriteup: (id: ID) => del(`/writeups/${id}`),
     saveWriteup: (id: ID, fields: Partial<WriteupFields>) => patch(`/writeups/${id}`, fields),
     addWriteupEvidence: (id: ID, url: string) => post(`/writeups/${id}/evidence`, { url }),
     removeWriteupEvidence: (id: ID, key: string) => del(`/writeups/${id}/evidence/${encodeURIComponent(key)}`),

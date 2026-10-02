@@ -30,7 +30,7 @@ Rails.application.routes.draw do
 
       resources :drafts, only: %i[create show]
 
-      resources :writeups, only: %i[index create show update] do
+      resources :writeups, only: %i[index create show update destroy] do
         resources :evidence, only: %i[create destroy], param: :key do
           member { post :recheck }
         end

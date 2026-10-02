@@ -6,7 +6,11 @@
 # A DraftRequest enters this job only once its writeup and evidence already
 # exist (created synchronously in DraftsController) — whatever happens here,
 # that writeup is kept: on failure the user continues from it as a normal
-# (now empty) draft rather than getting a duplicate on retry.
+# (now empty) draft rather than getting a duplicate on retry. The writeup can
+# still disappear out from under a running job if its author deletes the
+# draft (Api::V1::WriteupsController#destroy nullifies the DraftRequest's
+# writeup_id rather than blocking on an in-flight job) — handled below rather
+# than crashing.
 class DraftFromSourceJob < ApplicationJob
   FAILURE_MESSAGE = 'Drafting failed. Start from the template instead.'.freeze
 
@@ -16,6 +20,11 @@ class DraftFromSourceJob < ApplicationJob
     return if draft_request.mark_failed_if_stale!
 
     writeup = draft_request.writeup
+    if writeup.nil?
+      draft_request.update!(status: 'failed', error: FAILURE_MESSAGE)
+      return
+    end
+
     context = GithubSourceContext.new(writeup, draft_request.source_url, draft_request.user).call
 
     if context.blank?

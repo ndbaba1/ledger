@@ -16,7 +16,7 @@ class DraftRequest < ApplicationRecord
   EMPTY_SOURCE_NOTE = 'Not enough in the source to draft from'.freeze
 
   belongs_to :user
-  belongs_to :writeup, optional: true
+  belongs_to :writeup, optional: true, inverse_of: :draft_requests
 
   validates :status, inclusion: { in: STATUSES }
   validates :source_url, presence: true
