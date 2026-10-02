@@ -12,6 +12,7 @@ import type { DraftRequest, ExploreResult, Profile, PostThread, PublicPost, User
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.resetModules()
+  localStorage.clear()
 })
 
 function stubApi(overrides: Partial<LedgerApi>): LedgerApi {
@@ -494,7 +495,7 @@ describe('"Start from a PR or issue"', () => {
     await waitFor(() => expect(window.location.hash).toBe('#/write/w14'))
   })
 
-  it('shows an "Install the Ledger app" button when the gate needs the app installed', async () => {
+  it('shows a neutral app-not-installed callout, Install primary and Draft it secondary, clearing on edit', async () => {
     const user = await renderLive('#/new', (client) => ({
       me: () => Promise.resolve(me),
       startDraftFromSource: () =>
@@ -507,24 +508,42 @@ describe('"Start from a PR or issue"', () => {
         ),
     }))
 
-    await user.type(await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123'), 'https://github.com/acme/checkout/pull/20')
+    const input = await screen.findByPlaceholderText('https://github.com/owner/repo/pull/123')
+    await user.type(input, 'https://github.com/acme/checkout/pull/20')
     await user.click(screen.getByRole('button', { name: 'Draft it' }))
 
-    expect(await screen.findByText("Ledger can't see this repo. Install the Ledger app on acme to verify private work.")).toBeInTheDocument()
+    expect(await screen.findByText('Ledger needs access to acme/checkout')).toBeInTheDocument()
+    expect(screen.getByText('Install the Ledger app on this repo. Ledger only uses PR and issue text — never your code.')).toBeInTheDocument()
+    // The red error text is not shown for this gate — the callout replaces it.
+    expect(screen.queryByText(/Ledger can't see this repo\. Install/)).not.toBeInTheDocument()
+
     const install = screen.getByRole('link', { name: 'Install the Ledger app' })
     expect(install).toHaveAttribute('href', 'https://github.com/apps/ledger-dev/installations/new?state=signed-state-abc')
+    expect(install).toHaveClass('btn--primary')
+    const draftIt = screen.getByRole('button', { name: 'Draft it' })
+    expect(draftIt).not.toHaveClass('btn--primary')
+
+    // Editing the URL clears the callout without a page reload — re-find the
+    // input since the "drafting" phase's loading state unmounted the form
+    // (and the one captured above) while the request was in flight.
+    const liveInput = screen.getByPlaceholderText('https://github.com/owner/repo/pull/123')
+    await user.type(liveInput, '1')
+    expect(screen.queryByText('Ledger needs access to acme/checkout')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Draft it' })).toHaveClass('btn--primary')
   })
 
-  it('refills the URL from ?url= after returning from installing the app, and drops the query params', async () => {
+  it('refills the URL from ?url= after returning from installing the app, drops the query params, and shows no callout', async () => {
     await renderLive('#/new?url=https%3A%2F%2Fgithub.com%2Facme%2Fcheckout%2Fpull%2F20&installed=1', () => ({
       me: () => Promise.resolve(me),
     }))
 
     expect(await screen.findByDisplayValue('https://github.com/acme/checkout/pull/20')).toBeInTheDocument()
     await waitFor(() => expect(window.location.hash).toBe('#/new'))
+    expect(screen.queryByText(/Ledger needs access to/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Draft it' })).toHaveClass('btn--primary')
   })
 
-  it("shows the drafted banner, private-repo warning, source chips and a missing hint in the editor", async () => {
+  it("shows one drafted notice (private variant), source chips and a missing hint in the editor", async () => {
     const drafted = baseWriteup({
       id: 'w15', title: 'Reverted the pool change', symptom: 'The pool was halved.',
       draftedFrom: {
@@ -536,15 +555,78 @@ describe('"Start from a PR or issue"', () => {
         },
       },
     })
-    await renderLive('#/write/w15', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(drafted) }))
+    const user = await renderLive('#/write/w15', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(drafted) }))
 
-    expect(await screen.findByText(/Drafted from PR #14/)).toBeInTheDocument()
-    expect(screen.getByText(/check every line before publishing/)).toBeInTheDocument()
-    expect(screen.getByText(/From a private repo/)).toBeInTheDocument()
-    expect(screen.getByText('PR #14')).toBeInTheDocument()
+    expect(await screen.findAllByText('PR #14')).toHaveLength(2) // the notice's link, and the symptom section's source chip
+    const link = screen.getByRole('link', { name: 'PR #14' })
+    expect(link).toHaveAttribute('href', 'https://github.com/acme/secret/pull/14')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(screen.getByText('private repo')).toBeInTheDocument()
+    expect(screen.getByText('Check every line, and look for internal names, customers and links before publishing.')).toBeInTheDocument()
+    expect(screen.getAllByRole('status')).toHaveLength(1) // exactly one notice, not two stacked banners
     expect(screen.getByText(/Not in the source: The root cause is never explained\./)).toBeInTheDocument()
     expect(screen.getByText('Consider shortening')).toBeInTheDocument()
     expect(screen.getByText('Check the wording')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText('private repo')).not.toBeInTheDocument()
+    expect(localStorage.getItem('ledger:dismissedDraftNotice:w15')).toBe('1')
+  })
+
+  it('shows the public-source notice text, with no lock/private wording', async () => {
+    const drafted = baseWriteup({
+      id: 'w16', draftedFrom: { sourceUrl: 'https://github.com/acme/checkout/issues/9', private: false, sections: {} },
+    })
+    await renderLive('#/write/w16', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(drafted) }))
+
+    expect(await screen.findByRole('link', { name: 'issue #9' })).toHaveAttribute('href', 'https://github.com/acme/checkout/issues/9')
+    expect(screen.getByText('Check every line before publishing.')).toBeInTheDocument()
+    expect(screen.queryByText('private repo')).not.toBeInTheDocument()
+  })
+
+  it('keeps a dismissed notice hidden after reloading the write-up', async () => {
+    localStorage.setItem('ledger:dismissedDraftNotice:w17', '1')
+    const drafted = baseWriteup({
+      id: 'w17', title: 'Something drafted', draftedFrom: { sourceUrl: 'https://github.com/acme/checkout/pull/9', private: false, sections: {} },
+    })
+    await renderLive('#/write/w17', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(drafted) }))
+
+    await screen.findByDisplayValue('Something drafted')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('gates Publish on the private-source checkbox, only for a private-source draft', async () => {
+    const complete = {
+      title: 'Pool size incident', symptom: 'p99 spiked', rootCause: 'pool halved', fix: 'reverted',
+      evidence: [{ key: 'S1', kind: 'github_pr' as const, title: 'PR', detail: '', status: 'fetched' as const, hops: 0, verified: true }],
+    }
+    const privateDraft = baseWriteup({ id: 'w18', ...complete, draftedFrom: { sourceUrl: 'https://github.com/acme/secret/pull/9', private: true, sections: {} } })
+    const user = await renderLive('#/write/w18', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(privateDraft) }))
+
+    await screen.findByDisplayValue('Pool size incident')
+    await user.click(screen.getByRole('tab', { name: /Publish/ }))
+
+    const checkbox = screen.getByRole('checkbox', { name: 'I checked this draft for internal names, customers and links' })
+    const publishBtn = screen.getByRole('button', { name: /Publish to your profile/ })
+    expect(checkbox).not.toBeChecked()
+    expect(publishBtn).toBeDisabled()
+
+    await user.click(checkbox)
+    expect(publishBtn).toBeEnabled()
+  })
+
+  it('does not show the private-source checkbox for a public-source draft', async () => {
+    const publicDraft = baseWriteup({ id: 'w19', title: 'Public-source draft', draftedFrom: { sourceUrl: 'https://github.com/acme/checkout/pull/9', private: false, sections: {} } })
+    await renderLive('#/write/w19', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(publicDraft) }))
+    await screen.findByDisplayValue('Public-source draft')
+    expect(screen.queryByRole('checkbox', { name: /internal names/ })).not.toBeInTheDocument()
+  })
+
+  it('does not show the private-source checkbox for a hand-written (non-drafted) write-up', async () => {
+    const handWritten = baseWriteup({ id: 'w21', title: 'Hand-written record' })
+    await renderLive('#/write/w21', () => ({ me: () => Promise.resolve(me), getWriteup: () => Promise.resolve(handWritten) }))
+    await screen.findByDisplayValue('Hand-written record')
+    expect(screen.queryByRole('checkbox', { name: /internal names/ })).not.toBeInTheDocument()
   })
 })
 

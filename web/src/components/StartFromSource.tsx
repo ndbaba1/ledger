@@ -14,6 +14,12 @@ const TYPES: RecordType[] = ['incident', 'investigation', 'decision', 'design']
 
 type Phase = 'idle' | 'consent' | 'drafting'
 
+/** "acme/checkout" from a GitHub PR/issue URL, for the app-not-installed callout's title. */
+function ownerRepoFromUrl(url: string): string | undefined {
+  const m = url.match(/github\.com\/([^/]+)\/([^/]+)\//)
+  return m ? `${m[1]}/${m[2]}` : undefined
+}
+
 /**
  * The "Start from a PR or issue" box on the New write-up page. On
  * `needs_template`, hands the URL and note up to the parent, which switches
@@ -38,6 +44,7 @@ export function StartFromSource({
   const [resetAt, setResetAt] = useState<string>()
   const [failedWriteupId, setFailedWriteupId] = useState<string>()
   const [installUrl, setInstallUrl] = useState<string>()
+  const [installOwnerRepo, setInstallOwnerRepo] = useState<string>()
   const stoppedRef = useRef(false)
 
   useEffect(
@@ -52,6 +59,7 @@ export function StartFromSource({
     setResetAt(undefined)
     setFailedWriteupId(undefined)
     setInstallUrl(undefined)
+    setInstallOwnerRepo(undefined)
   }
 
   const start = async () => {
@@ -114,8 +122,13 @@ export function StartFromSource({
         return
       }
       if (e.resetAt) setResetAt(e.resetAt)
-      if (e.installUrl) setInstallUrl(e.installUrl)
-      setError(e.message)
+      if (e.installUrl) {
+        // Shown as its own neutral callout below, not the red error text.
+        setInstallUrl(e.installUrl)
+        setInstallOwnerRepo(ownerRepoFromUrl(url))
+      } else {
+        setError(e.message)
+      }
       setPhase('idle')
       return
     }
@@ -183,16 +196,23 @@ export function StartFromSource({
             </option>
           ))}
         </select>
-        <button type="submit" className="btn btn--primary" disabled={!url.trim()}>
+        <button type="submit" className={installUrl ? 'btn' : 'btn btn--primary'} disabled={!url.trim()}>
           Draft it
         </button>
       </div>
       <FieldError message={error} />
       {installUrl && (
-        <div className="row gap-8">
-          <a href={installUrl} className="btn btn--primary btn--sm">
-            Install the Ledger app
-          </a>
+        <div className="panel" role="status">
+          <span className="row gap-8 strong">
+            <Icon name="lock" size={14} />
+            Ledger needs access to {installOwnerRepo}
+          </span>
+          <p className="small muted">Install the Ledger app on this repo. Ledger only uses PR and issue text — never your code.</p>
+          <div className="row gap-8">
+            <a href={installUrl} className="btn btn--primary btn--sm">
+              Install the Ledger app
+            </a>
+          </div>
         </div>
       )}
       {resetAt && (
