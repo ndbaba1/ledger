@@ -85,8 +85,17 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 # Render provisions one Postgres database and hands us its connection string
-# as DATABASE_URL; Solid Cache/Queue/Cable's tables live alongside the app's
-# own in that same database rather than needing three more.
+# as DATABASE_URL. Solid Queue and Solid Cable's tables live alongside the
+# app's own in that same primary database — see
+# db/migrate/20261002000001_create_solid_queue_tables.rb and
+# db/migrate/20261002000002_create_solid_cable_tables.rb — rather than through
+# a separate "queue"/"cable" database, which `db:prepare` never actually
+# loaded a schema into (the cause of the solid_queue_recurring_tasks crash).
+#
+# `cache:` stays as its own named connection — unused (config.cache_store is
+# :memory_store in production, see config/environments/production.rb) but
+# still referenced by config/cache.yml, which Solid Cache's engine resolves
+# unconditionally at boot regardless of the active cache store.
 production:
   primary: &primary_production
     <<: *default
@@ -94,9 +103,3 @@ production:
   cache:
     <<: *primary_production
     migrations_paths: db/cache_migrate
-  queue:
-    <<: *primary_production
-    migrations_paths: db/queue_migrate
-  cable:
-    <<: *primary_production
-    migrations_paths: db/cable_migrate

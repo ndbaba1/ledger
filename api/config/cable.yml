@@ -10,9 +10,8 @@ test:
 
 production:
   adapter: solid_cable
-  connects_to:
-    database:
-      writing: cable
+  # No connects_to here — Solid Cable uses the primary connection (see
+  # config/database.yml and db/migrate/20261002000002_create_solid_cable_tables.rb).
   polling_interval: 0.1.seconds
   message_retention: 1.day
   writer_batch_size: 4
