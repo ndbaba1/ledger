@@ -10,5 +10,6 @@ RSpec.describe 'Brand assets and manifest', type: :request do
 
     get '/site.webmanifest'
     expect(response).to have_http_status(:ok)
+    expect(response.content_type).to include('application/manifest+json')
   end
 end
