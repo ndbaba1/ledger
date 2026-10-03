@@ -100,6 +100,6 @@ describe('editing your profile in place', () => {
     renderAt('#/me/profile')
 
     expect(await screen.findByLabelText('Name')).toBeInTheDocument()
-    await waitFor(() => expect(window.location.hash).toBe('#/u/engineernamzy'))
+    await waitFor(() => expect(window.location.pathname).toBe('/u/engineernamzy'))
   })
 })

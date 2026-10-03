@@ -74,7 +74,7 @@ describe('live mode', () => {
     await renderLive('#/', () => ({ me: () => Promise.resolve(me), explore: () => Promise.resolve(emptyExplore) }))
 
     expect(await screen.findByRole('link', { name: 'My profile' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Write' })).toHaveAttribute('href', '#/new')
+    expect(screen.getByRole('link', { name: 'Write' })).toHaveAttribute('href', '/new')
     expect(screen.queryByText('Open workspace')).not.toBeInTheDocument()
     // The subtitle shows for everyone now; only the "How it works" panel is signed-out-only.
     expect(screen.getByText('Incidents, investigations, decisions and designs, each linked to the PRs, issues and docs behind it.')).toBeInTheDocument()
@@ -85,7 +85,7 @@ describe('live mode', () => {
     await renderLive('#/inbox', (client) => ({ me: () => Promise.reject(new client.UnauthorizedError()) }))
 
     expect(await screen.findByText('Page not found')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to Explore' })).toHaveAttribute('href', '#/')
+    expect(screen.getByRole('link', { name: 'Back to Explore' })).toHaveAttribute('href', '/')
     expect(screen.queryByRole('heading', { name: 'Review inbox' })).not.toBeInTheDocument()
   })
 
@@ -165,7 +165,7 @@ describe('live mode', () => {
 
     // Clicking it never navigated into the app (e.g. to /new) — it only ever
     // starts the GitHub sign-in round trip.
-    expect(window.location.hash).toBe('#/')
+    expect(window.location.pathname).toBe('/')
   })
 })
 
@@ -181,7 +181,7 @@ describe('living documents: questions, editing and revisions', () => {
     }))
 
     const badge = await screen.findByRole('link', { name: /1 question.*waiting for an answer/ })
-    expect(badge).toHaveAttribute('href', '#/me/questions')
+    expect(badge).toHaveAttribute('href', '/me/questions')
   })
 
   it('shows no badge when nothing is waiting', async () => {
@@ -203,7 +203,7 @@ describe('living documents: questions, editing and revisions', () => {
 
     expect(await screen.findByRole('heading', { name: 'Questions' })).toBeInTheDocument()
     const row = await screen.findByRole('link', { name: 'What version of Postgres?' })
-    expect(row).toHaveAttribute('href', `#/u/${me.handle}/${post.slug}#q-q1`)
+    expect(row).toHaveAttribute('href', `/u/${me.handle}/${post.slug}#q-q1`)
     expect(screen.getByText('Priya K.')).toBeInTheDocument()
   })
 
@@ -226,7 +226,7 @@ describe('living documents: questions, editing and revisions', () => {
     }))
 
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(post.title)
-    expect(screen.getByRole('link', { name: /Edit post/ })).toHaveAttribute('href', '#/write/w1')
+    expect(screen.getByRole('link', { name: /Edit post/ })).toHaveAttribute('href', '/write/w1')
     expect(screen.getByText(/updated/)).toBeInTheDocument()
 
     const history = screen.getByText(/History · 1 change/)
@@ -265,7 +265,7 @@ describe('the post page rail', () => {
     expect(within(rail).getByText('Staff engineer · payments')).toBeInTheDocument()
     // Capped at 6 chips even though the author has 7 stack tags.
     expect(within(rail).getAllByText(/^(go|postgres|kafka|terraform|redis|envoy|grpc)$/)).toHaveLength(6)
-    expect(within(rail).getByRole('link', { name: 'View profile' })).toHaveAttribute('href', '#/u/hannahl')
+    expect(within(rail).getByRole('link', { name: 'View profile' })).toHaveAttribute('href', '/u/hannahl')
 
     expect(within(rail).queryByRole('heading', { name: 'Evidence' })).not.toBeInTheDocument()
     expect(within(rail).queryByRole('heading', { name: /More from/ })).not.toBeInTheDocument()
@@ -370,7 +370,7 @@ describe('the post page rail', () => {
 
     const nav = await screen.findByRole('heading', { name: 'On this page' })
     const onThisPage = within(nav.closest('nav')!)
-    const path = `#/u/${author.handle}/${post.slug}`
+    const path = `/u/${author.handle}/${post.slug}`
     expect(onThisPage.getByRole('link', { name: 'Problem' })).toHaveAttribute('href', `${path}#problem`)
     expect(onThisPage.getByRole('link', { name: 'Root cause' })).toHaveAttribute('href', `${path}#root-cause`)
     expect(onThisPage.getByRole('link', { name: 'Follow-ups' })).toHaveAttribute('href', `${path}#follow-ups`)
@@ -406,7 +406,7 @@ describe('"Start from a PR or issue"', () => {
     await user.click(screen.getByRole('button', { name: 'Draft it' }))
 
     expect(await screen.findByDisplayValue('Fixed the pool')).toBeInTheDocument()
-    expect(window.location.hash).toBe('#/write/w10')
+    expect(window.location.pathname).toBe('/write/w10')
   })
 
   it('shows the loading card, then polls through to the editor once ready', async () => {
@@ -449,7 +449,7 @@ describe('"Start from a PR or issue"', () => {
 
     await user.click(screen.getByRole('button', { name: 'Accept' }))
 
-    await waitFor(() => expect(window.location.hash).toBe('#/write/w12'), { timeout: 4000 })
+    await waitFor(() => expect(window.location.pathname).toBe('/write/w12'), { timeout: 4000 })
   }, 10_000)
 
   it('asks for a template on needs_template, with no writeup created, and drafts once one is picked', async () => {
@@ -472,7 +472,7 @@ describe('"Start from a PR or issue"', () => {
 
     await user.click(screen.getByRole('button', { name: /Architecture decision/ }))
 
-    await waitFor(() => expect(window.location.hash).toBe('#/write/w13'))
+    await waitFor(() => expect(window.location.pathname).toBe('/write/w13'))
     expect(started).toEqual([
       { url: 'https://github.com/acme/checkout/issues/3', template: undefined },
       { url: 'https://github.com/acme/checkout/issues/3', template: 'decision' },
@@ -492,7 +492,7 @@ describe('"Start from a PR or issue"', () => {
     expect(await screen.findByText("You've hit today's drafting limit.")).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Start incident/ }))
-    await waitFor(() => expect(window.location.hash).toBe('#/write/w14'))
+    await waitFor(() => expect(window.location.pathname).toBe('/write/w14'))
   })
 
   it('shows a neutral app-not-installed callout, Install primary and Draft it secondary, clearing on edit', async () => {
@@ -538,7 +538,7 @@ describe('"Start from a PR or issue"', () => {
     }))
 
     expect(await screen.findByDisplayValue('https://github.com/acme/checkout/pull/20')).toBeInTheDocument()
-    await waitFor(() => expect(window.location.hash).toBe('#/new'))
+    await waitFor(() => expect(window.location.pathname).toBe('/new'))
     expect(screen.queryByText(/EngLog needs access to/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Draft it' })).toHaveClass('btn--primary')
   })
@@ -661,7 +661,7 @@ describe('deleting a draft', () => {
 
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
-    await waitFor(() => expect(window.location.hash).toBe('#/me/writeups'))
+    await waitFor(() => expect(window.location.pathname).toBe('/me/writeups'))
     expect(deleted).toBe(true)
     expect(await screen.findByText('Draft deleted.')).toBeInTheDocument()
   })
@@ -677,7 +677,7 @@ describe('deleting a draft', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-    expect(window.location.hash).toBe('#/write/w20')
+    expect(window.location.pathname).toBe('/write/w20')
   })
 
   it("doesn't show a delete action for an already-published write-up", async () => {
@@ -702,7 +702,7 @@ describe('deleting a draft', () => {
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText("Published records can't be deleted yet.")).toBeInTheDocument()
-    expect(window.location.hash).toBe('#/write/w20')
+    expect(window.location.pathname).toBe('/write/w20')
   })
 
   it('shows the 409 in-flight-drafting error inline', async () => {
@@ -717,7 +717,7 @@ describe('deleting a draft', () => {
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText('Still drafting — wait for it to finish.')).toBeInTheDocument()
-    expect(window.location.hash).toBe('#/write/w20')
+    expect(window.location.pathname).toBe('/write/w20')
   })
 
   it('deletes a draft from the list, removing its row, and shows an inline error on failure for another', async () => {

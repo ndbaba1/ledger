@@ -4,8 +4,10 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react()],
-  // Relative asset paths so the build can be served from any sub-path.
-  base: './',
+  // Absolute asset paths: with BrowserRouter, the SPA fallback serves this
+  // same index.html on nested paths (e.g. /u/handle/slug), where relative
+  // paths would resolve against the wrong directory.
+  base: '/',
   // The single-file preview build (VITE_ROUTER=memory) must be one script, so it skips code splitting.
   build: process.env.VITE_ROUTER === 'memory' ? { rolldownOptions: { output: { inlineDynamicImports: true } } } : {},
   server: {

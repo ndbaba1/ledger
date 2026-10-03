@@ -1,10 +1,11 @@
 import { ProjectComposerScreen } from './screens/ProjectComposerScreen'
 import { ProjectScreen } from './screens/ProjectScreen'
 import { Component, Suspense, lazy, useEffect, type ReactNode } from 'react'
-import { HashRouter, Link, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Link, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { ApiProvider } from './api/ApiContext'
 import type { LedgerApi } from './api/client'
 import { AppShell } from './app/AppShell'
+import { rewriteLegacyHashLink } from './app/legacyHashLink'
 import { RequireAuth, ReturnToAfterSignIn, SessionProvider, useMe } from './app/session'
 import { Loading } from './components/States'
 import { features } from './lib/features'
@@ -149,15 +150,17 @@ function Router({ children }: { children: ReactNode }) {
   return import.meta.env.VITE_ROUTER === 'memory' ? (
     <MemoryRouter initialEntries={['/']}>{children}</MemoryRouter>
   ) : (
-    <HashRouter>{children}</HashRouter>
+    <BrowserRouter>{children}</BrowserRouter>
   )
 }
 
 /**
- * Hash routing keeps deep links working on any static host. Switch to
- * BrowserRouter once the app is served by a backend with a catch-all route.
+ * Real paths: the Rails backend serves index.html (with per-page meta, for
+ * published records and profiles) as a catch-all for anything not already
+ * claimed by /api, /auth or a static file — see api/app/controllers/static_controller.rb.
  */
 export default function App({ api }: { api: LedgerApi }) {
+  rewriteLegacyHashLink()
   return (
     <ErrorBoundary>
       <ApiProvider api={api}>

@@ -73,7 +73,7 @@ describe('projects in the app', () => {
     expect(within(section).getByText('1,900 → 260')).toBeInTheDocument()
     expect(within(section).getByRole('link', { name: 'Put checkout and billing behind PgBouncer transaction pooling' })).toHaveAttribute(
       'href',
-      '#/u/engineernamzy/pgbouncer-transaction-pooling',
+      '/u/engineernamzy/pgbouncer-transaction-pooling',
     )
   })
 

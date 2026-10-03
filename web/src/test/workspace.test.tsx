@@ -168,7 +168,7 @@ describe('workspace admin in the app', () => {
     window.location.hash = '#/records/LR-201'
     render(<App api={newApi()} />)
     expect(await screen.findByText('(left Northwind)')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Hannah L.' })).toHaveAttribute('href', '#/u/hannahl')
+    expect(screen.getByRole('link', { name: 'Hannah L.' })).toHaveAttribute('href', '/u/hannahl')
     expect(screen.getByPlaceholderText('Ask Amara a question…')).toBeInTheDocument()
   })
 

@@ -61,8 +61,12 @@ RUN bundle install && \
 COPY api/ .
 
 # The built frontend: Rails serves it as static files from public/, with a
-# fallback route to index.html for everything else (config/routes.rb).
+# fallback route to index.html for everything else (config/routes.rb). The
+# HTML shell itself moves out of public/ — ActionDispatch::Static otherwise
+# serves it directly for "/", bypassing IndexHtmlRenderer's per-page meta and
+# APP_URL substitution.
 COPY --from=frontend /web/dist/. ./public/
+RUN mv ./public/index.html ./app/views/static/index.html
 
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495

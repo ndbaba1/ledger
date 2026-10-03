@@ -215,24 +215,15 @@ textarea {
   color: var(--text);
 }
 .logo__mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  background: var(--amber);
-  color: var(--amber-ink);
-  font-family: var(--mono);
-  font-weight: 600;
-  font-size: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
+  display: block;
 }
 .logo__word {
-  font-family: var(--mono);
-  font-weight: 600;
-  font-size: 16px;
-  letter-spacing: -0.02em;
+  height: 20px;
+  width: auto;
+  display: block;
 }
 
 /* ---------- shell ---------- */

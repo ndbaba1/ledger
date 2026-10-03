@@ -15,10 +15,8 @@ interface NavItem {
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <span className="logo">
-      <span className="logo__mark" aria-hidden="true">
-        E
-      </span>
-      {!compact && <span className="logo__word">EngLog</span>}
+      <img src="/brand/favicon.svg" alt="" className="logo__mark" width={28} height={28} />
+      {!compact && <img src="/brand/wordmark-dark-bg.svg" alt="" className="logo__word" height={20} />}
     </span>
   )
 }
