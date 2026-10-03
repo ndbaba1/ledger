@@ -16,7 +16,7 @@ module Api
             if payload['writeup_id']
               redirect_to_writeup(payload)
             elsif payload['draft_url']
-              redirect_to "#{app_url}/#/new?url=#{CGI.escape(payload['draft_url'])}&installed=1", allow_other_host: true
+              redirect_to "#{app_url}/new?url=#{CGI.escape(payload['draft_url'])}&installed=1", allow_other_host: true
             else
               redirect_home
             end
@@ -29,7 +29,7 @@ module Api
             user = User.find_by(id: payload['user_id'])
             reverify_pending_evidence!(writeup, user) if writeup && user
 
-            redirect_to "#{app_url}/#/write/#{payload['writeup_id']}?installed=1", allow_other_host: true
+            redirect_to "#{app_url}/write/#{payload['writeup_id']}?installed=1", allow_other_host: true
           end
 
           def reverify_pending_evidence!(writeup, user)

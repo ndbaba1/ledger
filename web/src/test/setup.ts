@@ -4,7 +4,9 @@ import { cleanup } from '@testing-library/react'
 
 afterEach(() => {
   cleanup()
-  window.location.hash = ''
+  // BrowserRouter reads the path, not the hash — reset all three so a test
+  // that navigated (or left a lingering #fragment) can't leak into the next.
+  window.history.replaceState(null, '', '/')
 })
 
 // jsdom does not implement these.

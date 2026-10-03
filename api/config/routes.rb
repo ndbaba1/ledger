@@ -10,6 +10,8 @@ if Rails.env.test?
 end
 
 Rails.application.routes.draw do
+  root to: 'static#index'
+
   get "up" => "rails/health#show", as: :rails_health_check
 
   post '/test/sign_in', to: 'test_sign_in#create' if Rails.env.test?
@@ -62,8 +64,15 @@ Rails.application.routes.draw do
     end
   end
 
-  # The SPA's own router (a HashRouter) never sends its routes to the server,
-  # but this is a safety net for any other path — everything not already
-  # claimed above falls through to index.html and lets the frontend decide.
-  get '*path', to: 'static#index', constraints: ->(req) { !req.path.start_with?('/api/', '/auth/') }
+  # BrowserRouter means every real navigation (a deep link, a refresh) hits
+  # the server, not just a safety net — everything not already claimed above,
+  # and not a real static file (ActionDispatch::Static already serves those
+  # directly — /brand/*, /assets/*, /site.webmanifest included — before the
+  # request ever reaches the router; excluded here too, explicitly, in case
+  # static file serving is ever off), falls through to index.html and lets
+  # the frontend decide. See StaticController/IndexHtmlRenderer.
+  get '*path', to: 'static#index', constraints: ->(req) {
+    path = req.path
+    !path.start_with?('/api/', '/auth/', '/brand/', '/assets/') && path != '/site.webmanifest'
+  }
 end

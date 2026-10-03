@@ -147,7 +147,7 @@ describe('community features in the app', () => {
     expect(followUps.getByText('No — connection limits are unaffected.')).toBeInTheDocument()
     expect(followUps.queryByText(/group role for connection limits/)).not.toBeInTheDocument()
     const askedBy = followUps.getByRole('link', { name: 'Asked by Hannah L.' })
-    expect(askedBy).toHaveAttribute('href', '#/u/hannahl')
+    expect(askedBy).toHaveAttribute('href', '/u/hannahl')
   })
 
   it('shows no answered-question count on a post nobody has asked about yet', async () => {

@@ -52,7 +52,7 @@ RSpec.describe 'GET /api/v1/github/app/setup', type: :request do
     state = GithubApp.sign_setup_state(user_id: user.id, writeup_id: writeup.id)
     get '/api/v1/github/app/setup', params: { installation_id: '4242', setup_action: 'install', state: state }
 
-    expect(response).to redirect_to("#{Rails.application.config.x.app_url}/#/write/#{writeup.id}?installed=1")
+    expect(response).to redirect_to("#{Rails.application.config.x.app_url}/write/#{writeup.id}?installed=1")
 
     get "/api/v1/writeups/#{writeup.id}"
     evidence = json['evidence'].first
@@ -67,7 +67,7 @@ RSpec.describe 'GET /api/v1/github/app/setup', type: :request do
     get '/api/v1/github/app/setup', params: { installation_id: '4242', setup_action: 'install', state: state }
 
     expect(response).to redirect_to(
-      "#{Rails.application.config.x.app_url}/#/new?url=https%3A%2F%2Fgithub.com%2Facme%2Fcheckout%2Fpull%2F9&installed=1",
+      "#{Rails.application.config.x.app_url}/new?url=https%3A%2F%2Fgithub.com%2Facme%2Fcheckout%2Fpull%2F9&installed=1",
     )
   end
 end

@@ -80,7 +80,7 @@ describe('EngLog app', () => {
     const card = await screen.findByRole('region', { name: 'Has connection pool saturation happened before?' })
     expect(await within(card).findByText(/this has come up/)).toBeInTheDocument()
     const first = within(card).getByRole('link', { name: 'Record 1' })
-    expect(first).toHaveAttribute('href', '#/records/LR-212')
+    expect(first).toHaveAttribute('href', '/records/LR-212')
     await user.click(first)
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Checkout p99 latency')
   })

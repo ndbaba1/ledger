@@ -24,3 +24,11 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
+# The built frontend — copied in by Docker (api/Dockerfile) for a real
+# deploy, or by spec/support/frontend_build.rb for tests. Not committed,
+# same as web/dist itself; robots.txt is the only public/ file we own.
+/public/assets
+/public/brand
+/public/site.webmanifest
+/app/views/static/index.html
+
